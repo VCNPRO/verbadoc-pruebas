@@ -1,0 +1,125 @@
+COMPARATIVA EJECUTIVA - VERBADOCPRO VS SCRIPTORIUMIA
+Fecha,23 de diciembre de 2025
+Equipo,VCNPRO Technical Analysis
+
+TABLA 1: RESUMEN EJECUTIVO
+Aspecto,VerbadocPro Europa,ScriptoriumIA
+Mercado Objetivo,Empresas modernas,Archivos históricos
+Documentos Principales,"Facturas contratos DNI nóminas","Manuscritos históricos documentación patrimonial"
+Timeframe Documental,Últimos 50 años,Siglos pasados
+Usuario Típico,"Contable administrativo RRHH","Archivero historiador investigador"
+Propósito Principal,Extracción de datos para ERP/sistemas,Preservación digital y acceso al patrimonio
+Velocidad,2-15 segundos,30-60 segundos
+Modelo de Negocio,SaaS por uso,Licencia institucional anual
+Precio por Documento,€0.0005 - €0.008,Licencia anual
+Cobertura Requisitos PDF,45%,95%
+
+TABLA 2: SCORECARD POR CATEGORÍAS (0-100)
+Categoría,VerbadocPro,ScriptoriumIA,Ganador
+Transcripción HTR,90,95,ScriptoriumIA
+Búsqueda Inteligente,40,100,ScriptoriumIA
+Catalogación,70,95,ScriptoriumIA
+Análisis Geográfico,0,95,ScriptoriumIA
+Análisis Estadístico,0,90,ScriptoriumIA
+Preservación Digital,40,95,ScriptoriumIA
+Velocidad,100,70,VerbadocPro
+Volumen Masivo,100,60,VerbadocPro
+Cumplimiento GDPR,100,90,VerbadocPro
+ROI Empresarial,100,50,VerbadocPro
+PUNTUACIÓN GLOBAL,64,84,ScriptoriumIA
+
+TABLA 3: COBERTURA DE REQUISITOS DEL PDF (%)
+Categoría,VerbadocPro,ScriptoriumIA
+Acceso a la Información,48%,80%
+Catalogación,60%,100%
+Análisis de Datos,22%,98%
+Expurgo Automático,60%,100%
+Preservación Digital,33%,93%
+TOTAL,45%,95%
+
+TABLA 4: FUNCIONALIDADES COMPARADAS
+Funcionalidad,VerbadocPro,ScriptoriumIA,Importancia,Notas
+Transcripción HTR de manuscritos,SÍ,SÍ,CRÍTICA,Ambas implementadas
+Búsqueda semántica conceptual,NO,SÍ,CRÍTICA,Solo ScriptoriumIA
+Vaciado documental con relaciones,PARCIAL,SÍ,ALTA,ScriptoriumIA con NER completo
+Traducción automática,NO,SÍ,MEDIA,6 idiomas en ScriptoriumIA
+Análisis geográfico + mapas,NO,SÍ,ALTA,Leaflet en ScriptoriumIA
+Análisis estadístico y prosopográfico,NO,SÍ,ALTA,Grafos de relaciones
+Detección de duplicados,SÍ,SÍ,MEDIA,ScriptoriumIA con similitud vectorial
+Preservación digital (PDF/A-2 METS),NO,SÍ,CRÍTICA,Estándares archivísticos
+Auditoría completa ISO 15489,PARCIAL,SÍ,ALTA,ScriptoriumIA cumple ISO
+Segmentación PDF multi-documento,SÍ,NO,MEDIA,Única en VerbadocPro
+Procesamiento ultra-rápido (<15 seg),SÍ,NO,ALTA,VerbadocPro 2-15 seg
+Capacidad masiva (>1000 docs/hora),SÍ,NO,ALTA,VerbadocPro 1080 docs/h
+Validación dual (básica + IA),SÍ,PARCIAL,MEDIA,VerbadocPro completa
+Exportación multi-formato,4 formatos,6 formatos,MEDIA,ScriptoriumIA más completo
+
+TABLA 5: ARQUITECTURA TÉCNICA
+Componente,VerbadocPro,ScriptoriumIA
+Frontend,React 19 + TypeScript,React 19 + TypeScript
+Estilos,Tailwind CSS 3.4,Tailwind CSS custom
+Backend,Vercel Serverless,Vercel Serverless
+Base de Datos,PostgreSQL + Redis,PostgreSQL + pgvector
+IA Principal,Vertex AI (4 modelos),Gemini 2.5 + embeddings
+Embeddings,NO,text-embedding-004 (768 dim)
+Búsqueda Vectorial,NO,pgvector + cosine similarity
+Región Procesamiento,UE (Bélgica),UE
+Cumplimiento GDPR,100%,Sí
+Autenticación,JWT + bcrypt,JWT + bcrypt
+
+TABLA 6: MODELOS DE IA
+Modelo,Plataforma,Velocidad,Precisión,Costo/doc,Uso
+gemini-2.5-flash-lite,VerbadocPro,2-5 seg,85-90%,$0.0005,Documentos simples
+gemini-2.5-flash,VerbadocPro,3-8 seg,92-95%,$0.0016,Estándar (recomendado)
+gemini-2.5-pro,VerbadocPro,5-15 seg,96-98%,$0.008,Documentos complejos
+gemini-2.5-flash,ScriptoriumIA,30-60 seg,85-95%,Licencia,"HTR análisis diplomático NER"
+text-embedding-004,ScriptoriumIA,N/A,N/A,Licencia,Búsqueda semántica
+
+TABLA 7: ANÁLISIS COSTE-BENEFICIO
+Escenario,Plataforma,Documentos/mes,Tiempo Manual,Tiempo Con IA,Ahorro Tiempo,Coste Manual,Coste IA,Ahorro Total
+Dept. Contabilidad,VerbadocPro,500 facturas,200 horas,10 horas,95%,€5000,€290,€4710/mes
+Archivo Municipal,ScriptoriumIA,5000 actas históricas,40000 horas (5 años),170 horas,99.6%,€1400000,€20950,€1379050 total
+
+TABLA 8: CASOS DE USO IDEALES
+Tipo de Cliente,VerbadocPro,ScriptoriumIA
+Empresa privada moderna,IDEAL,NO
+Departamento contabilidad,IDEAL,NO
+Departamento RRHH,IDEAL,NO
+Despacho legal moderno,IDEAL,NO
+Clínica/Hospital,IDEAL,NO
+Archivo histórico,NO,IDEAL
+Biblioteca patrimonial,NO,IDEAL
+Centro investigación histórica,NO,IDEAL
+Universidad (Historia),NO,IDEAL
+Institución cultural,NO,IDEAL
+Ayuntamiento (ambos),PARCIAL,PARCIAL
+
+TABLA 9: LIMITACIONES CRÍTICAS
+Limitación,VerbadocPro,ScriptoriumIA
+Sin búsqueda semántica,SÍ,NO
+Sin análisis geográfico,SÍ,NO
+Sin preservación archivística,SÍ,NO
+Sin traducción automática,SÍ,NO
+Sin análisis prosopográfico,SÍ,NO
+Sin estilo paleográfico,SÍ,NO
+Sin segmentación PDF multi-doc,NO,SÍ
+Sin procesamiento ultra-rápido,NO,SÍ
+Sin capacidad masiva (>1000/h),NO,SÍ
+Tamaño máximo archivo 10MB,SÍ,NO
+
+TABLA 10: RECOMENDACIÓN FINAL
+Criterio,VerbadocPro,ScriptoriumIA,Decisión
+Para documentos modernos,✓✓✓,✓,VerbadocPro
+Para manuscritos históricos,✓,✓✓✓,ScriptoriumIA
+Para búsqueda semántica,✗,✓✓✓,ScriptoriumIA
+Para volumen masivo,✓✓✓,✓,VerbadocPro
+Para velocidad ultra-rápida,✓✓✓,✓,VerbadocPro
+Para análisis archivístico,✗,✓✓✓,ScriptoriumIA
+Para ROI empresarial,✓✓✓,✓,VerbadocPro
+Para valor patrimonial,✗,✓✓✓,ScriptoriumIA
+Cumplimiento requisitos PDF,45%,95%,ScriptoriumIA
+
+CONCLUSIÓN EJECUTIVA
+Para los requisitos del PDF analizado (manuscritos históricos):,ScriptoriumIA es la opción óptima con 95% de cobertura
+Para documentos empresariales modernos:,VerbadocPro es la opción óptima con ROI del 1000-1500%
+Para instituciones mixtas:,Ambas plataformas (uso combinado)

@@ -1,0 +1,12 @@
+{
+  "total": 10,
+  "withErrors": 0,
+  "withMultipleAnswers": 0,
+  "notMatchingReference": 0,
+  "byQuality": {
+    "high": 10,
+    "medium": 0,
+    "low": 0,
+    "manuscript": 0
+  }
+}

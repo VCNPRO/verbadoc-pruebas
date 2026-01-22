@@ -1,0 +1,247 @@
+/**
+ * API ENDPOINT: /api/extractions
+ * Maneja CRUD de extracciones de formularios FUNDAE
+ */
+
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { ExtractionResultDB } from '../../src/lib/extractionDB';
+import ValidationService from '../../src/services/validationService';
+import EmailService from '../../src/services/emailService';
+import jwt from 'jsonwebtoken';
+
+// Helper: Verificar autenticación
+function verifyAuth(req: VercelRequest): { userId: string; role: string } | null {
+  try {
+    const token = req.cookies['auth-token'];
+    if (!token) {
+      return null;
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    return {
+      userId: decoded.id || decoded.userId,
+      role: decoded.role
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS headers
+  const allowedOrigins = [
+    'https://www.verbadocpro.eu',
+    'https://verbadoc-europa-pro.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Verificar autenticación
+  const user = verifyAuth(req);
+  if (!user) {
+    console.error('❌ No autenticado en /api/extractions');
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+
+  console.log('✅ Usuario autenticado:', user.userId);
+
+  // GET /api/extractions - Listar extracciones del usuario
+  if (req.method === 'GET') {
+    try {
+      console.log('📊 GET /api/extractions - userId:', user.userId);
+      const { limit = '50', status, needsReview } = req.query;
+
+      let extractions;
+
+      try {
+        if (needsReview === 'true') {
+          console.log('🔍 Buscando extracciones que necesitan revisión...');
+          // Obtener solo las que necesitan revisión
+          extractions = await ExtractionResultDB.findNeedingReview(
+            user.role === 'admin' ? undefined : user.userId,
+            parseInt(limit as string)
+          );
+        } else if (status) {
+          console.log('🔍 Buscando extracciones con status:', status);
+          // TODO: Filtrar por status específico
+          extractions = await ExtractionResultDB.findByUserId(
+            user.userId,
+            parseInt(limit as string)
+          );
+        } else {
+          console.log('🔍 Buscando todas las extracciones del usuario...');
+          // Obtener todas del usuario
+          extractions = await ExtractionResultDB.findByUserId(
+            user.userId,
+            parseInt(limit as string)
+          );
+        }
+        console.log('✅ Extracciones encontradas:', extractions.length);
+      } catch (dbError: any) {
+        console.error('❌ Error de base de datos:', dbError);
+        return res.status(500).json({
+          error: 'Error de base de datos al buscar extracciones',
+          message: dbError.message,
+          stack: process.env.NODE_ENV === 'development' ? dbError.stack : undefined
+        });
+      }
+
+      // Obtener estadísticas
+      let stats;
+      try {
+        console.log('📊 Obteniendo estadísticas...');
+        stats = await ExtractionResultDB.getStats(user.userId);
+        console.log('✅ Estadísticas obtenidas');
+      } catch (statsError: any) {
+        console.error('⚠️ Error al obtener stats (no crítico):', statsError);
+        stats = { total: 0, pending: 0, valid: 0, needsReview: 0, rejected: 0 };
+      }
+
+      return res.status(200).json({
+        extractions,
+        stats,
+        count: extractions.length
+      });
+
+    } catch (error: any) {
+      console.error('❌ Error general al obtener extracciones:', error);
+      return res.status(500).json({
+        error: 'Error al obtener extracciones',
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+
+  // POST /api/extractions - Crear nueva extracción
+  if (req.method === 'POST') {
+    try {
+      const {
+        filename,
+        extractedData,
+        modelUsed,
+        fileUrl,
+        fileType,
+        fileSizeBytes,
+        pageCount,
+        processingTimeMs,
+        confidenceScore
+      } = req.body;
+
+      // Validar campos requeridos
+      if (!filename || !extractedData || !modelUsed) {
+        return res.status(400).json({
+          error: 'Faltan campos requeridos: filename, extractedData, modelUsed'
+        });
+      }
+
+      // Crear extracción en BD
+      const extraction = await ExtractionResultDB.create({
+        userId: user.userId,
+        filename,
+        extractedData,
+        modelUsed,
+        fileUrl,
+        fileType,
+        fileSizeBytes,
+        pageCount,
+        processingTimeMs,
+        confidenceScore
+      });
+
+      console.log('✅ Extracción creada:', extraction.id);
+
+      // ✅ Fase 6: Ejecutar validación automática
+      try {
+        console.log('🔍 Ejecutando validación automática...');
+
+        const { errors, criticalCount } = await ValidationService.validateAndSave(
+          extraction.id,
+          extractedData
+        );
+
+        // Actualizar estado según resultado de validación
+        let newStatus: 'valid' | 'needs_review' | 'pending' = 'valid';
+
+        if (criticalCount > 0) {
+          newStatus = 'needs_review';
+        } else if (errors.length > 0) {
+          newStatus = 'pending';
+        }
+
+        await ExtractionResultDB.update(extraction.id, {
+          status: newStatus,
+          validatedAt: new Date()
+        });
+
+        console.log(`✅ Validación completada: ${errors.length} errores (${criticalCount} críticos)`);
+
+        // Si hay errores críticos, enviar email (Fase 4 integration)
+        if (criticalCount > 0 && process.env.RESEND_API_KEY) {
+          try {
+            await EmailService.notifyNeedsReview(extraction, errors);
+            console.log('📧 Email de notificación enviado');
+          } catch (emailError) {
+            console.error('⚠️ Error al enviar email:', emailError);
+            // No bloquear respuesta si falla el email
+          }
+        }
+
+        // Agregar info de validación a la respuesta
+        return res.status(201).json({
+          success: true,
+          extraction: {
+            ...extraction,
+            status: newStatus
+          },
+          validation: {
+            executed: true,
+            totalErrors: errors.length,
+            criticalErrors: criticalCount,
+            errors: errors.slice(0, 5).map(e => ({
+              fieldName: e.fieldName,
+              errorMessage: e.errorMessage,
+              severity: e.severity
+            }))
+          }
+        });
+
+      } catch (validationError) {
+        console.error('⚠️ Error en validación automática:', validationError);
+
+        // Retornar la extracción aunque falle la validación
+        return res.status(201).json({
+          success: true,
+          extraction,
+          validation: {
+            executed: false,
+            error: 'Error al ejecutar validación automática'
+          }
+        });
+      }
+
+    } catch (error: any) {
+      console.error('Error al crear extracción:', error);
+      return res.status(500).json({
+        error: 'Error al crear extracción',
+        message: error.message
+      });
+    }
+  }
+
+  // Método no permitido
+  return res.status(405).json({ error: 'Método no permitido' });
+}

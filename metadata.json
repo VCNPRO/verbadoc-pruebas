@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Extractor de Datos Profesional",
+  "description": "Una poderosa herramienta para extraer datos estructurados de texto no estructurado usando IA. Defina el esquema de datos deseado, ingrese cualquier texto y deje que la API de Gemini haga el trabajo pesado, devolviendo un JSON limpio y formateado.",
+  "requestFramePermissions": []
+}

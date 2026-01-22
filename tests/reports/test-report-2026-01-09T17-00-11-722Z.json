@@ -1,0 +1,282 @@
+{
+  "totalTests": 33,
+  "totalPassed": 3,
+  "totalFailed": 28,
+  "totalSkipped": 2,
+  "successRate": 9.09,
+  "totalDuration": 153,
+  "suites": [
+    {
+      "suiteName": "Excel Cross-Validation Tests",
+      "passed": 2,
+      "failed": 5,
+      "skipped": 0,
+      "totalDuration": 53,
+      "results": [
+        {
+          "name": "Upload Excel Reference Data",
+          "status": "FAIL",
+          "duration": 33,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Cross-Validation - Perfect Match",
+          "status": "FAIL",
+          "duration": 3,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Cross-Validation - Detect Discrepancies",
+          "status": "PASS",
+          "duration": 0,
+          "details": {
+            "discrepanciesDetected": 1,
+            "criticalDiscrepancies": 1
+          }
+        },
+        {
+          "name": "Cross-Validation - Numeric Tolerance",
+          "status": "FAIL",
+          "duration": 0,
+          "error": "Tolerancia numérica no funcionó correctamente"
+        },
+        {
+          "name": "Cross-Validation - Date Normalization",
+          "status": "PASS",
+          "duration": 0,
+          "details": {
+            "originalFormats": [
+              "2024-01-15",
+              "15/01/2024",
+              "15-01-2024",
+              "2024/01/15"
+            ],
+            "normalizedTo": "2024-01-15"
+          }
+        },
+        {
+          "name": "Cross-Validation - Bulk Reference Upload (500 rows)",
+          "status": "FAIL",
+          "duration": 15,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Cross-Validation - Invalid Excel Format",
+          "status": "FAIL",
+          "duration": 2,
+          "error": "fetch failed"
+        }
+      ]
+    },
+    {
+      "suiteName": "PDF Storage Tests",
+      "passed": 1,
+      "failed": 6,
+      "skipped": 0,
+      "totalDuration": 70,
+      "results": [
+        {
+          "name": "PDF Storage - Small PDF Upload (10KB)",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "PDF Storage - Large PDF Upload (45MB)",
+          "status": "FAIL",
+          "duration": 26,
+          "error": "fetch failed"
+        },
+        {
+          "name": "PDF Storage - Oversized PDF Rejection (60MB)",
+          "status": "FAIL",
+          "duration": 33,
+          "error": "fetch failed"
+        },
+        {
+          "name": "PDF Storage - PDF Signature Validation",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "PDF Storage - SHA-256 Checksum Verification",
+          "status": "FAIL",
+          "duration": 0,
+          "error": "require is not defined"
+        },
+        {
+          "name": "PDF Storage - Concurrent Uploads (10 PDFs)",
+          "status": "FAIL",
+          "duration": 5,
+          "error": "fetch failed"
+        },
+        {
+          "name": "PDF Storage - Various PDF Sizes",
+          "status": "PASS",
+          "duration": 4,
+          "details": {
+            "testedSizes": [
+              {
+                "size": "1KB",
+                "bytes": 1024,
+                "generationTime": 0
+              },
+              {
+                "size": "100KB",
+                "bytes": 102400,
+                "generationTime": 0
+              },
+              {
+                "size": "1MB",
+                "bytes": 1048576,
+                "generationTime": 1
+              },
+              {
+                "size": "10MB",
+                "bytes": 10485760,
+                "generationTime": 3
+              }
+            ],
+            "totalTime": "4ms"
+          }
+        }
+      ]
+    },
+    {
+      "suiteName": "Batch Processing Tests",
+      "passed": 0,
+      "failed": 7,
+      "skipped": 2,
+      "totalDuration": 19,
+      "results": [
+        {
+          "name": "Batch Processing - Create Small Batch (10 files)",
+          "status": "FAIL",
+          "duration": 2,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Batch Processing - Create Large Batch (100 files - LIMIT)",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Batch Processing - Reject Oversized Batch (150 files)",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Batch Processing - Query Batch Status",
+          "status": "SKIP",
+          "duration": 0,
+          "error": "No hay batches creados para consultar"
+        },
+        {
+          "name": "Batch Processing - Query Status with Items",
+          "status": "SKIP",
+          "duration": 0,
+          "error": "No hay batches creados"
+        },
+        {
+          "name": "Batch Processing - Concurrent Batch Creation (5 batches)",
+          "status": "FAIL",
+          "duration": 3,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Batch Processing - HIGH LOAD STRESS TEST (10 batches x 100 files)",
+          "status": "FAIL",
+          "duration": 10,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Batch Processing - Different AI Models",
+          "status": "FAIL",
+          "duration": 2,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Batch Processing - Required Fields Validation",
+          "status": "FAIL",
+          "duration": 0,
+          "error": "fetch failed"
+        }
+      ]
+    },
+    {
+      "suiteName": "Export Tests",
+      "passed": 0,
+      "failed": 10,
+      "skipped": 0,
+      "totalDuration": 11,
+      "results": [
+        {
+          "name": "Export - Excel Small Dataset (10 records)",
+          "status": "FAIL",
+          "duration": 0,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - Excel Medium Dataset (100 records)",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - Excel Large Dataset (1000 records - HIGH LOAD)",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - CSV Format (100 records)",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - PDF Format (50 records)",
+          "status": "FAIL",
+          "duration": 0,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - Limit Validation (>1000 records)",
+          "status": "FAIL",
+          "duration": 6,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - Invalid Format Validation",
+          "status": "FAIL",
+          "duration": 0,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - Empty Extraction IDs Validation",
+          "status": "FAIL",
+          "duration": 0,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - Dataset with Mixed States",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        },
+        {
+          "name": "Export - Format Size Comparison",
+          "status": "FAIL",
+          "duration": 1,
+          "error": "fetch failed"
+        }
+      ]
+    }
+  ],
+  "timestamp": "2026-01-09T17:00:11.722Z",
+  "environment": "development",
+  "totalExecutionTime": 156
+}

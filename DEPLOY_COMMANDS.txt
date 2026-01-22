@@ -1,0 +1,63 @@
+═══════════════════════════════════════════════════════════════════════
+  🚀 COMANDOS PARA DEPLOY - COPIAR Y PEGAR
+═══════════════════════════════════════════════════════════════════════
+
+PASO 1: Verificar cambios
+───────────────────────────────────────────────────────────────────────
+cd C:\Users\solam\verbadocpro
+git status
+
+Deberías ver:
+  modified:   api/extractions/index.ts
+  modified:   src/components/ReviewPanel.tsx
+  modified:   App.tsx
+  new file:   CORRECCIONES_REALIZADAS.md
+  new file:   PRUEBAS_POST_DEPLOY.md
+  new file:   RESUMEN_EJECUTIVO.txt
+
+
+PASO 2: Revisar diferencias (opcional)
+───────────────────────────────────────────────────────────────────────
+git diff api/extractions/index.ts
+git diff src/components/ReviewPanel.tsx
+git diff App.tsx
+
+
+PASO 3: Añadir archivos al staging
+───────────────────────────────────────────────────────────────────────
+git add api/extractions/index.ts
+git add src/components/ReviewPanel.tsx
+git add App.tsx
+git add CORRECCIONES_REALIZADAS.md
+git add PRUEBAS_POST_DEPLOY.md
+git add RESUMEN_EJECUTIVO.txt
+git add DEPLOY_COMMANDS.txt
+
+
+PASO 4: Crear commit
+───────────────────────────────────────────────────────────────────────
+git commit -m "fix: corregir filtrado de formularios, Excel Master y visor PDF
+
+- Fix filtrado por status en API /api/extractions
+- Mejorar manejo de errores al añadir formularios al Excel Master
+- Implementar sistema multi-nivel de recuperación de PDF
+- Añadir notificaciones de error al usuario
+- Mejorar logs y diagnóstico de problemas
+
+Problemas resueltos:
+- Filtros de estado no funcionaban en /review
+- Formularios aprobados no se añadían al Excel Master
+- Visor PDF no funcionaba en página de revisión
+- Errores de subida de PDF no se notificaban
+
+Ver CORRECCIONES_REALIZADAS.md para detalles completos."
+
+
+PASO 5: Push a GitHub
+───────────────────────────────────────────────────────────────────────
+git push origin main
+
+
+═══════════════════════════════════════════════════════════════════════
+  ✅ LISTO PARA PRODUCCIÓN
+═══════════════════════════════════════════════════════════════════════

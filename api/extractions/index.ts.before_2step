@@ -1,0 +1,432 @@
+/**
+ * API ENDPOINT: /api/extractions
+ * Maneja CRUD de extracciones de formularios FUNDAE
+ */
+
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import jwt from 'jsonwebtoken';
+import { sql } from '@vercel/postgres';
+
+// Import con extensión .js explícita para Vercel serverless
+import { ExtractionResultDB } from '../lib/extractionDB.js';
+import ValidationService from '../_lib/validationService.js';
+import EmailService from '../_lib/emailService.js';
+import { loadCityCodesCatalog } from '../_lib/cityCodes.js';
+
+// Helper: Verificar autenticación
+function verifyAuth(req: VercelRequest): { userId: string; role: string } | null {
+  try {
+    const token = req.cookies['auth-token'];
+    if (!token) {
+      return null;
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    return {
+      userId: decoded.id || decoded.userId,
+      role: decoded.role
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS headers
+  const allowedOrigins = [
+    'https://www.verbadocpro.eu',
+    'https://verbadoc-europa-pro.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Verificar autenticación
+  const user = verifyAuth(req);
+  if (!user) {
+    console.error('❌ No autenticado en /api/extractions');
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+
+  console.log('✅ Usuario autenticado:', user.userId);
+
+  // GET /api/extractions - Listar extracciones del usuario
+  if (req.method === 'GET') {
+    try {
+      console.log('📊 GET /api/extractions - userId:', user.userId);
+      const { limit = '50', status, needsReview } = req.query;
+
+      let extractions;
+
+      try {
+        if (needsReview === 'true') {
+          console.log('🔍 Buscando extracciones que necesitan revisión...');
+          // Obtener solo las que necesitan revisión
+          extractions = await ExtractionResultDB.findNeedingReview(
+            user.role === 'admin' ? undefined : user.userId,
+            parseInt(limit as string)
+          );
+        } else if (status) {
+          console.log('🔍 Buscando extracciones con status:', status);
+          // 🔥 CORREGIDO: Filtrar por status específico usando SQL directo
+          const statusQuery = await sql`
+            SELECT
+              id,
+              user_id,
+              filename,
+              extracted_data,
+              model_used,
+              pdf_blob_url,
+              file_type,
+              file_size_bytes,
+              page_count,
+              processing_time_ms,
+              confidence_score,
+              status,
+              validated_at,
+              rejection_reason,
+              created_at,
+              updated_at
+            FROM extraction_results
+            WHERE user_id = ${user.userId}
+              AND status = ${status as string}
+            ORDER BY created_at DESC
+            LIMIT ${parseInt(limit as string)}
+          `;
+          extractions = statusQuery.rows;
+        } else {
+          console.log('🔍 Buscando todas las extracciones del usuario...');
+          // Obtener todas del usuario
+          extractions = await ExtractionResultDB.findByUserId(
+            user.userId,
+            parseInt(limit as string)
+          );
+        }
+        console.log('✅ Extracciones encontradas:', extractions.length);
+      } catch (dbError: any) {
+        console.error('❌ Error de base de datos:', dbError);
+        return res.status(500).json({
+          error: 'Error de base de datos al buscar extracciones',
+          message: dbError.message,
+          stack: process.env.NODE_ENV === 'development' ? dbError.stack : undefined
+        });
+      }
+
+      // Obtener estadísticas
+      let stats;
+      try {
+        console.log('📊 Obteniendo estadísticas...');
+        stats = await ExtractionResultDB.getStats(user.userId);
+        console.log('✅ Estadísticas obtenidas');
+      } catch (statsError: any) {
+        console.error('⚠️ Error al obtener stats (no crítico):', statsError);
+        stats = { total: 0, pending: 0, valid: 0, needsReview: 0, rejected: 0 };
+      }
+
+      return res.status(200).json({
+        extractions,
+        stats,
+        count: extractions.length
+      });
+
+    } catch (error: any) {
+      console.error('❌ Error general al obtener extracciones:', error);
+      return res.status(500).json({
+        error: 'Error al obtener extracciones',
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+
+  // POST /api/extractions - Crear nueva extracción
+  if (req.method === 'POST') {
+    try {
+      const {
+        filename,
+        extractedData,
+        modelUsed,
+        fileUrl,
+        fileType,
+        fileSizeBytes,
+        pageCount,
+        processingTimeMs,
+        confidenceScore
+      } = req.body;
+
+      // Validar campos requeridos
+      if (!filename || !extractedData || !modelUsed) {
+        return res.status(400).json({
+          error: 'Faltan campos requeridos: filename, extractedData, modelUsed'
+        });
+      }
+
+      // =====================================================
+      // PRE-VALIDACIÓN: Verificar campos críticos FUNDAE
+      // =====================================================
+      console.log('🔍 Pre-validación: Verificando campos críticos FUNDAE...');
+
+      // Asegurar que extractedData sea un objeto
+      const dataObj = typeof extractedData === 'string' ? JSON.parse(extractedData) : extractedData;
+
+      const rawExpediente = String(dataObj?.numero_expediente || dataObj?.expediente || '').trim();
+      const rawAccion = String(dataObj?.numero_accion || dataObj?.accion || dataObj?.num_accion || '').trim();
+      const rawGrupo = String(dataObj?.numero_grupo || dataObj?.grupo || dataObj?.num_grupo || '').trim();
+
+      // 1. Verificar que existan los campos críticos
+      const missingFields: string[] = [];
+      if (!rawExpediente) missingFields.push('Nº Expediente');
+      if (!rawAccion) missingFields.push('Nº Acción');
+      if (!rawGrupo) missingFields.push('Nº Grupo');
+
+      if (missingFields.length > 0) {
+        console.log('❌ Pre-validación: Faltan campos críticos:', missingFields);
+
+        // Registrar como no procesable
+        try {
+          await sql`
+            SELECT add_unprocessable_document(
+              ${user.userId}::UUID,
+              ${filename}::VARCHAR,
+              'campos_faltantes'::VARCHAR,
+              ${`Faltan campos críticos: ${missingFields.join(', ')}`}::TEXT,
+              ${JSON.stringify(dataObj)}::JSONB,
+              ${rawExpediente || null},
+              ${rawAccion || null},
+              ${rawGrupo || null},
+              NULL,
+              NULL
+            )
+          `;
+          console.log('✅ Documento registrado como no procesable: campos_faltantes');
+        } catch (unprocessableError) {
+          console.error('⚠️ Error al registrar no procesable:', unprocessableError);
+        }
+
+        return res.status(422).json({
+          error: 'Documento no procesable',
+          reason: `Faltan campos críticos: ${missingFields.join(', ')}`,
+          category: 'campos_faltantes',
+          missingFields,
+          canProcess: false
+        });
+      }
+
+      // 2. Buscar en reference_data
+      console.log('🔍 Buscando en reference_data:', { rawExpediente, rawAccion, rawGrupo });
+
+      // Normalizar para búsqueda: quitar espacios y prefijos comunes
+      const cleanAccion = rawAccion.replace(/^(a\s*-\s*|a|accion\s*)/i, '').trim();
+      const cleanGrupo = rawGrupo.replace(/^(g\s*-\s*|g|grupo\s*)/i, '').trim();
+      
+      // Versión con ceros a la izquierda (común en FUNDAE)
+      const paddedAccion = cleanAccion.padStart(3, '0');
+      const paddedGrupo = cleanGrupo.padStart(2, '0');
+
+      console.log('🔍 Buscando con términos normalizados:', { cleanAccion, cleanGrupo, paddedAccion, paddedGrupo });
+
+      const referenceCheck = await sql`
+        SELECT * FROM reference_data
+        WHERE is_active = true
+        AND UPPER(TRIM(data->>'numero_expediente')) = UPPER(TRIM(${rawExpediente}))
+        AND (
+          -- Coincidencia con Acción
+          data->>'d_cod_accion_formativa' = ${cleanAccion}
+          OR data->>'d_cod_accion_formativa' = ${'a - ' + cleanAccion}
+          OR data->>'d_cod_accion_formativa' = ${'a-' + cleanAccion}
+          OR data->>'d_cod_accion_formativa' = ${'a - ' + paddedAccion}
+          OR data->>'id_accion_formativa' = ${cleanAccion}
+          OR data->>'id_accion_formativa' = ${paddedAccion}
+          OR data->>'id_accion_formativa'::text = ${cleanAccion}
+        )
+        AND (
+          -- Coincidencia con Grupo
+          data->>'num_grupo' = ${cleanGrupo}
+          OR data->>'num_grupo'::text = ${cleanGrupo}
+          OR data->>'num_grupo' = ${paddedGrupo}
+          OR data->>'codigo_grupo_detalle' = ${cleanGrupo}
+          OR data->>'codigo_grupo_detalle' = ${'g - ' + cleanGrupo}
+          OR data->>'codigo_grupo_detalle' = ${'g-' + cleanGrupo}
+          OR data->>'codigo_grupo_detalle' = ${'g - ' + paddedGrupo}
+          OR data->>'codigo_grupo_detalle' LIKE ${'%' + cleanGrupo}
+        )
+        LIMIT 1
+      `;
+
+      let referenceData = null;
+      let isUnprocessable = false;
+      let rejectionReason = null;
+
+      if (referenceCheck.rows.length === 0) {
+        console.log('⚠️ Pre-validación: No encontrado en Excel de referencia. Se marcará para revisión.');
+        isUnprocessable = true;
+        rejectionReason = `Documento no existe en Excel de referencia. Expediente: ${rawExpediente}, Acción: ${rawAccion}, Grupo: ${rawGrupo}`;
+
+        // Registrar como no procesable (para trazabilidad adicional)
+        try {
+          await sql`
+            SELECT add_unprocessable_document(
+              ${user.userId}::UUID,
+              ${filename}::VARCHAR,
+              'sin_referencia'::VARCHAR,
+              ${rejectionReason}::TEXT,
+              ${JSON.stringify(dataObj)}::JSONB,
+              ${rawExpediente},
+              ${rawAccion},
+              ${rawGrupo},
+              NULL,
+              NULL
+            )
+          `;
+        } catch (unprocessableError) {
+          console.error('⚠️ Error al registrar no procesable:', unprocessableError);
+        }
+
+        // 🔥 FIX CRÍTICO: Retornar inmediatamente sin crear extracción
+        return res.status(422).json({
+          error: 'Documento no procesable',
+          reason: rejectionReason,
+          category: 'sin_referencia',
+          canProcess: false,
+          extractedData: {
+            expediente: rawExpediente,
+            accion: rawAccion,
+            grupo: rawGrupo
+          }
+        });
+      } else {
+        console.log('✅ Pre-validación: Documento encontrado en Excel de referencia');
+        referenceData = referenceCheck.rows[0].data;
+        
+        // Inyectar datos oficiales
+        const officialCif = referenceData.nif_empresa || referenceData.cif;
+        const officialRazonSocial = referenceData.razon_social || referenceData.empresa || referenceData.d_entidad;
+        
+        dataObj.cif_empresa = officialCif;
+        dataObj.razon_social = officialRazonSocial;
+        dataObj.numero_expediente = referenceData.numero_expediente;
+      }
+
+      // 3. Traducción de ciudades... (el resto sigue igual)
+      try {
+        const cityCatalog = loadCityCodesCatalog();
+        const extractedCity = String(dataObj.ciudad || dataObj.poblacion || '').toUpperCase().trim();
+        
+        if (extractedCity && cityCatalog[extractedCity]) {
+          dataObj.ciudad = cityCatalog[extractedCity];
+          if (dataObj.poblacion) dataObj.poblacion = cityCatalog[extractedCity];
+        }
+      } catch (cityError) {}
+
+      // Crear extracción en BD (SIEMPRE se crea)
+      const extraction = await ExtractionResultDB.create({
+        userId: user.userId,
+        filename,
+        extractedData: dataObj,
+        modelUsed,
+        fileUrl,
+        fileType,
+        fileSizeBytes,
+        pageCount,
+        processingTimeMs,
+        confidenceScore
+      });
+
+      console.log('✅ Extracción creada:', extraction.id);
+
+      // Ejecutar validación automática
+      let validationResult = { executed: false, totalErrors: 0, criticalErrors: 0, errors: [] as any[] };
+      let masterExcelRowId = null;
+
+      try {
+        console.log('🔍 Ejecutando validación automática...');
+        const { errors, criticalCount } = await ValidationService.validateAndSave(
+          extraction.id,
+          dataObj
+        );
+
+        // Si falló la pre-validación de referencia, añadir ese error manualmente
+        let finalCriticalCount = criticalCount;
+        if (isUnprocessable) {
+          await sql`
+            INSERT INTO validation_errors (
+              extraction_id, field_name, error_type, error_message, severity, status
+            ) VALUES (
+              ${extraction.id}, 'numero_expediente', 'sin_referencia', ${rejectionReason}, 'critical', 'pending'
+            )
+          `;
+          finalCriticalCount++;
+        }
+
+        // Actualizar estado
+        let newStatus: 'valid' | 'needs_review' | 'pending' = 'valid';
+        if (finalCriticalCount > 0) newStatus = 'needs_review';
+        else if (errors.length > 0) newStatus = 'pending';
+
+        await ExtractionResultDB.update(extraction.id, {
+          status: newStatus,
+          validatedAt: new Date(),
+          rejectionReason: isUnprocessable ? rejectionReason : undefined
+        });
+
+        // Solo añadir al Excel Master si es realmente VÁLIDO (con referencia)
+        if (newStatus === 'valid' && !isUnprocessable) {
+          try {
+            const addRowResult = await sql`
+              SELECT add_master_excel_row(
+                ${user.userId}::UUID,
+                ${extraction.id}::UUID,
+                ${JSON.stringify(dataObj)}::JSONB,
+                ${filename},
+                'approved',
+                true,
+                0
+              ) as new_id
+            `;
+            masterExcelRowId = addRowResult.rows[0].new_id;
+          } catch (excelError: any) {
+            console.error('⚠️ Error al añadir al Excel master:', excelError.message);
+          }
+        }
+
+        validationResult = {
+          executed: true,
+          totalErrors: errors.length + (isUnprocessable ? 1 : 0),
+          criticalErrors: finalCriticalCount,
+          errors: errors.slice(0, 5)
+        };
+      } catch (validationError) {
+        console.error('⚠️ Error en validación:', validationError);
+      }
+
+      return res.status(201).json({
+        success: true,
+        extraction,
+        masterExcelRowId,
+        validation: validationResult
+      });
+
+    } catch (error: any) {
+      console.error('Error al crear extracción:', error);
+      return res.status(500).json({
+        error: 'Error al crear extracción',
+        message: error.message
+      });
+    }
+  }
+
+  // Método no permitido
+  return res.status(405).json({ error: 'Método no permitido' });
+}

@@ -1,0 +1,192 @@
+/**
+ * API ENDPOINT: /api/master-excel/download
+ * Descargar el Excel master completo con todas las filas procesadas
+ */
+
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import { sql } from '@vercel/postgres';
+import jwt from 'jsonwebtoken';
+import * as XLSX from 'xlsx';
+
+// Helper: Verificar autenticación
+function verifyAuth(req: VercelRequest): { userId: string; email: string; role: string } | null {
+  try {
+    const token = req.cookies['auth-token'];
+    if (!token) return null;
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+    return {
+      userId: decoded.id || decoded.userId,
+      email: decoded.email,
+      role: decoded.role
+    };
+  } catch (error) {
+    return null;
+  }
+}
+
+// Mapeo de campos FUNDAE → Columnas Excel
+const EXCEL_COLUMNS = [
+  { field: 'numero_expediente', header: 'Nº Expediente' },
+  { field: 'nif_empresa', header: 'CIF' },
+  { field: 'razon_social', header: 'Razón Social' },
+  { field: 'denominacion_aaff', header: 'Denominación AAFF' },
+  { field: 'modalidad', header: 'Modalidad' },
+  { field: 'edad', header: 'Edad' },
+  { field: 'sexo', header: 'Sexo' },
+  { field: 'titulacion', header: 'Titulación' },
+  { field: 'lugar_trabajo', header: 'Lugar Trabajo' },
+  { field: 'categoria_profesional', header: 'Categoría Profesional' },
+  { field: 'horario_curso', header: 'Horario' },
+  { field: 'porcentaje_jornada', header: '% Jornada' },
+  { field: 'tamano_empresa', header: 'Tamaño Empresa' },
+  { field: 'valoracion_1_1', header: 'Val 1.1 - Organización' },
+  { field: 'valoracion_2_1', header: 'Val 2.1 - Contenidos' },
+  { field: 'valoracion_3_1', header: 'Val 3.1 - Duración' },
+  { field: 'valoracion_4_1_formadores', header: 'Val 4.1 - Formadores' },
+  { field: 'valoracion_5_1', header: 'Val 5.1 - Medios Didácticos' },
+  { field: 'valoracion_6_1', header: 'Val 6.1 - Instalaciones' },
+  { field: 'valoracion_9_1', header: 'Val 9.1 - Mercado Trabajo' },
+  { field: 'valoracion_10', header: 'Satisfacción General' },
+  { field: 'recomendaria_curso', header: 'Recomendaría' },
+  { field: 'fecha_cumplimentacion', header: 'Fecha' },
+];
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS headers
+  const allowedOrigins = [
+    'https://www.verbadocpro.eu',
+    'https://verbadoc-europa-pro.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ];
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  // Solo GET
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Método no permitido' });
+  }
+
+  // Verificar autenticación
+  const user = verifyAuth(req);
+  if (!user) {
+    return res.status(401).json({ error: 'No autenticado' });
+  }
+
+  try {
+    console.log('📥 Generando Excel master para usuario:', user.email);
+
+    // Obtener todas las filas del usuario
+    const result = await sql`
+      SELECT
+        row_number,
+        row_data,
+        filename,
+        validation_status,
+        cross_validation_match,
+        discrepancy_count,
+        created_at
+      FROM master_excel_output
+      WHERE user_id = ${user.userId}
+        AND is_latest = true
+      ORDER BY row_number ASC, created_at DESC
+    `;
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'No hay formularios procesados',
+        message: 'Procesa al menos un formulario antes de descargar el Excel'
+      });
+    }
+
+    console.log(`📊 Generando Excel con ${result.rows.length} filas`);
+
+    // Crear workbook
+    const workbook = XLSX.utils.book_new();
+
+    // Preparar datos para el Excel
+    const headers = EXCEL_COLUMNS.map(col => col.header);
+    const worksheetData: any[][] = [headers];
+
+    // Agregar cada fila
+    result.rows.forEach(row => {
+      const rowData = row.row_data;
+      const excelRow = EXCEL_COLUMNS.map(col => {
+        const value = rowData[col.field];
+        return value !== undefined && value !== null ? value : '';
+      });
+      worksheetData.push(excelRow);
+    });
+
+    // Crear worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+    // Ajustar anchos de columnas
+    const colWidths = headers.map(h => ({ wch: Math.max(h.length + 2, 15) }));
+    worksheet['!cols'] = colWidths;
+
+    // Agregar worksheet al workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Formularios FUNDAE');
+
+    // Agregar hoja con metadata
+    const metadataData = [
+      ['Información del Excel Master'],
+      [''],
+      ['Usuario', user.email],
+      ['Total filas', result.rows.length],
+      ['Fecha generación', new Date().toLocaleString()],
+      [''],
+      ['Estadísticas'],
+      ['Estado', 'Cantidad'],
+    ];
+
+    // Contar por estado
+    const statsByStatus = result.rows.reduce((acc, row) => {
+      acc[row.validation_status] = (acc[row.validation_status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    Object.entries(statsByStatus).forEach(([status, count]) => {
+      metadataData.push([status, count]);
+    });
+
+    const metadataSheet = XLSX.utils.aoa_to_sheet(metadataData);
+    XLSX.utils.book_append_sheet(workbook, metadataSheet, 'Metadata');
+
+    // Generar buffer del Excel
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+
+    // Nombre del archivo
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `FUNDAE_Master_${timestamp}.xlsx`;
+
+    console.log('✅ Excel generado:', filename);
+
+    // Configurar headers de respuesta
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', buffer.length);
+
+    // Enviar archivo
+    return res.status(200).send(buffer);
+
+  } catch (error: any) {
+    console.error('Error al generar Excel:', error);
+    return res.status(500).json({
+      error: 'Error al generar Excel',
+      message: error.message
+    });
+  }
+}
