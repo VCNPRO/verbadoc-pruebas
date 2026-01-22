@@ -611,6 +611,165 @@ IMPORTANTE: Este es un documento escaneado (imagen). Por favor:
     }
 };
 
+// ============================================
+// SISTEMA HÍBRIDO: Coordenadas + IA
+// ============================================
+
+export type ExtractionMethod = 'coordinates' | 'ai' | 'hybrid';
+
+export interface HybridExtractionResult {
+  data: any;
+  method: ExtractionMethod;
+  confidence: number;
+  confidencePercentage: number;
+  processingTimeMs: number;
+  usedFallback: boolean;
+  fallbackReason?: string;
+}
+
+/**
+ * Extracción híbrida: Primero intenta con coordenadas, luego con IA si es necesario
+ * Este es el método RECOMENDADO para formularios FUNDAE
+ */
+export const extractWithHybridSystem = async (
+  file: File,
+  schema: SchemaField[],
+  prompt: string,
+  modelId: GeminiModel = 'gemini-2.5-flash',
+  options?: {
+    forceAI?: boolean;           // Forzar uso de IA (saltar coordenadas)
+    forceCoordinates?: boolean;  // Forzar uso de coordenadas (no usar fallback)
+    confidenceThreshold?: number; // Umbral de confianza (default: 0.5)
+  }
+): Promise<HybridExtractionResult> => {
+  const startTime = Date.now();
+  const threshold = options?.confidenceThreshold ?? 0.5;
+
+  // Si se fuerza IA, ir directamente a Vertex AI
+  if (options?.forceAI) {
+    console.log('🤖 Forzando uso de IA (forceAI=true)');
+    const aiData = await extractDataFromDocument(file, schema, prompt, modelId);
+    return {
+      data: aiData,
+      method: 'ai',
+      confidence: 0.9, // Asumimos alta confianza para IA
+      confidencePercentage: 90,
+      processingTimeMs: Date.now() - startTime,
+      usedFallback: false,
+    };
+  }
+
+  // PASO 1: Intentar con sistema de coordenadas
+  console.log('📐 PASO 1: Intentando extracción con Sistema de Coordenadas...');
+
+  try {
+    // Convertir archivo a base64
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result.split(',')[1]);
+        } else {
+          reject(new Error('No se pudo leer el archivo'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Error al leer archivo'));
+      reader.readAsDataURL(file);
+    });
+
+    // Determinar URL base
+    const baseURL = typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:5173';
+
+    // Llamar al endpoint de coordenadas
+    const coordResponse = await fetch(`${baseURL}/api/extract-coordinates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pdfBase64: base64Data,
+        filename: file.name
+      })
+    });
+
+    if (coordResponse.ok) {
+      const coordResult = await coordResponse.json();
+
+      console.log(`📊 Resultado coordenadas: confianza=${coordResult.confidencePercentage}%, campos=${coordResult.fieldsExtracted}`);
+
+      // Si la confianza es suficiente o se fuerza coordenadas, usar este resultado
+      if (coordResult.confidence >= threshold || options?.forceCoordinates) {
+        console.log('✅ Usando resultado del Sistema de Coordenadas');
+        return {
+          data: coordResult.extractedData,
+          method: 'coordinates',
+          confidence: coordResult.confidence,
+          confidencePercentage: coordResult.confidencePercentage,
+          processingTimeMs: Date.now() - startTime,
+          usedFallback: false,
+        };
+      }
+
+      // Si la confianza es baja y NO se fuerza coordenadas, hacer fallback a IA
+      if (coordResult.fallbackToAI && !options?.forceCoordinates) {
+        console.log(`⚠️ Confianza baja (${coordResult.confidencePercentage}%), haciendo fallback a IA...`);
+
+        // PASO 2: Fallback a IA
+        console.log('🤖 PASO 2: Usando Vertex AI como fallback...');
+        const aiData = await extractDataFromDocument(file, schema, prompt, modelId);
+
+        return {
+          data: aiData,
+          method: 'hybrid',
+          confidence: 0.85, // Confianza estimada para IA
+          confidencePercentage: 85,
+          processingTimeMs: Date.now() - startTime,
+          usedFallback: true,
+          fallbackReason: coordResult.reason || 'low_confidence',
+        };
+      }
+
+      // Usar coordenadas aunque la confianza sea baja (forceCoordinates)
+      return {
+        data: coordResult.extractedData,
+        method: 'coordinates',
+        confidence: coordResult.confidence,
+        confidencePercentage: coordResult.confidencePercentage,
+        processingTimeMs: Date.now() - startTime,
+        usedFallback: false,
+      };
+    }
+
+    // Si el endpoint de coordenadas falló, ir a IA
+    console.log('⚠️ Endpoint de coordenadas no disponible, usando IA directamente');
+    throw new Error('Coordinates endpoint failed');
+
+  } catch (coordError: any) {
+    console.warn('⚠️ Error en sistema de coordenadas:', coordError.message);
+
+    // Si se fuerza coordenadas, no hacer fallback
+    if (options?.forceCoordinates) {
+      throw new Error(`Sistema de coordenadas falló y forceCoordinates=true: ${coordError.message}`);
+    }
+
+    // FALLBACK: Usar IA
+    console.log('🤖 Fallback a Vertex AI por error en coordenadas...');
+    const aiData = await extractDataFromDocument(file, schema, prompt, modelId);
+
+    return {
+      data: aiData,
+      method: 'ai',
+      confidence: 0.85,
+      confidencePercentage: 85,
+      processingTimeMs: Date.now() - startTime,
+      usedFallback: true,
+      fallbackReason: 'coordinates_error',
+    };
+  }
+};
+
 // Buscar imagen en documento
 export const searchImageInDocument = async (
     documentFile: File,

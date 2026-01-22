@@ -226,40 +226,27 @@ function AppContent() {
                 extractedData = JSON.parse(text);
                 console.log('📄 JSON file processed directly:', activeFile.file.name);
             } else if (activeFile.file.type === 'application/pdf') {
-                // PDF file - analyze type first (with fallback)
-                console.log('🔍 Detectando tipo de PDF...');
-                const { analyzePDFType, extractDataFromDocument, extractDataFromScannedDocument } = await import('./services/geminiService.ts');
+                // PDF file - usar SISTEMA HÍBRIDO (Coordenadas + IA)
+                console.log('🚀 Procesando PDF con SISTEMA HÍBRIDO (Coordenadas → IA)...');
+                const { extractWithHybridSystem } = await import('./services/geminiService.ts');
 
-                let pdfAnalysis;
-                try {
-                    pdfAnalysis = await analyzePDFType(activeFile.file);
-                    console.log(`📊 Tipo detectado: ${pdfAnalysis.type} | Páginas: ${pdfAnalysis.pageCount} | Con texto: ${pdfAnalysis.textPagesCount}`);
-                } catch (analysisError) {
-                    console.warn('⚠️  No se pudo analizar tipo de PDF, procesando con método estándar:', analysisError);
-                    // Si falla el análisis, procesar con método normal
-                    pdfAnalysis = {
-                        type: 'unknown',
-                        hasText: false,
-                        pageCount: 0,
-                        textPagesCount: 0,
-                        requiresOCR: false, // Usar método normal si falla análisis
-                        confidence: 'low'
-                    };
-                }
+                const hybridResult = await extractWithHybridSystem(
+                    activeFile.file,
+                    schema,
+                    prompt,
+                    selectedModel,
+                    { confidenceThreshold: 0.5 } // Umbral de confianza para fallback a IA
+                );
 
-                if (pdfAnalysis.requiresOCR) {
-                    // PDF escaneado o mixto que necesita OCR
-                    console.log('📷 Procesando como PDF ESCANEADO con modelo avanzado...');
-                    extractedData = await extractDataFromScannedDocument(
-                        activeFile.file,
-                        schema,
-                        prompt,
-                        'gemini-2.5-pro' // Usar modelo avanzado automáticamente
-                    );
-                } else {
-                    // PDF con texto, procesar normalmente
-                    console.log('📄 Procesando como PDF CON TEXTO...');
-                    extractedData = await extractDataFromDocument(activeFile.file, schema, prompt, selectedModel);
+                extractedData = hybridResult.data;
+
+                // Log del método usado
+                const methodEmoji = hybridResult.method === 'coordinates' ? '📐' : hybridResult.method === 'ai' ? '🤖' : '🔄';
+                console.log(`${methodEmoji} Método usado: ${hybridResult.method.toUpperCase()}`);
+                console.log(`📊 Confianza: ${hybridResult.confidencePercentage}%`);
+                console.log(`⏱️ Tiempo: ${hybridResult.processingTimeMs}ms`);
+                if (hybridResult.usedFallback) {
+                    console.log(`⚠️ Fallback activado: ${hybridResult.fallbackReason}`);
                 }
             } else {
                 // Other file types
@@ -414,10 +401,11 @@ function AppContent() {
 
         // Lazy import the service (only if needed for non-JSON files)
         const nonJsonFiles = filesToProcess.filter(f => !f.file.name.toLowerCase().endsWith('.json'));
-        let extractDataFromDocument: any = null;
+        // Cargar servicio híbrido para archivos no-JSON
+        let extractWithHybridSystem: any = null;
         if (nonJsonFiles.length > 0) {
             const service = await import('./services/geminiService.ts');
-            extractDataFromDocument = service.extractDataFromDocument;
+            extractWithHybridSystem = service.extractWithHybridSystem;
         }
 
         // --- PROCESAMIENTO CON CONCURRENCIA (10 a la vez - Vercel Pro) ---
@@ -446,7 +434,10 @@ function AppContent() {
                     const text = await file.file.text();
                     extractedData = JSON.parse(text);
                 } else {
-                    extractedData = await extractDataFromDocument(file.file, schema, prompt, selectedModel);
+                    // Usar sistema híbrido (Coordenadas → IA)
+                    const hybridResult = await extractWithHybridSystem(file.file, schema, prompt, selectedModel, { confidenceThreshold: 0.5 });
+                    extractedData = hybridResult.data;
+                    console.log(`📐 ${file.file.name}: método=${hybridResult.method}, confianza=${hybridResult.confidencePercentage}%`);
                 }
 
                 setFiles(currentFiles =>
@@ -547,10 +538,10 @@ function AppContent() {
 
         // Lazy import the service (only if needed for non-JSON files)
         const nonJsonFiles = pendingFiles.filter(f => !f.file.name.toLowerCase().endsWith('.json'));
-        let extractDataFromDocument: any = null;
+        let extractWithHybridSystem: any = null;
         if (nonJsonFiles.length > 0) {
             const service = await import('./services/geminiService.ts');
-            extractDataFromDocument = service.extractDataFromDocument;
+            extractWithHybridSystem = service.extractWithHybridSystem;
         }
 
         // --- PROCESAMIENTO CON CONCURRENCIA (10 a la vez - Vercel Pro) ---
@@ -578,7 +569,10 @@ function AppContent() {
                     const text = await file.file.text();
                     extractedData = JSON.parse(text);
                 } else {
-                    extractedData = await extractDataFromDocument(file.file, schema, prompt, selectedModel);
+                    // Usar sistema híbrido (Coordenadas → IA)
+                    const hybridResult = await extractWithHybridSystem(file.file, schema, prompt, selectedModel, { confidenceThreshold: 0.5 });
+                    extractedData = hybridResult.data;
+                    console.log(`📐 ${file.file.name}: método=${hybridResult.method}, confianza=${hybridResult.confidencePercentage}%`);
                 }
 
                 setFiles(currentFiles =>
