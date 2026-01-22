@@ -635,8 +635,10 @@ const convertPDFToImages = async (pdfBase64: string): Promise<string[]> => {
   // Cargar pdf.js dinámicamente
   const pdfjsLib = await import('pdfjs-dist');
 
-  // Configurar worker (usa CDN para compatibilidad)
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+  // Configurar worker solo si no está configurado (usa unpkg que funciona)
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+  }
 
   // Decodificar base64 a ArrayBuffer
   const binaryString = atob(pdfBase64);
