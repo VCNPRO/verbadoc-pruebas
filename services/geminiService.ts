@@ -628,6 +628,61 @@ export interface HybridExtractionResult {
 }
 
 /**
+ * Convierte un PDF a imágenes PNG usando pdf.js
+ * Retorna un array de base64 strings (una por página)
+ */
+const convertPDFToImages = async (pdfBase64: string): Promise<string[]> => {
+  // Cargar pdf.js dinámicamente
+  const pdfjsLib = await import('pdfjs-dist');
+
+  // Configurar worker (usa CDN para compatibilidad)
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+  // Decodificar base64 a ArrayBuffer
+  const binaryString = atob(pdfBase64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+
+  // Cargar el PDF
+  const loadingTask = pdfjsLib.getDocument({ data: bytes });
+  const pdf = await loadingTask.promise;
+
+  const images: string[] = [];
+  const scale = 2.0; // Mayor resolución para mejor OCR
+
+  console.log(`📄 Convirtiendo ${pdf.numPages} páginas de PDF a imágenes...`);
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+
+    // Crear canvas
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('No se pudo crear contexto de canvas');
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    // Renderizar página
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+    }).promise;
+
+    // Convertir a base64 PNG (sin el prefijo data:image/png;base64,)
+    const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
+    images.push(imageBase64);
+
+    console.log(`  📷 Página ${pageNum}/${pdf.numPages} convertida`);
+  }
+
+  return images;
+};
+
+/**
  * Extracción híbrida: Primero intenta con coordenadas, luego con IA si es necesario
  * Este es el método RECOMENDADO para formularios FUNDAE
  */
@@ -684,12 +739,34 @@ export const extractWithHybridSystem = async (
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:5173';
 
+    // Detectar si es PDF y convertir a imágenes
+    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    let imageBase64ForCoordinates: string | null = null;
+
+    if (isPDF) {
+      console.log('📄 Detectado PDF - Convirtiendo a imágenes para Sistema de Coordenadas...');
+      try {
+        const pageImages = await convertPDFToImages(base64Data);
+        if (pageImages.length > 0) {
+          // Usar la primera página para extracción (formularios FUNDAE típicamente tienen datos en página 1)
+          imageBase64ForCoordinates = pageImages[0];
+          console.log(`✅ PDF convertido: ${pageImages.length} página(s), usando página 1 para coordenadas`);
+        }
+      } catch (pdfConvertError) {
+        console.warn('⚠️ Error convirtiendo PDF a imagen:', pdfConvertError);
+        // Continuar sin imagen, el backend detectará que es PDF y sugerirá fallback
+      }
+    }
+
     // Llamar al endpoint de coordenadas
     const coordResponse = await fetch(`${baseURL}/api/extract-coordinates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        pdfBase64: base64Data,
+        // Si tenemos imagen convertida, enviarla como imageBase64
+        // Si no, enviar el PDF original (el backend detectará y sugerirá fallback)
+        imageBase64: imageBase64ForCoordinates,
+        pdfBase64: imageBase64ForCoordinates ? undefined : base64Data,
         filename: file.name
       })
     });

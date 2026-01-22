@@ -249,27 +249,70 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const { pdfBase64, filename } = req.body;
+    const { pdfBase64, imageBase64, filename } = req.body;
 
-    if (!pdfBase64) {
-      return res.status(400).json({ error: 'Missing pdfBase64' });
+    // Aceptar tanto pdfBase64 como imageBase64 (para cuando el frontend convierte a imagen)
+    const contentBase64 = imageBase64 || pdfBase64;
+
+    if (!contentBase64) {
+      return res.status(400).json({ error: 'Missing pdfBase64 or imageBase64' });
     }
 
-    console.log(`🔍 Procesando PDF con Sistema de Coordenadas: ${filename || 'sin nombre'}`);
+    console.log(`🔍 Procesando documento con Sistema de Coordenadas: ${filename || 'sin nombre'}`);
     const startTime = Date.now();
 
+    // Verificar si tenemos credenciales
+    if (!credentials && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+      console.error('❌ No hay credenciales de Google Cloud configuradas');
+      return res.status(200).json({
+        success: false,
+        error: 'Credenciales de Google Cloud no configuradas',
+        fallbackToAI: true,
+        reason: 'no_credentials'
+      });
+    }
+
     // Inicializar cliente de Vision
-    const visionClient = new vision.ImageAnnotatorClient({
-      credentials: credentials || undefined,
-    });
+    let visionClient;
+    try {
+      visionClient = new vision.ImageAnnotatorClient({
+        credentials: credentials || undefined,
+      });
+    } catch (clientError) {
+      console.error('❌ Error inicializando Vision client:', clientError.message);
+      return res.status(200).json({
+        success: false,
+        error: 'Error inicializando Google Vision: ' + clientError.message,
+        fallbackToAI: true,
+        reason: 'client_init_error'
+      });
+    }
 
     // Convertir base64 a buffer
-    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+    const contentBuffer = Buffer.from(contentBase64, 'base64');
+    console.log(`📄 Tamaño del contenido: ${contentBuffer.length} bytes`);
+
+    // Detectar tipo de contenido (PDF vs imagen)
+    const isPDF = contentBuffer[0] === 0x25 && contentBuffer[1] === 0x50 &&
+                  contentBuffer[2] === 0x44 && contentBuffer[3] === 0x46; // %PDF
+
+    if (isPDF) {
+      console.log('⚠️ Detectado archivo PDF - Vision API requiere imagen');
+      // Para PDFs, retornamos que debe usar fallback a AI
+      // O el frontend debe convertir a imagen primero
+      return res.status(200).json({
+        success: false,
+        error: 'El sistema de coordenadas requiere imagen (no PDF directo). Use imageBase64 o fallback a IA.',
+        fallbackToAI: true,
+        reason: 'pdf_not_supported_direct',
+        hint: 'Convertir PDF a imagen en frontend o usar endpoint de IA'
+      });
+    }
 
     // Llamar a Vision API para OCR
     console.log('📡 Llamando a Google Cloud Vision OCR...');
     const [result] = await visionClient.documentTextDetection({
-      image: { content: pdfBuffer },
+      image: { content: contentBuffer },
       imageContext: {
         languageHints: ['es', 'en'],
       },
