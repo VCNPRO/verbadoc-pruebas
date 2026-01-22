@@ -14,10 +14,28 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   console.log('🔐 AuthProvider montado - timestamp:', new Date().toISOString());
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+
+  // ⚠️ MODO BYPASS TEMPORAL - Quitar cuando se arregle la autenticación
+  const BYPASS_AUTH = true;
+  const mockUser: User = {
+    id: '3360dfa5-mock-test',
+    email: 'test@test.eu',
+    name: 'Test User',
+    role: 'admin',
+    created_at: new Date(),
+    updated_at: new Date(),
+    password: ''
+  };
+
+  const [user, setUser] = useState<User | null>(BYPASS_AUTH ? mockUser : null);
+  const [loading, setLoading] = useState(BYPASS_AUTH ? false : true);
 
   useEffect(() => {
+    if (BYPASS_AUTH) {
+      console.log('⚠️ MODO BYPASS AUTH ACTIVADO - Usuario simulado');
+      return;
+    }
+
     const verifyUser = async () => {
       try {
         const res = await fetch('/api/auth/verify');
