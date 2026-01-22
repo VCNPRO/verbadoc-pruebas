@@ -73,7 +73,7 @@ module.exports = async function handler(req, res) {
         return res.status(400).json({ error: 'Missing filename or extractedData' });
       }
 
-      const userId = '3360dfa5-mock-test-0000-000000000000'; // Usuario bypass temporal
+      const userId = '3360dfa5-0000-0000-0000-000000000001'; // Usuario bypass temporal
 
       const result = await sql`
         INSERT INTO extraction_results (

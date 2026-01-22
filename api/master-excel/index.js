@@ -51,7 +51,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const { extraction_id, row_data, filename, validation_status = 'pending' } = req.body;
-      const userId = '3360dfa5-mock-test-0000-000000000000';
+      const userId = '3360dfa5-0000-0000-0000-000000000001';
 
       if (!extraction_id || !row_data || !filename) {
         return res.status(400).json({ error: 'Faltan campos: extraction_id, row_data, filename' });

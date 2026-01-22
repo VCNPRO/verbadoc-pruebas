@@ -9,7 +9,7 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const userId = '3360dfa5-mock-test-0000-000000000000';
+  const userId = '3360dfa5-0000-0000-0000-000000000001';
 
   // GET - Listar documentos no procesables
   if (req.method === 'GET') {
