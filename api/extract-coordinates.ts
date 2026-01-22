@@ -1,0 +1,426 @@
+/**
+ * API ENDPOINT: /api/extract-coordinates
+ * Extracción de formularios FUNDAE usando OCR + Sistema de Coordenadas
+ *
+ * Este es el sistema PRINCIPAL de extracción:
+ * - Más rápido y económico que IA
+ * - Alta precisión para formularios estandarizados
+ * - Fallback a IA si la confianza es baja
+ */
+
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { ImageAnnotatorClient } from '@google-cloud/vision';
+
+// ============================================
+// TIPOS DE DATOS OCR
+// ============================================
+interface BoundingBox {
+  vertices: { x: number; y: number }[];
+  normalizedVertices?: { x: number; y: number }[];
+}
+
+interface Word {
+  boundingBox: BoundingBox;
+  symbols: { text: string }[];
+}
+
+interface Page {
+  width: number;
+  height: number;
+  blocks: { paragraphs: { words: Word[] }[] }[];
+}
+
+interface OcrResult {
+  responses: { fullTextAnnotation: { pages: Page[] } }[];
+}
+
+// ============================================
+// TIPOS PARA COORDENADAS
+// ============================================
+type CheckboxOption = {
+  value: string;
+  code: string;
+  page: number;
+  box: { minX: number; maxX: number; minY: number; maxY: number };
+};
+
+type CheckboxOptions = CheckboxOption[];
+
+type TextFieldCoord = {
+  page: number;
+  box: { minX: number; maxX: number; minY: number; maxY: number };
+};
+
+type ValuationItemOption = {
+  code: string;
+  box: { minX: number; maxX: number; minY: number; maxY: number };
+};
+
+type ValuationItem = {
+  page: number;
+  options: ValuationItemOption[];
+};
+
+// ============================================
+// COORDENADAS DE CAMPOS (del formulario FUNDAE)
+// ============================================
+const FIELD_COORDINATES = {
+  mainLayout: {
+    checkbox_fields: {
+      modalidad: [
+        { value: 'Presencial', code: 'Presencial', page: 1, box: { minX: 0.333, maxX: 0.353, minY: 0.352, maxY: 0.365 } },
+        { value: 'Teleformación', code: 'Teleformación', page: 1, box: { minX: 0.572, maxX: 0.592, minY: 0.352, maxY: 0.365 } },
+        { value: 'Mixta', code: 'Mixta', page: 1, box: { minX: 0.764, maxX: 0.784, minY: 0.352, maxY: 0.365 } },
+      ],
+      sexo: [
+        { value: 'Mujer', code: '1', page: 1, box: { minX: 0.458, maxX: 0.472, minY: 0.408, maxY: 0.418 } },
+        { value: 'Hombre', code: '2', page: 1, box: { minX: 0.458, maxX: 0.472, minY: 0.423, maxY: 0.433 } },
+        { value: 'No contesta', code: '9', page: 1, box: { minX: 0.458, maxX: 0.472, minY: 0.438, maxY: 0.448 } },
+      ],
+      categoria_profesional: [
+        { value: 'Directivo/a', code: '1', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.465, maxY: 0.475 } },
+        { value: 'Mando Intermedio', code: '2', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.480, maxY: 0.490 } },
+        { value: 'Técnico/a', code: '3', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.495, maxY: 0.505 } },
+        { value: 'Trabajador/a cualificado/a', code: '4', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.510, maxY: 0.520 } },
+        { value: 'Trabajador/a de baja cualificación', code: '5', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.525, maxY: 0.535 } },
+        { value: 'Otra categoría', code: '6', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.539, maxY: 0.549 } },
+        { value: 'No contesta', code: '9', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.554, maxY: 0.564 } },
+      ],
+      horario_curso: [
+        { value: 'Dentro de la jornada laboral', code: '1', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.594, maxY: 0.604 } },
+        { value: 'Fuera de la jornada laboral', code: '2', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.609, maxY: 0.619 } },
+        { value: 'Ambas', code: '3', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.624, maxY: 0.634 } },
+        { value: 'No contesta', code: '9', page: 1, box: { minX: 0.909, maxX: 0.923, minY: 0.639, maxY: 0.649 } },
+      ],
+    },
+    text_fields: {
+      numero_expediente: { page: 1, box: { minX: 0.177, maxX: 0.302, minY: 0.300, maxY: 0.314 } },
+      cif_empresa: { page: 1, box: { minX: 0.143, maxX: 0.287, minY: 0.318, maxY: 0.332 } },
+      numero_accion: { page: 1, box: { minX: 0.407, maxX: 0.551, minY: 0.318, maxY: 0.332 } },
+      numero_grupo: { page: 1, box: { minX: 0.655, maxX: 0.799, minY: 0.318, maxY: 0.332 } },
+      denominacion_aaff: { page: 1, box: { minX: 0.233, maxX: 0.925, minY: 0.334, maxY: 0.348 } },
+      edad: { page: 1, box: { minX: 0.143, maxX: 0.238, minY: 0.410, maxY: 0.424 } },
+      lugar_trabajo: { page: 1, box: { minX: 0.690, maxX: 0.925, minY: 0.408, maxY: 0.442 } },
+    },
+  },
+};
+
+const VALUATION_COORDINATES = {
+  organizacion_curso: {
+    item_1_1: { page: 2, options: [
+      { code: 'NC', box: { minX: 0.811, maxX: 0.828, minY: 0.193, maxY: 0.207 } },
+      { code: '1', box: { minX: 0.836, maxX: 0.853, minY: 0.193, maxY: 0.207 } },
+      { code: '2', box: { minX: 0.861, maxX: 0.878, minY: 0.193, maxY: 0.207 } },
+      { code: '3', box: { minX: 0.886, maxX: 0.903, minY: 0.193, maxY: 0.207 } },
+      { code: '4', box: { minX: 0.911, maxX: 0.928, minY: 0.193, maxY: 0.207 } },
+    ]},
+    item_1_2: { page: 2, options: [
+      { code: 'NC', box: { minX: 0.811, maxX: 0.828, minY: 0.208, maxY: 0.222 } },
+      { code: '1', box: { minX: 0.836, maxX: 0.853, minY: 0.208, maxY: 0.222 } },
+      { code: '2', box: { minX: 0.861, maxX: 0.878, minY: 0.208, maxY: 0.222 } },
+      { code: '3', box: { minX: 0.886, maxX: 0.903, minY: 0.208, maxY: 0.222 } },
+      { code: '4', box: { minX: 0.911, maxX: 0.928, minY: 0.208, maxY: 0.222 } },
+    ]},
+  },
+  valoracion_general_curso: {
+    item_9_1: { page: 2, options: [
+      { code: 'NC', box: { minX: 0.811, maxX: 0.828, minY: 0.686, maxY: 0.700 } },
+      { code: '1', box: { minX: 0.836, maxX: 0.853, minY: 0.686, maxY: 0.700 } },
+      { code: '2', box: { minX: 0.861, maxX: 0.878, minY: 0.686, maxY: 0.700 } },
+      { code: '3', box: { minX: 0.886, maxX: 0.903, minY: 0.686, maxY: 0.700 } },
+      { code: '4', box: { minX: 0.911, maxX: 0.928, minY: 0.686, maxY: 0.700 } },
+    ]},
+  },
+  grado_satisfaccion_general: {
+    item_10: { page: 2, options: [
+      { code: 'NC', box: { minX: 0.811, maxX: 0.828, minY: 0.788, maxY: 0.802 } },
+      { code: '1', box: { minX: 0.836, maxX: 0.853, minY: 0.788, maxY: 0.802 } },
+      { code: '2', box: { minX: 0.861, maxX: 0.878, minY: 0.788, maxY: 0.802 } },
+      { code: '3', box: { minX: 0.886, maxX: 0.903, minY: 0.788, maxY: 0.802 } },
+      { code: '4', box: { minX: 0.911, maxX: 0.928, minY: 0.788, maxY: 0.802 } },
+    ]},
+  },
+};
+
+// ============================================
+// FUNCIONES DE EXTRACCIÓN
+// ============================================
+
+function getTextInBoundingBox(box: { minX: number; maxX: number; minY: number; maxY: number }, allWords: Word[]): string | null {
+  const getVertices = (b: BoundingBox) => b.normalizedVertices || b.vertices;
+  const wordsInBox = allWords.filter(word => {
+    const wordVertices = getVertices(word.boundingBox);
+    if (!wordVertices || wordVertices.length < 4) return false;
+    const wordCenterX = (wordVertices[0].x + wordVertices[1].x) / 2;
+    const wordCenterY = (wordVertices[0].y + wordVertices[3].y) / 2;
+    return wordCenterX >= box.minX && wordCenterX <= box.maxX && wordCenterY >= box.minY && wordCenterY <= box.maxY;
+  });
+  if (wordsInBox.length > 0) {
+    wordsInBox.sort((a, b) => {
+      const aVert = getVertices(a.boundingBox);
+      const bVert = getVertices(b.boundingBox);
+      return (aVert[0]?.x || 0) - (bVert[0]?.x || 0);
+    });
+    return wordsInBox.map(word => word.symbols.map(s => s.text).join('')).join(' ');
+  }
+  return null;
+}
+
+function getCheckedValue(options: CheckboxOptions, allWordsByPage: { [page: number]: Word[] }): string[] | null {
+  const foundValues: string[] = [];
+  for (const option of options) {
+    const allWordsForPage = allWordsByPage[option.page] || [];
+    const textInBox = getTextInBoundingBox(option.box, allWordsForPage);
+    const cleanedText = textInBox ? textInBox.toLowerCase().trim() : '';
+
+    if (cleanedText.match(/[x✓v✔]/i)) {
+      foundValues.push(option.code);
+    } else if (cleanedText === option.code.toLowerCase()) {
+      foundValues.push(option.code);
+    }
+  }
+
+  if (foundValues.length === 0) {
+    return null;
+  }
+
+  return foundValues;
+}
+
+function extractValuationItem(item: ValuationItem, allWordsByPage: { [page: number]: Word[] }): string | null {
+  const allWordsForPage = allWordsByPage[item.page] || [];
+
+  for (const option of item.options) {
+    const textInBox = getTextInBoundingBox(option.box, allWordsForPage);
+    const cleanedText = textInBox ? textInBox.toLowerCase().trim() : '';
+
+    if (cleanedText.match(/[x✓v✔]/i)) {
+      return option.code;
+    } else if (cleanedText === option.code.toLowerCase()) {
+      return option.code;
+    }
+  }
+  return 'NC';
+}
+
+function parseWithCoordinates(ocrResult: OcrResult): { data: any; confidence: number; fieldsExtracted: number } {
+  const layout = FIELD_COORDINATES.mainLayout;
+  const extractedData: { [key: string]: string | string[] | null } = {};
+  const allWordsByPage: { [page: number]: Word[] } = {};
+
+  let currentPageNumber = 1;
+  ocrResult.responses.forEach(response => {
+    response?.fullTextAnnotation?.pages.forEach((p) => {
+      allWordsByPage[currentPageNumber] = p.blocks.flatMap(b => b.paragraphs.flatMap(par => par.words));
+      currentPageNumber++;
+    });
+  });
+
+  const totalPages = Object.keys(allWordsByPage).length;
+  console.log(`📄 OCR procesado: ${totalPages} páginas`);
+
+  if (totalPages === 0) {
+    return { data: {}, confidence: 0, fieldsExtracted: 0 };
+  }
+
+  let fieldsExtracted = 0;
+  let fieldsAttempted = 0;
+
+  // 1. Extraer campos de texto
+  for (const field in layout.text_fields) {
+    fieldsAttempted++;
+    const textField = layout.text_fields[field as keyof typeof layout.text_fields];
+    const value = getTextInBoundingBox(textField.box, allWordsByPage[textField.page] || []);
+    extractedData[field] = value;
+    if (value) fieldsExtracted++;
+  }
+
+  // 2. Extraer campos de checkbox
+  for (const field in layout.checkbox_fields) {
+    fieldsAttempted++;
+    const options = layout.checkbox_fields[field as keyof typeof layout.checkbox_fields];
+    const values = getCheckedValue(options, allWordsByPage);
+    extractedData[field] = values ? values[0] : null; // Tomar el primer valor
+    if (values && values.length > 0) fieldsExtracted++;
+  }
+
+  // 3. Extraer valoraciones (página 2)
+  if (totalPages >= 2) {
+    if (VALUATION_COORDINATES.organizacion_curso) {
+      extractedData.organizacion_1_1 = extractValuationItem(VALUATION_COORDINATES.organizacion_curso.item_1_1, allWordsByPage);
+      extractedData.organizacion_1_2 = extractValuationItem(VALUATION_COORDINATES.organizacion_curso.item_1_2, allWordsByPage);
+    }
+    if (VALUATION_COORDINATES.valoracion_general_curso) {
+      extractedData.valoracion_general = extractValuationItem(VALUATION_COORDINATES.valoracion_general_curso.item_9_1, allWordsByPage);
+    }
+    if (VALUATION_COORDINATES.grado_satisfaccion_general) {
+      extractedData.grado_satisfaccion = extractValuationItem(VALUATION_COORDINATES.grado_satisfaccion_general.item_10, allWordsByPage);
+    }
+  }
+
+  // Calcular confianza basada en campos extraídos
+  const confidence = fieldsAttempted > 0 ? fieldsExtracted / fieldsAttempted : 0;
+
+  return { data: extractedData, confidence, fieldsExtracted };
+}
+
+// ============================================
+// CONFIGURACIÓN
+// ============================================
+
+let credentials: any = null;
+if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  try {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS.startsWith('{')) {
+      credentials = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+    }
+  } catch (error) {
+    console.error('⚠️ Error al parsear credenciales:', error);
+  }
+}
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb'
+    }
+  }
+};
+
+// ============================================
+// HANDLER PRINCIPAL
+// ============================================
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS
+  const allowedOrigins = [
+    'https://verbadoc-pruebas.vercel.app',
+    'https://www.verbadocpro.eu',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ];
+
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { pdfBase64, filename } = req.body;
+
+    if (!pdfBase64) {
+      return res.status(400).json({ error: 'Missing pdfBase64' });
+    }
+
+    console.log(`🔍 Procesando PDF con Sistema de Coordenadas: ${filename || 'sin nombre'}`);
+    const startTime = Date.now();
+
+    // Inicializar cliente de Vision
+    const visionClient = new ImageAnnotatorClient({
+      credentials: credentials || undefined,
+    });
+
+    // Convertir base64 a buffer
+    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+
+    // Llamar a Vision API para OCR
+    console.log('📡 Llamando a Google Cloud Vision OCR...');
+    const [result] = await visionClient.documentTextDetection({
+      image: { content: pdfBuffer },
+      imageContext: {
+        languageHints: ['es', 'en'],
+      },
+    });
+
+    if (!result.fullTextAnnotation) {
+      console.log('⚠️ OCR no devolvió texto');
+      return res.status(200).json({
+        success: false,
+        error: 'No se pudo extraer texto del PDF',
+        fallbackToAI: true,
+        reason: 'empty_ocr'
+      });
+    }
+
+    // Construir estructura compatible con el parser
+    const ocrResult: OcrResult = {
+      responses: [{
+        fullTextAnnotation: {
+          pages: result.fullTextAnnotation.pages?.map(p => ({
+            width: p.width || 0,
+            height: p.height || 0,
+            blocks: p.blocks?.map(b => ({
+              paragraphs: b.paragraphs?.map(par => ({
+                words: par.words?.map(w => ({
+                  boundingBox: {
+                    vertices: w.boundingBox?.vertices || [],
+                    normalizedVertices: w.boundingBox?.normalizedVertices || [],
+                  },
+                  symbols: w.symbols?.map(s => ({ text: s.text || '' })) || [],
+                })) || [],
+              })) || [],
+            })) || [],
+          })) || [],
+        },
+      }],
+    };
+
+    // Parsear con coordenadas
+    console.log('📐 Aplicando sistema de coordenadas...');
+    const { data, confidence, fieldsExtracted } = parseWithCoordinates(ocrResult);
+
+    const processingTime = Date.now() - startTime;
+    console.log(`✅ Extracción completada en ${processingTime}ms`);
+    console.log(`📊 Campos extraídos: ${fieldsExtracted}, Confianza: ${Math.round(confidence * 100)}%`);
+
+    // Si la confianza es muy baja, sugerir fallback a IA
+    const CONFIDENCE_THRESHOLD = 0.5;
+    if (confidence < CONFIDENCE_THRESHOLD) {
+      console.log(`⚠️ Confianza baja (${Math.round(confidence * 100)}%), sugiriendo fallback a IA`);
+      return res.status(200).json({
+        success: true,
+        extractedData: data,
+        confidence,
+        confidencePercentage: Math.round(confidence * 100),
+        fieldsExtracted,
+        processingTimeMs: processingTime,
+        method: 'coordinates',
+        fallbackToAI: true,
+        reason: 'low_confidence',
+        message: `Confianza ${Math.round(confidence * 100)}% - Se recomienda usar IA para mejor precisión`
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      extractedData: data,
+      confidence,
+      confidencePercentage: Math.round(confidence * 100),
+      fieldsExtracted,
+      processingTimeMs: processingTime,
+      method: 'coordinates',
+      fallbackToAI: false
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error en extracción por coordenadas:', error);
+    return res.status(500).json({
+      error: 'Error en extracción',
+      message: error.message,
+      fallbackToAI: true,
+      reason: 'extraction_error'
+    });
+  }
+}
