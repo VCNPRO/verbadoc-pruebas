@@ -8,8 +8,14 @@ import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
 import { AccessLogDB } from '../lib/access-log.js';
 
+// ⚠️ MODO BYPASS TEMPORAL
+const BYPASS_AUTH = true;
+const BYPASS_USER = { userId: '3360dfa5-mock-test', role: 'admin', clientId: null };
+
 // Helper: Verificar autenticación y obtener client_id
 async function verifyAuth(req: VercelRequest): Promise<{ userId: string; role: string; clientId: number | null } | null> {
+  if (BYPASS_AUTH) return BYPASS_USER;
+
   try {
     const token = req.cookies['auth-token'];
     if (!token) return null;

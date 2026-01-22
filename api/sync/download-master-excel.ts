@@ -20,8 +20,14 @@ import {
   extractRowInOrder
 } from '../_lib/fundaeExcelColumns.js';
 
+// ⚠️ MODO BYPASS TEMPORAL
+const BYPASS_AUTH = true;
+const BYPASS_USER = { userId: '3360dfa5-mock-test', email: 'test@test.eu', role: 'admin' };
+
 // Helper: Verificar autenticación
 function verifyAuth(req: VercelRequest): { userId: string; email: string; role: string } | null {
+  if (BYPASS_AUTH) return BYPASS_USER;
+
   try {
     const token = req.cookies['auth-token'];
     if (!token) return null;
