@@ -1,6 +1,7 @@
 import { sql } from '@vercel/postgres';
 
 // VERSIÓN SIMPLIFICADA TEMPORAL
+// Devuelve JSON en lugar de generar Excel (se puede hacer en frontend)
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,20 +15,39 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Por ahora solo devolver JSON con los datos
-    // La generación del Excel se puede hacer en el frontend
-    const result = await sql`
-      SELECT id, row_data, filename, validation_status, created_at
-      FROM master_excel_rows
-      ORDER BY created_at DESC
-      LIMIT 500
-    `;
+    const { since } = req.query;
+
+    let result;
+    if (since) {
+      // Sincronización incremental
+      result = await sql`
+        SELECT row_number, row_data, filename, validation_status,
+               cross_validation_match, discrepancy_count, created_at, updated_at
+        FROM master_excel_output
+        WHERE is_latest = true
+          AND validation_status != 'needs_review'
+          AND updated_at > ${since}
+        ORDER BY row_number ASC
+      `;
+    } else {
+      // Sincronización completa
+      result = await sql`
+        SELECT row_number, row_data, filename, validation_status,
+               cross_validation_match, discrepancy_count, created_at, updated_at
+        FROM master_excel_output
+        WHERE is_latest = true
+          AND validation_status != 'needs_review'
+        ORDER BY row_number ASC
+        LIMIT 500
+      `;
+    }
 
     return res.status(200).json({
       success: true,
       rows: result.rows,
       count: result.rows.length,
-      message: 'Datos para sincronización'
+      lastSync: new Date().toISOString(),
+      message: result.rows.length === 0 ? 'No hay datos nuevos para sincronizar' : 'Datos para sincronización'
     });
   } catch (error) {
     console.error('Error sync download:', error);
