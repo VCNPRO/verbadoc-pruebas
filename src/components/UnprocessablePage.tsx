@@ -87,6 +87,7 @@ export default function UnprocessablePage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<UnprocessableDocument | null>(null);
+  const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
 
   // PIN Modal para eliminar
   const [showPinModal, setShowPinModal] = useState(false);
@@ -290,6 +291,48 @@ export default function UnprocessablePage() {
     }
   };
 
+  const handleDownloadExcel = async () => {
+    if (selectedIds.size === 0) {
+      alert('Por favor, selecciona al menos un documento.');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      // Lazy load xlsx library
+      const XLSX = await import('xlsx');
+
+      const selectedDocs = documents.filter(doc => selectedIds.has(doc.id));
+
+      const dataToExport = selectedDocs.map(doc => ({
+        Archivo: doc.filename,
+        Categoría: doc.rejection_category,
+        Expediente: doc.numero_expediente || '-',
+        Acción: doc.numero_accion || '-',
+        Grupo: doc.numero_grupo || '-',
+        Fecha: new Date(doc.created_at).toLocaleString('es-ES')
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'No Procesables');
+
+      // Generate file and trigger download
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      XLSX.writeFile(workbook, `NoProcesables_${timestamp}.xlsx`);
+
+      // Mark as downloaded and clear selection
+      setDownloadedIds(prev => new Set([...prev, ...selectedIds]));
+      setSelectedIds(new Set());
+
+    } catch (error) {
+      console.error('Error al generar el Excel:', error);
+      alert('Hubo un error al generar el archivo Excel.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const getCategoryBadge = (category: string) => {
     const config = CATEGORY_LABELS[category] || CATEGORY_LABELS.error_critico;
     return (
@@ -441,6 +484,14 @@ export default function UnprocessablePage() {
               </div>
               <div className="flex gap-2">
                 <button
+                  onClick={handleDownloadExcel}
+                  disabled={processing}
+                  className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                  Descargar Excel
+                </button>
+                <button
                   onClick={handleBulkSendToReview}
                   disabled={processing}
                   className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
@@ -510,6 +561,7 @@ export default function UnprocessablePage() {
                 <tbody>
                   {documents.map((doc) => {
                     const isSelected = selectedIds.has(doc.id);
+                    const isDownloaded = downloadedIds.has(doc.id);
                     return (
                       <tr key={doc.id} className={`border-b border-gray-100 hover:bg-gray-50 ${isSelected ? 'bg-indigo-50' : ''}`}>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
@@ -541,7 +593,10 @@ export default function UnprocessablePage() {
                           {new Date(doc.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-2">
+                          <div className="flex gap-3 items-center">
+                            {isDownloaded && (
+                              <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full" title="Descargado en Excel"></div>
+                            )}
                             <button
                               onClick={() => handleViewDetails(doc)}
                               className="text-indigo-600 hover:text-indigo-800 text-sm"
