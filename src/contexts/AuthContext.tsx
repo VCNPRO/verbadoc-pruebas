@@ -16,7 +16,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   console.log('🔐 AuthProvider montado - timestamp:', new Date().toISOString());
 
   // ⚠️ MODO BYPASS TEMPORAL - Quitar cuando se arregle la autenticación
-  const BYPASS_AUTH = true;
+  const BYPASS_AUTH = false;
   const mockUser: User = {
     id: '3360dfa5-mock-test',
     email: 'test@test.eu',
