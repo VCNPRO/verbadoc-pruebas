@@ -32,6 +32,7 @@ import {
 } from './validationRules.js'; // Import local en _lib con .js
 
 import { ExtractionResultDB, ValidationErrorDB } from '../lib/extractionDB.js';
+import { loadCityCodesCatalog } from './cityCodes.js';
 
 // ============================================================================
 // TIPOS
