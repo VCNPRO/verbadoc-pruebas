@@ -52,6 +52,7 @@ async function main() {
     { file: 'database/migrations/011_create_access_logs.sql', name: '011 - Create Access Logs' },
     { file: 'database/migrations/011_disable_rls_extraction_results.sql', name: '011 - Disable RLS Extraction Results' },
     { file: 'database/migrations/012_add_pdf_url_to_unprocessable.sql', name: '012 - Add PDF URL to Unprocessable' },
+    { file: 'database/migrations/013_add_client_id_to_users.sql', name: '013 - Add Client ID to Users' },
   ];
 
   for (const migration of migrations) {
