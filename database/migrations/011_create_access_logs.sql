@@ -65,7 +65,7 @@ CREATE INDEX IF NOT EXISTS idx_access_logs_action ON access_logs(action);
 CREATE INDEX IF NOT EXISTS idx_access_logs_resource ON access_logs(resource_type, resource_id);
 CREATE INDEX IF NOT EXISTS idx_access_logs_created_at ON access_logs(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_access_logs_ip ON access_logs(ip_address);
-CREATE INDEX IF NOT EXISTS idx_access_logs_retention ON access_logs(retention_until) WHERE retention_until < NOW();
+CREATE INDEX IF NOT EXISTS idx_access_logs_retention ON access_logs(retention_until);
 
 -- 3. Función para registrar acceso (simplificada)
 CREATE OR REPLACE FUNCTION log_access(

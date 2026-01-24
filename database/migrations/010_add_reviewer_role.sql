@@ -22,8 +22,10 @@ BEGIN
     -- Crear nuevo tipo con 'reviewer'
     CREATE TYPE user_role_new AS ENUM ('admin', 'user', 'reviewer');
 
-    -- 0. Eliminar la política que depende de la columna 'role'
+    -- 0. Eliminar TODAS las políticas que dependen de la columna 'role'
     DROP POLICY IF EXISTS master_excel_user_policy ON master_excel_output;
+    DROP POLICY IF EXISTS column_mappings_user_policy ON column_mappings;
+    DROP POLICY IF EXISTS unprocessable_user_isolation ON unprocessable_documents;
 
     -- 1. Eliminar el valor por defecto antiguo
     ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
@@ -38,13 +40,33 @@ BEGIN
     DROP TYPE IF EXISTS user_role CASCADE;
     ALTER TYPE user_role_new RENAME TO user_role;
 
-    -- 5. Volver a crear la política
+    -- 5. Volver a crear TODAS las políticas
     CREATE POLICY master_excel_user_policy ON master_excel_output
       FOR ALL
       USING (
         user_id = (SELECT id FROM users WHERE id = current_setting('app.current_user_id')::UUID)
         OR
         EXISTS (SELECT 1 FROM users WHERE id = current_setting('app.current_user_id')::UUID AND role = 'admin')
+      );
+
+    CREATE POLICY column_mappings_user_policy ON column_mappings
+      FOR ALL
+      USING (
+        user_id = (SELECT id FROM users WHERE id = current_setting('app.current_user_id')::UUID)
+        OR
+        EXISTS (SELECT 1 FROM users WHERE id = current_setting('app.current_user_id')::UUID AND role = 'admin')
+      );
+
+    CREATE POLICY unprocessable_user_isolation ON unprocessable_documents
+      FOR ALL
+      USING (
+        user_id::TEXT = current_setting('app.current_user_id', TRUE)
+        OR
+        EXISTS (
+          SELECT 1 FROM users
+          WHERE id::TEXT = current_setting('app.current_user_id', TRUE)
+          AND role = 'admin'
+        )
       );
 
     RAISE NOTICE 'Rol reviewer añadido exitosamente';
