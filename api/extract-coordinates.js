@@ -274,7 +274,7 @@ function parseWithCoordinates(pagesData) {
   const extractedData = {};
   const allWordsByPage = {};
 
-  // Organizar palabras por página
+  // Organizar palabras por página (sin logging excesivo)
   pagesData.forEach((pageData, index) => {
     const pageNum = index + 1;
     allWordsByPage[pageNum] = {
@@ -282,25 +282,6 @@ function parseWithCoordinates(pagesData) {
       width: pageData.width,
       height: pageData.height
     };
-
-    console.log(`📄 Página ${pageNum}: ${pageData.words.length} palabras, dimensiones: ${pageData.width}x${pageData.height}`);
-
-    // Debug: mostrar primeras 3 palabras con sus coordenadas
-    if (pageData.words.length > 0) {
-      console.log('🔍 Muestra de palabras encontradas:');
-      pageData.words.slice(0, 3).forEach((w, i) => {
-        const text = w.symbols?.map(s => s.text).join('') || '';
-        const nv = w.boundingBox?.normalizedVertices;
-        const v = w.boundingBox?.vertices;
-        if (nv && nv.length > 0) {
-          console.log(`   ${i+1}. "${text}" → normalizado: (${nv[0]?.x?.toFixed(3)}, ${nv[0]?.y?.toFixed(3)})`);
-        } else if (v && v.length > 0) {
-          const normX = pageData.width > 0 ? (v[0]?.x / pageData.width).toFixed(3) : 'N/A';
-          const normY = pageData.height > 0 ? (v[0]?.y / pageData.height).toFixed(3) : 'N/A';
-          console.log(`   ${i+1}. "${text}" → pixels: (${v[0]?.x}, ${v[0]?.y}) → normalizado: (${normX}, ${normY})`);
-        }
-      });
-    }
   });
 
   const totalPages = Object.keys(allWordsByPage).length;
@@ -324,7 +305,6 @@ function parseWithCoordinates(pagesData) {
 
       // Aplicar limpieza según el tipo de campo
       if (value) {
-        const rawValue = value;
         switch (field) {
           case 'numero_expediente':
             value = cleanExpediente(value);
@@ -342,16 +322,10 @@ function parseWithCoordinates(pagesData) {
             value = cleanEdad(value);
             break;
         }
-        if (rawValue !== value) {
-          console.log(`   🧹 ${field}: "${rawValue}" → "${value}"`);
-        }
       }
 
       extractedData[field] = value;
-      if (value) {
-        fieldsExtracted++;
-        console.log(`   ✅ ${field}: "${value}"`);
-      }
+      if (value) fieldsExtracted++;
     }
   }
 
@@ -361,10 +335,7 @@ function parseWithCoordinates(pagesData) {
     const options = layout.checkbox_fields[field];
     const values = getCheckedValue(options, allWordsByPage);
     extractedData[field] = values ? values[0] : null;
-    if (values && values.length > 0) {
-      fieldsExtracted++;
-      console.log(`   ✅ ${field}: "${values[0]}"`);
-    }
+    if (values && values.length > 0) fieldsExtracted++;
   }
 
   // 3. Extraer valoraciones (página 2)
@@ -383,7 +354,10 @@ function parseWithCoordinates(pagesData) {
 
   // Calcular confianza basada en campos extraídos
   const confidence = fieldsAttempted > 0 ? fieldsExtracted / fieldsAttempted : 0;
-  console.log(`📊 Campos extraídos: ${fieldsExtracted}/${fieldsAttempted}, Confianza: ${Math.round(confidence * 100)}%`);
+
+  // Log resumido de campos críticos
+  console.log(`📊 Extracción: ${fieldsExtracted}/${fieldsAttempted} campos (${Math.round(confidence * 100)}%)`);
+  console.log(`   Exp: ${extractedData.numero_expediente || '-'} | Acc: ${extractedData.numero_accion || '-'} | Grp: ${extractedData.numero_grupo || '-'}`);
 
   return { data: extractedData, confidence, fieldsExtracted };
 }
@@ -431,7 +405,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Missing pdfBase64 or imageBase64' });
     }
 
-    console.log(`🔍 Procesando documento con Sistema de Coordenadas: ${filename || 'sin nombre'}`);
     const startTime = Date.now();
 
     // Verificar si tenemos credenciales
@@ -463,7 +436,6 @@ module.exports = async function handler(req, res) {
 
     // Convertir base64 a buffer
     const contentBuffer = Buffer.from(contentBase64, 'base64');
-    console.log(`📄 Tamaño del PDF: ${contentBuffer.length} bytes`);
 
     // Procesar PDF directamente con batchAnnotateFiles
     const request = {
@@ -483,11 +455,9 @@ module.exports = async function handler(req, res) {
       }],
     };
 
-    console.log('📡 Llamando a Google Cloud Vision para PDF...');
     const [result] = await visionClient.batchAnnotateFiles(request);
 
     if (!result.responses || result.responses.length === 0) {
-      console.log('⚠️ Vision API no devolvió respuestas para el PDF');
       return res.status(200).json({
         success: false,
         error: 'No se pudo procesar el PDF',
@@ -525,10 +495,7 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    console.log(`📄 PDF procesado: ${pagesData.length} páginas extraídas`);
-
     if (pagesData.length === 0) {
-      console.log('⚠️ No se encontraron páginas con texto');
       return res.status(200).json({
         success: false,
         error: 'No se encontró texto en el documento',
@@ -538,24 +505,14 @@ module.exports = async function handler(req, res) {
     }
 
     // Parsear con coordenadas
-    console.log('📐 Aplicando sistema de coordenadas...');
     const { data, confidence, fieldsExtracted } = parseWithCoordinates(pagesData);
 
-    // 🔍 DEBUG: Mostrar campos críticos extraídos
-    console.log('🔍 Campos críticos extraídos:');
-    console.log(`   - numero_expediente: "${data.numero_expediente || 'NO EXTRAÍDO'}"`);
-    console.log(`   - numero_accion: "${data.numero_accion || 'NO EXTRAÍDO'}"`);
-    console.log(`   - numero_grupo: "${data.numero_grupo || 'NO EXTRAÍDO'}"`);
-    console.log(`   - cif_empresa: "${data.cif_empresa || 'NO EXTRAÍDO'}"`);
-    console.log(`   - denominacion_aaff: "${data.denominacion_aaff || 'NO EXTRAÍDO'}"`);
-
     const processingTime = Date.now() - startTime;
-    console.log(`✅ Extracción completada en ${processingTime}ms`);
+    console.log(`✅ Completado en ${processingTime}ms`);
 
     // Si la confianza es muy baja, sugerir fallback a IA
     const CONFIDENCE_THRESHOLD = 0.5;
     if (confidence < CONFIDENCE_THRESHOLD) {
-      console.log(`⚠️ Confianza baja (${Math.round(confidence * 100)}%), sugiriendo fallback a IA`);
       return res.status(200).json({
         success: true,
         extractedData: data,
