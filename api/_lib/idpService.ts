@@ -77,9 +77,23 @@ export const extractWithConfidence = async (base64Image: string, region: Region)
 export const analyzeDocumentStructure = async (base64Image: string): Promise<Region[]> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY);
-    const prompt = `Identifica todas las áreas donde el usuario debe introducir información. 
-    Usa tipo "box" para casillas de selección y "field" para campos de texto. 
-    Proporciona coordenadas precisas en porcentaje (0-100).`;
+    const prompt = `Analiza este formulario/documento e identifica TODAS las áreas donde el usuario debe introducir información.
+
+INSTRUCCIONES CRÍTICAS para las coordenadas:
+- x: posición horizontal de la ESQUINA SUPERIOR IZQUIERDA del campo, en porcentaje (0-100) del ancho total de la imagen
+- y: posición vertical de la ESQUINA SUPERIOR IZQUIERDA del campo, en porcentaje (0-100) del alto total de la imagen
+- width: ancho del campo en porcentaje del ancho total de la imagen
+- height: alto del campo en porcentaje del alto total de la imagen
+
+TIPOS de campos:
+- "box": casillas de verificación, checkboxes, cuadrados para marcar
+- "field": campos de texto, líneas para escribir, espacios para rellenar
+
+IMPORTANTE:
+- Sé MUY PRECISO con las coordenadas
+- El origen (0,0) está en la esquina SUPERIOR IZQUIERDA de la imagen
+- Incluye TODOS los campos visibles donde el usuario deba escribir o marcar algo
+- El label debe describir qué información va en ese campo`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',

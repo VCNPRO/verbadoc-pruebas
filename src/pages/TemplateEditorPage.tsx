@@ -164,19 +164,21 @@ export default function TemplateEditorPage() {
 
           <main className="flex-1 p-8 overflow-auto flex justify-center bg-gray-100 relative">
              {previewUrl ? (
-               <div className="relative bg-white shadow-lg h-fit">
-                  <img src={previewUrl} className="max-w-full h-auto" draggable={false} />
-                  {regions.map(r => (
-                    <div
-                      key={r.id}
-                      className={`absolute border-2 ${r.type === 'box' ? 'border-blue-500 bg-blue-500/20' : 'border-emerald-500 bg-emerald-500/20'}`}
-                      style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.width}%`, height: `${r.height}%` }}
-                    >
-                      <span className="absolute -top-5 left-0 text-xs bg-gray-800 text-white px-2 py-0.5 rounded">
-                        {r.label}
-                      </span>
-                    </div>
-                  ))}
+               <div className="relative bg-white shadow-lg inline-block">
+                  <img src={previewUrl} className="block max-h-[80vh] w-auto" draggable={false} />
+                  <div className="absolute inset-0">
+                    {regions.map(r => (
+                      <div
+                        key={r.id}
+                        className={`absolute border-2 ${r.type === 'box' ? 'border-blue-500 bg-blue-500/20' : 'border-emerald-500 bg-emerald-500/20'} pointer-events-none`}
+                        style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.width}%`, height: `${r.height}%` }}
+                      >
+                        <span className="absolute -top-5 left-0 text-xs bg-gray-800 text-white px-2 py-0.5 rounded whitespace-nowrap">
+                          {r.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                </div>
              ) : (
                <div className="m-auto text-center max-w-md">
