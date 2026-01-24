@@ -211,6 +211,64 @@ function extractValuationItem(item, allWordsByPage) {
   return 'NC';
 }
 
+// ============================================
+// LIMPIEZA DE VALORES EXTRAÍDOS
+// ============================================
+
+/**
+ * Limpia el valor de expediente: extrae solo el código (ej: "B24125842")
+ */
+function cleanExpediente(raw) {
+  if (!raw) return null;
+  // Buscar patrón: letra + dígitos (ej: B24125842, F24001234)
+  const match = String(raw).match(/[A-Z]\d{6,}/i);
+  return match ? match[0].toUpperCase() : null;
+}
+
+/**
+ * Limpia el valor de acción: extrae solo el número
+ */
+function cleanAccion(raw) {
+  if (!raw) return null;
+  // Extraer solo dígitos
+  const nums = String(raw).replace(/[^\d]/g, '');
+  return nums || null;
+}
+
+/**
+ * Limpia el valor de grupo: extrae solo el número
+ */
+function cleanGrupo(raw) {
+  if (!raw) return null;
+  // Extraer solo dígitos
+  const nums = String(raw).replace(/[^\d]/g, '');
+  return nums || null;
+}
+
+/**
+ * Limpia CIF: extrae patrón de CIF español
+ */
+function cleanCIF(raw) {
+  if (!raw) return null;
+  // CIF: letra + 8 dígitos o 8 dígitos + letra
+  const str = String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const match = str.match(/[A-Z]\d{8}|\d{8}[A-Z]/);
+  return match ? match[0] : null;
+}
+
+/**
+ * Limpia edad: extrae solo número entre 16 y 99
+ */
+function cleanEdad(raw) {
+  if (!raw) return null;
+  const nums = String(raw).replace(/[^\d]/g, '');
+  const edad = parseInt(nums);
+  if (!isNaN(edad) && edad >= 16 && edad <= 99) {
+    return String(edad);
+  }
+  return null;
+}
+
 function parseWithCoordinates(pagesData) {
   const layout = FIELD_COORDINATES.mainLayout;
   const extractedData = {};
@@ -262,7 +320,33 @@ function parseWithCoordinates(pagesData) {
     const pageData = allWordsByPage[textField.page];
 
     if (pageData) {
-      const value = getTextInBoundingBox(textField.box, pageData.words, pageData.width, pageData.height);
+      let value = getTextInBoundingBox(textField.box, pageData.words, pageData.width, pageData.height);
+
+      // Aplicar limpieza según el tipo de campo
+      if (value) {
+        const rawValue = value;
+        switch (field) {
+          case 'numero_expediente':
+            value = cleanExpediente(value);
+            break;
+          case 'numero_accion':
+            value = cleanAccion(value);
+            break;
+          case 'numero_grupo':
+            value = cleanGrupo(value);
+            break;
+          case 'cif_empresa':
+            value = cleanCIF(value);
+            break;
+          case 'edad':
+            value = cleanEdad(value);
+            break;
+        }
+        if (rawValue !== value) {
+          console.log(`   🧹 ${field}: "${rawValue}" → "${value}"`);
+        }
+      }
+
       extractedData[field] = value;
       if (value) {
         fieldsExtracted++;
@@ -456,6 +540,14 @@ module.exports = async function handler(req, res) {
     // Parsear con coordenadas
     console.log('📐 Aplicando sistema de coordenadas...');
     const { data, confidence, fieldsExtracted } = parseWithCoordinates(pagesData);
+
+    // 🔍 DEBUG: Mostrar campos críticos extraídos
+    console.log('🔍 Campos críticos extraídos:');
+    console.log(`   - numero_expediente: "${data.numero_expediente || 'NO EXTRAÍDO'}"`);
+    console.log(`   - numero_accion: "${data.numero_accion || 'NO EXTRAÍDO'}"`);
+    console.log(`   - numero_grupo: "${data.numero_grupo || 'NO EXTRAÍDO'}"`);
+    console.log(`   - cif_empresa: "${data.cif_empresa || 'NO EXTRAÍDO'}"`);
+    console.log(`   - denominacion_aaff: "${data.denominacion_aaff || 'NO EXTRAÍDO'}"`);
 
     const processingTime = Date.now() - startTime;
     console.log(`✅ Extracción completada en ${processingTime}ms`);
