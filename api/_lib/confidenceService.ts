@@ -9,7 +9,54 @@
  * 4. Consistencia entre campos relacionados
  */
 
-import { FUNDAE_SCHEMA } from '../../src/constants/fundae-template.js';
+// Schema FUNDAE embebido para evitar problemas de ESM/CommonJS con imports de src/
+const FUNDAE_SCHEMA = [
+  { id: 'numero_expediente', name: 'numero_expediente', type: 'STRING' },
+  { id: 'perfil', name: 'perfil', type: 'STRING' },
+  { id: 'cif_empresa', name: 'cif_empresa', type: 'STRING' },
+  { id: 'numero_accion', name: 'numero_accion', type: 'STRING' },
+  { id: 'numero_grupo', name: 'numero_grupo', type: 'STRING' },
+  { id: 'denominacion_aaff', name: 'denominacion_aaff', type: 'STRING' },
+  { id: 'modalidad', name: 'modalidad', type: 'STRING' },
+  { id: 'edad', name: 'edad', type: 'NUMBER' },
+  { id: 'sexo', name: 'sexo', type: 'STRING' },
+  { id: 'titulacion', name: 'titulacion', type: 'STRING' },
+  { id: 'titulacion_codigo', name: 'titulacion_codigo', type: 'STRING' },
+  { id: 'lugar_trabajo', name: 'lugar_trabajo', type: 'STRING' },
+  { id: 'categoria_profesional', name: 'categoria_profesional', type: 'STRING' },
+  { id: 'categoria_profesional_otra', name: 'categoria_profesional_otra', type: 'STRING' },
+  { id: 'horario_curso', name: 'horario_curso', type: 'STRING' },
+  { id: 'porcentaje_jornada', name: 'porcentaje_jornada', type: 'STRING' },
+  { id: 'tamano_empresa', name: 'tamano_empresa', type: 'STRING' },
+  { id: 'valoracion_1_1', name: 'valoracion_1_1', type: 'STRING' },
+  { id: 'valoracion_1_2', name: 'valoracion_1_2', type: 'STRING' },
+  { id: 'valoracion_2_1', name: 'valoracion_2_1', type: 'STRING' },
+  { id: 'valoracion_2_2', name: 'valoracion_2_2', type: 'STRING' },
+  { id: 'valoracion_3_1', name: 'valoracion_3_1', type: 'STRING' },
+  { id: 'valoracion_3_2', name: 'valoracion_3_2', type: 'STRING' },
+  { id: 'valoracion_4_1_formadores', name: 'valoracion_4_1_formadores', type: 'STRING' },
+  { id: 'valoracion_4_1_tutores', name: 'valoracion_4_1_tutores', type: 'STRING' },
+  { id: 'valoracion_4_2_formadores', name: 'valoracion_4_2_formadores', type: 'STRING' },
+  { id: 'valoracion_4_2_tutores', name: 'valoracion_4_2_tutores', type: 'STRING' },
+  { id: 'valoracion_5_1', name: 'valoracion_5_1', type: 'STRING' },
+  { id: 'valoracion_5_2', name: 'valoracion_5_2', type: 'STRING' },
+  { id: 'valoracion_6_1', name: 'valoracion_6_1', type: 'STRING' },
+  { id: 'valoracion_6_2', name: 'valoracion_6_2', type: 'STRING' },
+  { id: 'valoracion_7_1', name: 'valoracion_7_1', type: 'STRING' },
+  { id: 'valoracion_7_2', name: 'valoracion_7_2', type: 'STRING' },
+  { id: 'valoracion_8_1', name: 'valoracion_8_1', type: 'STRING' },
+  { id: 'valoracion_8_2', name: 'valoracion_8_2', type: 'STRING' },
+  { id: 'valoracion_9_1', name: 'valoracion_9_1', type: 'STRING' },
+  { id: 'valoracion_9_2', name: 'valoracion_9_2', type: 'STRING' },
+  { id: 'valoracion_9_3', name: 'valoracion_9_3', type: 'STRING' },
+  { id: 'valoracion_9_4', name: 'valoracion_9_4', type: 'STRING' },
+  { id: 'valoracion_9_5', name: 'valoracion_9_5', type: 'STRING' },
+  { id: 'valoracion_10', name: 'valoracion_10', type: 'STRING' },
+  { id: 'recomendaria_curso', name: 'recomendaria_curso', type: 'STRING' },
+  { id: 'sugerencias', name: 'sugerencias', type: 'STRING' },
+  { id: 'fecha_cumplimentacion', name: 'fecha_cumplimentacion', type: 'STRING' },
+  { id: 'registro_entrada', name: 'registro_entrada', type: 'STRING' },
+];
 
 // Campos críticos que DEBEN existir (peso alto)
 const CRITICAL_FIELDS = [
