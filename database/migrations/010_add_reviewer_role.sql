@@ -22,13 +22,17 @@ BEGIN
     -- Crear nuevo tipo con 'reviewer'
     CREATE TYPE user_role_new AS ENUM ('admin', 'user', 'reviewer');
 
-    -- Migrar datos
+    -- 1. Eliminar el valor por defecto antiguo
+    ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
+
+    -- 2. Migrar datos
     ALTER TABLE users ALTER COLUMN role TYPE user_role_new USING role::text::user_role_new;
 
-    -- Eliminar tipo antiguo
-    DROP TYPE IF EXISTS user_role CASCADE;
+    -- 3. Establecer el nuevo valor por defecto
+    ALTER TABLE users ALTER COLUMN role SET DEFAULT 'user'::user_role_new;
 
-    -- Renombrar nuevo tipo
+    -- 4. Eliminar tipo antiguo y renombrar
+    DROP TYPE IF EXISTS user_role CASCADE;
     ALTER TYPE user_role_new RENAME TO user_role;
 
     RAISE NOTICE 'Rol reviewer añadido exitosamente';
