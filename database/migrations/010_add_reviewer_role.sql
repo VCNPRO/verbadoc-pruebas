@@ -22,10 +22,13 @@ BEGIN
     -- Crear nuevo tipo con 'reviewer'
     CREATE TYPE user_role_new AS ENUM ('admin', 'user', 'reviewer');
 
+    -- 0. Eliminar la política que depende de la columna 'role'
+    DROP POLICY IF EXISTS master_excel_user_policy ON master_excel_output;
+
     -- 1. Eliminar el valor por defecto antiguo
     ALTER TABLE users ALTER COLUMN role DROP DEFAULT;
 
-    -- 2. Migrar datos
+    -- 2. Migrar datos de la columna
     ALTER TABLE users ALTER COLUMN role TYPE user_role_new USING role::text::user_role_new;
 
     -- 3. Establecer el nuevo valor por defecto
@@ -34,6 +37,15 @@ BEGIN
     -- 4. Eliminar tipo antiguo y renombrar
     DROP TYPE IF EXISTS user_role CASCADE;
     ALTER TYPE user_role_new RENAME TO user_role;
+
+    -- 5. Volver a crear la política
+    CREATE POLICY master_excel_user_policy ON master_excel_output
+      FOR ALL
+      USING (
+        user_id = (SELECT id FROM users WHERE id = current_setting('app.current_user_id')::UUID)
+        OR
+        EXISTS (SELECT 1 FROM users WHERE id = current_setting('app.current_user_id')::UUID AND role = 'admin')
+      );
 
     RAISE NOTICE 'Rol reviewer añadido exitosamente';
   ELSE
