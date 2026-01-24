@@ -352,119 +352,69 @@ module.exports = async function handler(req, res) {
 
     // Convertir base64 a buffer
     const contentBuffer = Buffer.from(contentBase64, 'base64');
-    console.log(`📄 Tamaño del contenido: ${contentBuffer.length} bytes`);
+    console.log(`📄 Tamaño del PDF: ${contentBuffer.length} bytes`);
 
-    // Detectar tipo de contenido (PDF vs imagen)
-    const isPDF = contentBuffer[0] === 0x25 && contentBuffer[1] === 0x50 &&
-                  contentBuffer[2] === 0x44 && contentBuffer[3] === 0x46; // %PDF
-
-    let pagesData = [];
-
-    if (isPDF) {
-      console.log('📄 Detectado archivo PDF - Procesando directamente con Vision API...');
-
-      // Para PDFs, usar batchAnnotateFiles
-      const request = {
-        requests: [{
-          inputConfig: {
-            content: contentBuffer,
-            mimeType: 'application/pdf',
-          },
-          features: [{
-            type: 'DOCUMENT_TEXT_DETECTION',
-          }],
-          imageContext: {
-            languageHints: ['es', 'en'],
-          },
-          // Procesar hasta 5 páginas (formularios FUNDAE tienen 2)
-          pages: [1, 2, 3, 4, 5],
+    // Procesar PDF directamente con batchAnnotateFiles
+    const request = {
+      requests: [{
+        inputConfig: {
+          content: contentBuffer,
+          mimeType: 'application/pdf',
+        },
+        features: [{
+          type: 'DOCUMENT_TEXT_DETECTION',
         }],
-      };
-
-      console.log('📡 Llamando a Google Cloud Vision para PDF...');
-      const [result] = await visionClient.batchAnnotateFiles(request);
-
-      if (!result.responses || result.responses.length === 0) {
-        console.log('⚠️ Vision API no devolvió respuestas para el PDF');
-        return res.status(200).json({
-          success: false,
-          error: 'No se pudo procesar el PDF',
-          fallbackToAI: true,
-          reason: 'empty_pdf_response'
-        });
-      }
-
-      // Extraer datos de cada página
-      const fileResponse = result.responses[0];
-      if (fileResponse.responses) {
-        fileResponse.responses.forEach((pageResponse, pageIndex) => {
-          if (pageResponse.fullTextAnnotation?.pages) {
-            pageResponse.fullTextAnnotation.pages.forEach(page => {
-              const words = page.blocks?.flatMap(b =>
-                b.paragraphs?.flatMap(par => par.words || []) || []
-              ) || [];
-
-              pagesData.push({
-                pageNumber: pageIndex + 1,
-                width: page.width || 0,
-                height: page.height || 0,
-                words: words.map(w => ({
-                  boundingBox: {
-                    vertices: w.boundingBox?.vertices || [],
-                    normalizedVertices: w.boundingBox?.normalizedVertices || [],
-                  },
-                  symbols: w.symbols?.map(s => ({ text: s.text || '' })) || [],
-                })),
-              });
-            });
-          }
-        });
-      }
-
-      console.log(`📄 PDF procesado: ${pagesData.length} páginas extraídas`);
-
-    } else {
-      // Es una imagen, usar documentTextDetection normal
-      console.log('🖼️ Detectado archivo de imagen - Procesando con Vision API...');
-
-      console.log('📡 Llamando a Google Cloud Vision OCR...');
-      const [result] = await visionClient.documentTextDetection({
-        image: { content: contentBuffer },
         imageContext: {
           languageHints: ['es', 'en'],
         },
-      });
+        // Procesar hasta 5 páginas (formularios FUNDAE tienen 2)
+        pages: [1, 2, 3, 4, 5],
+      }],
+    };
 
-      if (!result.fullTextAnnotation) {
-        console.log('⚠️ OCR no devolvió texto');
-        return res.status(200).json({
-          success: false,
-          error: 'No se pudo extraer texto de la imagen',
-          fallbackToAI: true,
-          reason: 'empty_ocr'
-        });
-      }
+    console.log('📡 Llamando a Google Cloud Vision para PDF...');
+    const [result] = await visionClient.batchAnnotateFiles(request);
 
-      // Extraer datos de la imagen (una sola página)
-      result.fullTextAnnotation.pages?.forEach(page => {
-        const words = page.blocks?.flatMap(b =>
-          b.paragraphs?.flatMap(par => par.words || []) || []
-        ) || [];
-
-        pagesData.push({
-          pageNumber: 1,
-          width: page.width || 0,
-          height: page.height || 0,
-          words: words.map(w => ({
-            boundingBox: {
-              vertices: w.boundingBox?.vertices || [],
-              normalizedVertices: w.boundingBox?.normalizedVertices || [],
-            },
-            symbols: w.symbols?.map(s => ({ text: s.text || '' })) || [],
-          })),
-        });
+    if (!result.responses || result.responses.length === 0) {
+      console.log('⚠️ Vision API no devolvió respuestas para el PDF');
+      return res.status(200).json({
+        success: false,
+        error: 'No se pudo procesar el PDF',
+        fallbackToAI: true,
+        reason: 'empty_pdf_response'
       });
     }
+
+    let pagesData = [];
+
+    // Extraer datos de cada página
+    const fileResponse = result.responses[0];
+    if (fileResponse.responses) {
+      fileResponse.responses.forEach((pageResponse, pageIndex) => {
+        if (pageResponse.fullTextAnnotation?.pages) {
+          pageResponse.fullTextAnnotation.pages.forEach(page => {
+            const words = page.blocks?.flatMap(b =>
+              b.paragraphs?.flatMap(par => par.words || []) || []
+            ) || [];
+
+            pagesData.push({
+              pageNumber: pageIndex + 1,
+              width: page.width || 0,
+              height: page.height || 0,
+              words: words.map(w => ({
+                boundingBox: {
+                  vertices: w.boundingBox?.vertices || [],
+                  normalizedVertices: w.boundingBox?.normalizedVertices || [],
+                },
+                symbols: w.symbols?.map(s => ({ text: s.text || '' })) || [],
+              })),
+            });
+          });
+        }
+      });
+    }
+
+    console.log(`📄 PDF procesado: ${pagesData.length} páginas extraídas`);
 
     if (pagesData.length === 0) {
       console.log('⚠️ No se encontraron páginas con texto');

@@ -628,63 +628,6 @@ export interface HybridExtractionResult {
 }
 
 /**
- * Convierte un PDF a imágenes PNG usando pdf.js
- * Retorna un array de base64 strings (una por página)
- */
-const convertPDFToImages = async (pdfBase64: string): Promise<string[]> => {
-  // Cargar pdf.js dinámicamente
-  const pdfjsLib = await import('pdfjs-dist');
-
-  // Configurar worker solo si no está configurado (usa unpkg que funciona)
-  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
-  }
-
-  // Decodificar base64 a ArrayBuffer
-  const binaryString = atob(pdfBase64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-
-  // Cargar el PDF
-  const loadingTask = pdfjsLib.getDocument({ data: bytes });
-  const pdf = await loadingTask.promise;
-
-  const images: string[] = [];
-  const scale = 2.0; // Mayor resolución para mejor OCR
-
-  console.log(`📄 Convirtiendo ${pdf.numPages} páginas de PDF a imágenes...`);
-
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale });
-
-    // Crear canvas
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('No se pudo crear contexto de canvas');
-
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    // Renderizar página
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-    }).promise;
-
-    // Convertir a base64 PNG (sin el prefijo data:image/png;base64,)
-    const imageBase64 = canvas.toDataURL('image/png').split(',')[1];
-    images.push(imageBase64);
-
-    console.log(`  📷 Página ${pageNum}/${pdf.numPages} convertida`);
-  }
-
-  return images;
-};
-
-/**
  * Extracción híbrida: Primero intenta con coordenadas, luego con IA si es necesario
  * Este es el método RECOMENDADO para formularios FUNDAE
  */
@@ -741,22 +684,14 @@ export const extractWithHybridSystem = async (
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:5173';
 
-    // Detectar si es PDF - ahora el backend procesa PDFs directamente
-    const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    console.log('📄 Enviando PDF directamente al backend...');
 
-    if (isPDF) {
-      console.log('📄 Detectado PDF - Enviando directamente al backend (sin conversión frontend)');
-    }
-
-    // Llamar al endpoint de coordenadas
-    // El backend ahora procesa PDFs directamente con batchAnnotateFiles
+    // Llamar al endpoint de coordenadas - solo PDFs
     const coordResponse = await fetch(`${baseURL}/api/extract-coordinates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        // Enviar imagen o PDF directamente según el tipo de archivo
-        imageBase64: isPDF ? undefined : base64Data,
-        pdfBase64: isPDF ? base64Data : undefined,
+        pdfBase64: base64Data,
         filename: file.name
       })
     });
