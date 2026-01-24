@@ -41,12 +41,17 @@ import { ColumnMappingEditor } from './src/components/admin/ColumnMappingEditor.
 import MasterExcelPage from './src/components/MasterExcelPage.tsx';
 // ✅ Unprocessable Page (Documentos no procesables)
 import UnprocessablePage from './src/components/UnprocessablePage.tsx';
+// ✅ IDP Template Editor
+import TemplateEditorPage from './src/pages/TemplateEditorPage.tsx';
 // ✅ Servicio de sincronización
 import { SyncService } from './src/services/syncService.ts';
 // ✅ Plantilla FUNDAE por defecto
 import { FUNDAE_SCHEMA, FUNDAE_EXTRACTION_PROMPT } from './src/constants/fundae-template.ts';
 
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import * as pdfjs from 'pdfjs-dist';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.mjs`;
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
     const { user } = useAuth();
@@ -55,6 +60,20 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
     }
     return children;
 }
+
+const renderPdfToImage = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1); // Usar solo la primera página
+    const viewport = page.getViewport({ scale: 2.0 }); // Escala 2.0 para buena resolución
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d')!;
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+    await page.render({ canvasContext: context, viewport }).promise;
+    // Devolver la imagen como base64, sin el prefijo
+    return canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+};
 
 function AppContent() {
     const { user, loading, logout } = useAuth();
@@ -198,195 +217,71 @@ function AppContent() {
     const handleExtract = async () => {
         if (!activeFile) return;
 
-        // Validar que el schema no esté vacío
-        console.log('🔍 Verificando schema antes de extraer...');
-        console.log('📋 Schema actual:', schema);
-        console.log('📋 Número de campos:', schema?.length || 0);
-
-        if (!schema || schema.length === 0) {
-            console.error('❌ Schema vacío, no se puede extraer');
-            alert('Error: El esquema de extracción está vacío. Por favor, espera a que se aplique el schema después de la clasificación, o carga un esquema válido manualmente.');
-            return;
-        }
-
-        console.log('✅ Schema válido, iniciando extracción con', schema.length, 'campos');
+        console.log('🚀 Iniciando nuevo flujo de extracción IDP...');
         setIsLoading(true);
-        // Reset status for the current file
         setFiles(currentFiles =>
             currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'procesando', error: undefined, extractedData: undefined } : f)
         );
 
         try {
-            let extractedData: object;
+            // 1. Convertir PDF a imagen en el frontend
+            console.log('   - Convirtiendo PDF a imagen...');
+            const base64Image = await renderPdfToImage(activeFile.file);
+            console.log('   ✅ Imagen generada.');
 
-            // Check if file is JSON
-            if (activeFile.file.name.toLowerCase().endsWith('.json')) {
-                // Read and parse JSON directly
-                const text = await activeFile.file.text();
-                extractedData = JSON.parse(text);
-                console.log('📄 JSON file processed directly:', activeFile.file.name);
-            } else if (activeFile.file.type === 'application/pdf') {
-                // PDF file - usar SISTEMA HÍBRIDO (Coordenadas + IA)
-                console.log('🚀 Procesando PDF con SISTEMA HÍBRIDO (Coordenadas → IA)...');
-                const { extractWithHybridSystem } = await import('./services/geminiService.ts');
+            // 2. Llamar al nuevo backend para procesar la imagen
+            console.log('   - Enviando a la API de extracción IDP...');
+            const extractResponse = await fetch('/api/extract', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ base64Image }),
+            });
 
-                const hybridResult = await extractWithHybridSystem(
-                    activeFile.file,
-                    schema,
-                    prompt,
-                    selectedModel,
-                    { confidenceThreshold: 0.5 } // Umbral de confianza para fallback a IA
-                );
-
-                extractedData = hybridResult.data;
-
-                // Log del método usado
-                const methodEmoji = hybridResult.method === 'coordinates' ? '📐' : hybridResult.method === 'ai' ? '🤖' : '🔄';
-                console.log(`${methodEmoji} Método usado: ${hybridResult.method.toUpperCase()}`);
-                console.log(`📊 Confianza: ${hybridResult.confidencePercentage}%`);
-                console.log(`⏱️ Tiempo: ${hybridResult.processingTimeMs}ms`);
-                if (hybridResult.usedFallback) {
-                    console.log(`⚠️ Fallback activado: ${hybridResult.fallbackReason}`);
-                }
-            } else {
-                // Other file types
-                const { extractDataFromDocument } = await import('./services/geminiService.ts');
-                extractedData = await extractDataFromDocument(activeFile.file, schema, prompt, selectedModel);
+            if (!extractResponse.ok) {
+                const errorData = await extractResponse.json();
+                throw new Error(errorData.message || 'La API de extracción falló');
             }
 
+            const result = await extractResponse.json();
+            const { extractedData, confidence, status, matchedTemplateId } = result;
+            console.log('   ✅ API de extracción completada.');
+            console.log(`   - Datos extraídos:`, extractedData);
+            console.log(`   - Confianza: ${confidence}, Estado: ${status}`);
+
+            // 3. Guardar el resultado en la base de datos a través de /api/extractions
+            console.log('   - Guardando resultado en la base de datos...');
+            const finalExtraction = await createExtraction({
+                filename: activeFile.file.name,
+                extractedData: extractedData,
+                modelUsed: `IDP - Template ${matchedTemplateId}`,
+                fileType: activeFile.file.type,
+                fileSizeBytes: activeFile.file.size,
+                confidenceScore: confidence,
+                validationStatus: status, // Usar el estado determinado por la API
+            });
+            console.log('   ✅ Resultado guardado en la BD con ID:', finalExtraction.id);
+            
+            // 4. Actualizar el estado del frontend
             setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'completado', extractedData: extractedData, error: undefined } : f)
+                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'completado', extractedData: extractedData } : f)
             );
-
-            // ✅ Guardar en la base de datos (reemplaza localStorage)
-            try {
-                // 🔥 PASO 1: Crear extracción en BD primero (genera ID real)
-                console.log('📝 PASO 1: Creando extracción en BD...');
-
-                const apiExtraction = await createExtraction({
-                    filename: activeFile.file.name,
-                    extractedData: extractedData,
-                    modelUsed: selectedModel,
-                    fileType: activeFile.file.type,
-                    fileSizeBytes: activeFile.file.size,
-                    pageCount: 1, // TODO: detectar páginas reales del PDF
-                });
-
-                console.log('✅ Extracción creada con ID:', apiExtraction.id);
-
-                // 🔥 PASO 2: Subir PDF con el ID REAL (el endpoint actualiza la BD automáticamente)
-                let pdfUrl: string | undefined;
-
-                try {
-                    console.log('📤 PASO 2: Subiendo PDF a Vercel Blob con ID real...');
-
-                    const uploadResponse = await fetch(`/api/extractions/upload?extractionId=${apiExtraction.id}&filename=${encodeURIComponent(activeFile.file.name)}&contentType=${encodeURIComponent(activeFile.file.type)}`, {
-                        method: 'POST',
-                        body: activeFile.file,
-                    });
-
-                    if (uploadResponse.ok) {
-                        const uploadData = await uploadResponse.json();
-                        pdfUrl = uploadData.url;
-                        console.log('✅ PDF subido y BD actualizada:', pdfUrl?.substring(0, 60) + '...');
-                    } else {
-                        const errorText = await uploadResponse.text();
-                        console.error('❌ Error en subida de PDF:', errorText);
-                        alert(`⚠️ El documento se procesó pero el PDF no se pudo subir. Error: ${errorText.substring(0, 100)}`);
-                    }
-                } catch (uploadError) {
-                    console.error('❌ Error crítico al subir PDF:', uploadError);
-                    alert('❌ Error: No se pudo subir el PDF. El visor no funcionará.');
-                }
-
-                // Usar el ID de la BD para el historial local
-                const newHistoryEntry: ExtractionResult = {
-                    id: apiExtraction.id,
-                    type: 'extraction',
-                    fileId: activeFile.id,
-                    fileName: activeFile.file.name,
-                    schema: JSON.parse(JSON.stringify(schema)), // Deep copy schema
-                    extractedData: extractedData,
-                    timestamp: new Date(apiExtraction.created_at).toISOString(),
-                    fileUrl: pdfUrl, // Guardar también en historial local
-                };
-                setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
-
-                // Guardar en sessionStorage como backup rápido
-                try {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                        try {
-                            sessionStorage.setItem(`pdf_${apiExtraction.id}`, reader.result as string);
-                            console.log('✅ PDF guardado en sessionStorage (backup)');
-                        } catch (storageError) {
-                            console.error('❌ Error guardando en sessionStorage:', storageError);
-                            alert('⚠️ El PDF es muy grande para guardarse localmente.');
-                        }
-                    };
-                    reader.onerror = () => {
-                        console.error('❌ Error al leer archivo para sessionStorage');
-                    };
-                    reader.readAsDataURL(activeFile.file);
-                } catch (sessionError) {
-                    console.error('❌ Error en backup a sessionStorage:', sessionError);
-                }
-
-                setShowResultsExpanded(true);
-
-            } catch (dbError) {
-                // 🔥 Manejo especial para documentos no procesables (422)
-                if (dbError instanceof UnprocessableDocumentError && dbError.unprocessableId) {
-                    console.log('📄 Documento no procesable, subiendo PDF con ID:', dbError.unprocessableId);
-
-                    // Subir el PDF al endpoint de no procesables
-                    try {
-                        const uploadResponse = await fetch(`/api/unprocessable/upload?unprocessableId=${dbError.unprocessableId}&filename=${encodeURIComponent(activeFile.file.name)}&contentType=${encodeURIComponent(activeFile.file.type)}`, {
-                            method: 'POST',
-                            body: activeFile.file,
-                            credentials: 'include',
-                        });
-
-                        if (uploadResponse.ok) {
-                            console.log('✅ PDF subido a documento no procesable');
-                        } else {
-                            console.error('❌ Error subiendo PDF a no procesable:', await uploadResponse.text());
-                        }
-                    } catch (uploadError) {
-                        console.error('❌ Error crítico subiendo PDF a no procesable:', uploadError);
-                    }
-
-                    // Mostrar mensaje al usuario
-                    setFiles(currentFiles =>
-                        currentFiles.map(f => f.id === activeFile.id ? {
-                            ...f,
-                            status: 'error',
-                            error: `No procesable: ${dbError.reason}`,
-                            extractedData: extractedData
-                        } : f)
-                    );
-                    return;
-                }
-
-                console.error('⚠️ Error al guardar en BD (continuando):', dbError);
-                // Si falla la BD, al menos guardar localmente
-                const newHistoryEntry: ExtractionResult = {
-                    id: `hist-${Date.now()}`,
-                    type: 'extraction',
-                    fileId: activeFile.id,
-                    fileName: activeFile.file.name,
-                    schema: JSON.parse(JSON.stringify(schema)),
-                    extractedData: extractedData,
-                    timestamp: new Date().toISOString(),
-                };
-                setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
-                setShowResultsExpanded(true);
-            }
+            
+            const newHistoryEntry: ExtractionResult = {
+                id: finalExtraction.id,
+                type: 'extraction',
+                fileId: activeFile.id,
+                fileName: activeFile.file.name,
+                schema: [], // El schema ya no es relevante en este flujo
+                extractedData: extractedData,
+                timestamp: new Date(finalExtraction.created_at).toISOString(),
+            };
+            setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
+            setShowResultsExpanded(true);
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Un error desconocido ocurrió.';
             setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'error', error: errorMessage, extractedData: undefined } : f)
+                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'error', error: errorMessage } : f)
             );
         } finally {
             setIsLoading(false);
@@ -1511,6 +1406,20 @@ function AppContent() {
                                     </span>
                                 )}
                             </button>
+                            {/* ✅ Botón Editor de Plantillas IDP */}
+                            <button
+                                onClick={() => navigate('/templates')}
+                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                style={{
+                                    backgroundColor: isLightMode ? '#8b5cf6' : '#7c3aed',
+                                    borderColor: isLightMode ? '#7c3aed' : '#a78bfa',
+                                    color: '#ffffff'
+                                }}
+                                title="Editor de Plantillas de Extracción"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
+                                <span className="hidden sm:inline">Plantillas</span>
+                            </button>
                             <button
                                 onClick={() => setIsHelpModalOpen(true)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
@@ -1812,6 +1721,8 @@ function AppContent() {
             <Route path="/master-excel" element={<MasterExcelPage />} />
             {/* ✅ Unprocessable - Ver documentos no procesables */}
             <Route path="/unprocessable" element={<UnprocessablePage />} />
+            {/* ✅ IDP Template Editor */}
+            <Route path="/templates" element={<TemplateEditorPage />} />
             {/* Admin Dashboard */}
             <Route
                 path="/admin"
