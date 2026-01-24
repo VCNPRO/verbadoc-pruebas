@@ -23,7 +23,7 @@ export const classifyDocument = async (base64Image: string, templates: FormTempl
     Responde estrictamente en formato JSON: { "match_id": "string", "confidence": number }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
@@ -42,7 +42,7 @@ export const recalibrateRegions = async (base64Image: string, currentRegions: Re
     Responde solo JSON: { "recalibrated": [...] }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
@@ -66,7 +66,7 @@ export const extractWithConfidence = async (base64Image: string, region: Region)
       : `Extrae el texto manuscrito o impreso. Si no hay nada, responde "N/A".`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] }
     });
 
@@ -82,7 +82,7 @@ export const analyzeDocumentStructure = async (base64Image: string): Promise<Reg
     Proporciona coordenadas precisas en porcentaje (0-100).`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-2.0-flash',
       contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] },
       config: { 
         responseMimeType: "application/json",
