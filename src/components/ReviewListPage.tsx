@@ -571,7 +571,7 @@ export default function ReviewListPage() {
                               {extraction.filename}
                             </div>
                             <div className="text-sm text-gray-500">
-                              {(extraction.file_size_bytes / 1024).toFixed(1)} KB
+                              {((extraction.file_size_bytes || 0) / 1024).toFixed(1)} KB
                             </div>
                           </div>
                         </div>
