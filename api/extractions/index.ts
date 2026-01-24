@@ -14,6 +14,7 @@ import EmailService from '../_lib/emailService.js';
 import { AccessLogDB } from '../lib/access-log.js';
 import { calculateConfidenceScore } from '../_lib/confidenceService.js';
 import { verifyExtraction, mergeWithVerification, type VerificationResult } from '../_lib/doubleVerificationService.js';
+import { loadCityCodesCatalog } from '../_lib/cityCodes.js';
 
 // Helper: Verificar autenticación y obtener client_id
 async function verifyAuth(req: VercelRequest): Promise<{ userId: string; role: string; clientId: number | null } | null> {
