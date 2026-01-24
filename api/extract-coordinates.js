@@ -2,7 +2,7 @@
  * API ENDPOINT: /api/extract-coordinates
  * Extracción de formularios FUNDAE usando OCR + Sistema de Coordenadas
  *
- * Este es el sistema PRINCIPAL de extracción:
+ * ACTUALIZADO: Ahora procesa PDFs directamente sin conversión en frontend
  * - Más rápido y económico que IA
  * - Alta precisión para formularios estandarizados
  * - Fallback a IA si la confianza es baja
@@ -95,19 +95,49 @@ const VALUATION_COORDINATES = {
 // FUNCIONES DE EXTRACCIÓN
 // ============================================
 
-function getTextInBoundingBox(box, allWords) {
-  const getVertices = (b) => b.normalizedVertices || b.vertices;
+/**
+ * Normaliza las coordenadas si están en pixels
+ */
+function normalizeVertices(vertices, pageWidth, pageHeight) {
+  if (!vertices || vertices.length === 0) return null;
+
+  // Si ya están normalizadas (valores entre 0 y 1)
+  const firstX = vertices[0]?.x || 0;
+  const firstY = vertices[0]?.y || 0;
+
+  if (firstX <= 1 && firstY <= 1) {
+    return vertices; // Ya normalizadas
+  }
+
+  // Normalizar dividiendo por dimensiones de página
+  return vertices.map(v => ({
+    x: pageWidth > 0 ? (v.x || 0) / pageWidth : 0,
+    y: pageHeight > 0 ? (v.y || 0) / pageHeight : 0
+  }));
+}
+
+function getTextInBoundingBox(box, allWords, pageWidth = 0, pageHeight = 0) {
   const wordsInBox = allWords.filter(word => {
-    const wordVertices = getVertices(word.boundingBox);
+    let wordVertices = word.boundingBox?.normalizedVertices;
+
+    // Si no hay normalizedVertices, usar vertices y normalizar
+    if (!wordVertices || wordVertices.length === 0) {
+      wordVertices = normalizeVertices(word.boundingBox?.vertices, pageWidth, pageHeight);
+    }
+
     if (!wordVertices || wordVertices.length < 4) return false;
+
     const wordCenterX = (wordVertices[0].x + wordVertices[1].x) / 2;
     const wordCenterY = (wordVertices[0].y + wordVertices[3].y) / 2;
-    return wordCenterX >= box.minX && wordCenterX <= box.maxX && wordCenterY >= box.minY && wordCenterY <= box.maxY;
+
+    return wordCenterX >= box.minX && wordCenterX <= box.maxX &&
+           wordCenterY >= box.minY && wordCenterY <= box.maxY;
   });
+
   if (wordsInBox.length > 0) {
     wordsInBox.sort((a, b) => {
-      const aVert = getVertices(a.boundingBox);
-      const bVert = getVertices(b.boundingBox);
+      const aVert = a.boundingBox?.normalizedVertices || a.boundingBox?.vertices || [];
+      const bVert = b.boundingBox?.normalizedVertices || b.boundingBox?.vertices || [];
       return (aVert[0]?.x || 0) - (bVert[0]?.x || 0);
     });
     return wordsInBox.map(word => word.symbols.map(s => s.text).join('')).join(' ');
@@ -115,11 +145,14 @@ function getTextInBoundingBox(box, allWords) {
   return null;
 }
 
-function getCheckedValue(options, allWordsByPage) {
+function getCheckedValue(options, allWordsByPage, pageDimensions) {
   const foundValues = [];
   for (const option of options) {
-    const allWordsForPage = allWordsByPage[option.page] || [];
-    const textInBox = getTextInBoundingBox(option.box, allWordsForPage);
+    const pageData = allWordsByPage[option.page];
+    if (!pageData) continue;
+
+    const { words, width, height } = pageData;
+    const textInBox = getTextInBoundingBox(option.box, words, width, height);
     const cleanedText = textInBox ? textInBox.toLowerCase().trim() : '';
 
     if (cleanedText.match(/[x✓v✔]/i)) {
@@ -129,18 +162,17 @@ function getCheckedValue(options, allWordsByPage) {
     }
   }
 
-  if (foundValues.length === 0) {
-    return null;
-  }
-
-  return foundValues;
+  return foundValues.length > 0 ? foundValues : null;
 }
 
 function extractValuationItem(item, allWordsByPage) {
-  const allWordsForPage = allWordsByPage[item.page] || [];
+  const pageData = allWordsByPage[item.page];
+  if (!pageData) return 'NC';
+
+  const { words, width, height } = pageData;
 
   for (const option of item.options) {
-    const textInBox = getTextInBoundingBox(option.box, allWordsForPage);
+    const textInBox = getTextInBoundingBox(option.box, words, width, height);
     const cleanedText = textInBox ? textInBox.toLowerCase().trim() : '';
 
     if (cleanedText.match(/[x✓v✔]/i)) {
@@ -152,23 +184,42 @@ function extractValuationItem(item, allWordsByPage) {
   return 'NC';
 }
 
-function parseWithCoordinates(ocrResult) {
+function parseWithCoordinates(pagesData) {
   const layout = FIELD_COORDINATES.mainLayout;
   const extractedData = {};
   const allWordsByPage = {};
 
-  let currentPageNumber = 1;
-  ocrResult.responses.forEach(response => {
-    if (response?.fullTextAnnotation?.pages) {
-      response.fullTextAnnotation.pages.forEach((p) => {
-        allWordsByPage[currentPageNumber] = p.blocks.flatMap(b => b.paragraphs.flatMap(par => par.words));
-        currentPageNumber++;
+  // Organizar palabras por página
+  pagesData.forEach((pageData, index) => {
+    const pageNum = index + 1;
+    allWordsByPage[pageNum] = {
+      words: pageData.words,
+      width: pageData.width,
+      height: pageData.height
+    };
+
+    console.log(`📄 Página ${pageNum}: ${pageData.words.length} palabras, dimensiones: ${pageData.width}x${pageData.height}`);
+
+    // Debug: mostrar primeras 3 palabras con sus coordenadas
+    if (pageData.words.length > 0) {
+      console.log('🔍 Muestra de palabras encontradas:');
+      pageData.words.slice(0, 3).forEach((w, i) => {
+        const text = w.symbols?.map(s => s.text).join('') || '';
+        const nv = w.boundingBox?.normalizedVertices;
+        const v = w.boundingBox?.vertices;
+        if (nv && nv.length > 0) {
+          console.log(`   ${i+1}. "${text}" → normalizado: (${nv[0]?.x?.toFixed(3)}, ${nv[0]?.y?.toFixed(3)})`);
+        } else if (v && v.length > 0) {
+          const normX = pageData.width > 0 ? (v[0]?.x / pageData.width).toFixed(3) : 'N/A';
+          const normY = pageData.height > 0 ? (v[0]?.y / pageData.height).toFixed(3) : 'N/A';
+          console.log(`   ${i+1}. "${text}" → pixels: (${v[0]?.x}, ${v[0]?.y}) → normalizado: (${normX}, ${normY})`);
+        }
       });
     }
   });
 
   const totalPages = Object.keys(allWordsByPage).length;
-  console.log(`📄 OCR procesado: ${totalPages} páginas`);
+  console.log(`📄 OCR procesado: ${totalPages} páginas total`);
 
   if (totalPages === 0) {
     return { data: {}, confidence: 0, fieldsExtracted: 0 };
@@ -181,9 +232,16 @@ function parseWithCoordinates(ocrResult) {
   for (const field in layout.text_fields) {
     fieldsAttempted++;
     const textField = layout.text_fields[field];
-    const value = getTextInBoundingBox(textField.box, allWordsByPage[textField.page] || []);
-    extractedData[field] = value;
-    if (value) fieldsExtracted++;
+    const pageData = allWordsByPage[textField.page];
+
+    if (pageData) {
+      const value = getTextInBoundingBox(textField.box, pageData.words, pageData.width, pageData.height);
+      extractedData[field] = value;
+      if (value) {
+        fieldsExtracted++;
+        console.log(`   ✅ ${field}: "${value}"`);
+      }
+    }
   }
 
   // 2. Extraer campos de checkbox
@@ -192,7 +250,10 @@ function parseWithCoordinates(ocrResult) {
     const options = layout.checkbox_fields[field];
     const values = getCheckedValue(options, allWordsByPage);
     extractedData[field] = values ? values[0] : null;
-    if (values && values.length > 0) fieldsExtracted++;
+    if (values && values.length > 0) {
+      fieldsExtracted++;
+      console.log(`   ✅ ${field}: "${values[0]}"`);
+    }
   }
 
   // 3. Extraer valoraciones (página 2)
@@ -211,6 +272,7 @@ function parseWithCoordinates(ocrResult) {
 
   // Calcular confianza basada en campos extraídos
   const confidence = fieldsAttempted > 0 ? fieldsExtracted / fieldsAttempted : 0;
+  console.log(`📊 Campos extraídos: ${fieldsExtracted}/${fieldsAttempted}, Confianza: ${Math.round(confidence * 100)}%`);
 
   return { data: extractedData, confidence, fieldsExtracted };
 }
@@ -251,8 +313,8 @@ module.exports = async function handler(req, res) {
   try {
     const { pdfBase64, imageBase64, filename } = req.body;
 
-    // Aceptar tanto pdfBase64 como imageBase64 (para cuando el frontend convierte a imagen)
-    const contentBase64 = imageBase64 || pdfBase64;
+    // Aceptar tanto pdfBase64 como imageBase64
+    const contentBase64 = pdfBase64 || imageBase64;
 
     if (!contentBase64) {
       return res.status(400).json({ error: 'Missing pdfBase64 or imageBase64' });
@@ -296,68 +358,130 @@ module.exports = async function handler(req, res) {
     const isPDF = contentBuffer[0] === 0x25 && contentBuffer[1] === 0x50 &&
                   contentBuffer[2] === 0x44 && contentBuffer[3] === 0x46; // %PDF
 
+    let pagesData = [];
+
     if (isPDF) {
-      console.log('⚠️ Detectado archivo PDF - Vision API requiere imagen');
-      // Para PDFs, retornamos que debe usar fallback a AI
-      // O el frontend debe convertir a imagen primero
-      return res.status(200).json({
-        success: false,
-        error: 'El sistema de coordenadas requiere imagen (no PDF directo). Use imageBase64 o fallback a IA.',
-        fallbackToAI: true,
-        reason: 'pdf_not_supported_direct',
-        hint: 'Convertir PDF a imagen en frontend o usar endpoint de IA'
-      });
-    }
+      console.log('📄 Detectado archivo PDF - Procesando directamente con Vision API...');
 
-    // Llamar a Vision API para OCR
-    console.log('📡 Llamando a Google Cloud Vision OCR...');
-    const [result] = await visionClient.documentTextDetection({
-      image: { content: contentBuffer },
-      imageContext: {
-        languageHints: ['es', 'en'],
-      },
-    });
+      // Para PDFs, usar batchAnnotateFiles
+      const request = {
+        requests: [{
+          inputConfig: {
+            content: contentBuffer,
+            mimeType: 'application/pdf',
+          },
+          features: [{
+            type: 'DOCUMENT_TEXT_DETECTION',
+          }],
+          imageContext: {
+            languageHints: ['es', 'en'],
+          },
+          // Procesar hasta 5 páginas (formularios FUNDAE tienen 2)
+          pages: [1, 2, 3, 4, 5],
+        }],
+      };
 
-    if (!result.fullTextAnnotation) {
-      console.log('⚠️ OCR no devolvió texto');
-      return res.status(200).json({
-        success: false,
-        error: 'No se pudo extraer texto del PDF',
-        fallbackToAI: true,
-        reason: 'empty_ocr'
-      });
-    }
+      console.log('📡 Llamando a Google Cloud Vision para PDF...');
+      const [result] = await visionClient.batchAnnotateFiles(request);
 
-    // Construir estructura compatible con el parser
-    const ocrResult = {
-      responses: [{
-        fullTextAnnotation: {
-          pages: result.fullTextAnnotation.pages?.map(p => ({
-            width: p.width || 0,
-            height: p.height || 0,
-            blocks: p.blocks?.map(b => ({
-              paragraphs: b.paragraphs?.map(par => ({
-                words: par.words?.map(w => ({
+      if (!result.responses || result.responses.length === 0) {
+        console.log('⚠️ Vision API no devolvió respuestas para el PDF');
+        return res.status(200).json({
+          success: false,
+          error: 'No se pudo procesar el PDF',
+          fallbackToAI: true,
+          reason: 'empty_pdf_response'
+        });
+      }
+
+      // Extraer datos de cada página
+      const fileResponse = result.responses[0];
+      if (fileResponse.responses) {
+        fileResponse.responses.forEach((pageResponse, pageIndex) => {
+          if (pageResponse.fullTextAnnotation?.pages) {
+            pageResponse.fullTextAnnotation.pages.forEach(page => {
+              const words = page.blocks?.flatMap(b =>
+                b.paragraphs?.flatMap(par => par.words || []) || []
+              ) || [];
+
+              pagesData.push({
+                pageNumber: pageIndex + 1,
+                width: page.width || 0,
+                height: page.height || 0,
+                words: words.map(w => ({
                   boundingBox: {
                     vertices: w.boundingBox?.vertices || [],
                     normalizedVertices: w.boundingBox?.normalizedVertices || [],
                   },
                   symbols: w.symbols?.map(s => ({ text: s.text || '' })) || [],
-                })) || [],
-              })) || [],
-            })) || [],
-          })) || [],
+                })),
+              });
+            });
+          }
+        });
+      }
+
+      console.log(`📄 PDF procesado: ${pagesData.length} páginas extraídas`);
+
+    } else {
+      // Es una imagen, usar documentTextDetection normal
+      console.log('🖼️ Detectado archivo de imagen - Procesando con Vision API...');
+
+      console.log('📡 Llamando a Google Cloud Vision OCR...');
+      const [result] = await visionClient.documentTextDetection({
+        image: { content: contentBuffer },
+        imageContext: {
+          languageHints: ['es', 'en'],
         },
-      }],
-    };
+      });
+
+      if (!result.fullTextAnnotation) {
+        console.log('⚠️ OCR no devolvió texto');
+        return res.status(200).json({
+          success: false,
+          error: 'No se pudo extraer texto de la imagen',
+          fallbackToAI: true,
+          reason: 'empty_ocr'
+        });
+      }
+
+      // Extraer datos de la imagen (una sola página)
+      result.fullTextAnnotation.pages?.forEach(page => {
+        const words = page.blocks?.flatMap(b =>
+          b.paragraphs?.flatMap(par => par.words || []) || []
+        ) || [];
+
+        pagesData.push({
+          pageNumber: 1,
+          width: page.width || 0,
+          height: page.height || 0,
+          words: words.map(w => ({
+            boundingBox: {
+              vertices: w.boundingBox?.vertices || [],
+              normalizedVertices: w.boundingBox?.normalizedVertices || [],
+            },
+            symbols: w.symbols?.map(s => ({ text: s.text || '' })) || [],
+          })),
+        });
+      });
+    }
+
+    if (pagesData.length === 0) {
+      console.log('⚠️ No se encontraron páginas con texto');
+      return res.status(200).json({
+        success: false,
+        error: 'No se encontró texto en el documento',
+        fallbackToAI: true,
+        reason: 'no_pages'
+      });
+    }
 
     // Parsear con coordenadas
     console.log('📐 Aplicando sistema de coordenadas...');
-    const { data, confidence, fieldsExtracted } = parseWithCoordinates(ocrResult);
+    const { data, confidence, fieldsExtracted } = parseWithCoordinates(pagesData);
 
     const processingTime = Date.now() - startTime;
     console.log(`✅ Extracción completada en ${processingTime}ms`);
-    console.log(`📊 Campos extraídos: ${fieldsExtracted}, Confianza: ${Math.round(confidence * 100)}%`);
 
     // Si la confianza es muy baja, sugerir fallback a IA
     const CONFIDENCE_THRESHOLD = 0.5;
