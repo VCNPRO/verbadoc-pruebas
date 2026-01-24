@@ -17,7 +17,7 @@ interface FormTemplate {
   regions: Region[];
 }
 
-pdfjs.GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.mjs`;
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
 
 export default function TemplateEditorPage() {
   const navigate = useNavigate();
