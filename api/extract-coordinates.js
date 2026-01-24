@@ -92,6 +92,29 @@ const VALUATION_COORDINATES = {
 };
 
 // ============================================
+// TOLERANCIA PARA DOCUMENTOS ESCANEADOS
+// ============================================
+
+// Factor de tolerancia: expande los bounding boxes para compensar
+// rotaciones, escalados y desalineaciones en escaneos/fotocopias
+const TOLERANCE = {
+  X: 0.015,  // 1.5% horizontal
+  Y: 0.010,  // 1% vertical
+};
+
+/**
+ * Expande un bounding box con tolerancia
+ */
+function expandBox(box) {
+  return {
+    minX: Math.max(0, box.minX - TOLERANCE.X),
+    maxX: Math.min(1, box.maxX + TOLERANCE.X),
+    minY: Math.max(0, box.minY - TOLERANCE.Y),
+    maxY: Math.min(1, box.maxY + TOLERANCE.Y),
+  };
+}
+
+// ============================================
 // FUNCIONES DE EXTRACCIÓN
 // ============================================
 
@@ -117,6 +140,9 @@ function normalizeVertices(vertices, pageWidth, pageHeight) {
 }
 
 function getTextInBoundingBox(box, allWords, pageWidth = 0, pageHeight = 0) {
+  // Aplicar tolerancia para documentos escaneados/fotocopiados
+  const expandedBox = expandBox(box);
+
   const wordsInBox = allWords.filter(word => {
     let wordVertices = word.boundingBox?.normalizedVertices;
 
@@ -130,8 +156,8 @@ function getTextInBoundingBox(box, allWords, pageWidth = 0, pageHeight = 0) {
     const wordCenterX = (wordVertices[0].x + wordVertices[1].x) / 2;
     const wordCenterY = (wordVertices[0].y + wordVertices[3].y) / 2;
 
-    return wordCenterX >= box.minX && wordCenterX <= box.maxX &&
-           wordCenterY >= box.minY && wordCenterY <= box.maxY;
+    return wordCenterX >= expandedBox.minX && wordCenterX <= expandedBox.maxX &&
+           wordCenterY >= expandedBox.minY && wordCenterY <= expandedBox.maxY;
   });
 
   if (wordsInBox.length > 0) {
@@ -172,6 +198,7 @@ function extractValuationItem(item, allWordsByPage) {
   const { words, width, height } = pageData;
 
   for (const option of item.options) {
+    // getTextInBoundingBox ya aplica tolerancia internamente
     const textInBox = getTextInBoundingBox(option.box, words, width, height);
     const cleanedText = textInBox ? textInBox.toLowerCase().trim() : '';
 
