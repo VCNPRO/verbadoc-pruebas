@@ -741,34 +741,22 @@ export const extractWithHybridSystem = async (
         ? `https://${process.env.VERCEL_URL}`
         : 'http://localhost:5173';
 
-    // Detectar si es PDF y convertir a imágenes
+    // Detectar si es PDF - ahora el backend procesa PDFs directamente
     const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
-    let imageBase64ForCoordinates: string | null = null;
 
     if (isPDF) {
-      console.log('📄 Detectado PDF - Convirtiendo a imágenes para Sistema de Coordenadas...');
-      try {
-        const pageImages = await convertPDFToImages(base64Data);
-        if (pageImages.length > 0) {
-          // Usar la primera página para extracción (formularios FUNDAE típicamente tienen datos en página 1)
-          imageBase64ForCoordinates = pageImages[0];
-          console.log(`✅ PDF convertido: ${pageImages.length} página(s), usando página 1 para coordenadas`);
-        }
-      } catch (pdfConvertError) {
-        console.warn('⚠️ Error convirtiendo PDF a imagen:', pdfConvertError);
-        // Continuar sin imagen, el backend detectará que es PDF y sugerirá fallback
-      }
+      console.log('📄 Detectado PDF - Enviando directamente al backend (sin conversión frontend)');
     }
 
     // Llamar al endpoint de coordenadas
+    // El backend ahora procesa PDFs directamente con batchAnnotateFiles
     const coordResponse = await fetch(`${baseURL}/api/extract-coordinates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        // Si tenemos imagen convertida, enviarla como imageBase64
-        // Si no, enviar el PDF original (el backend detectará y sugerirá fallback)
-        imageBase64: imageBase64ForCoordinates,
-        pdfBase64: imageBase64ForCoordinates ? undefined : base64Data,
+        // Enviar imagen o PDF directamente según el tipo de archivo
+        imageBase64: isPDF ? undefined : base64Data,
+        pdfBase64: isPDF ? base64Data : undefined,
         filename: file.name
       })
     });
