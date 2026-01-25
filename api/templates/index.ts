@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       const templates = await sql`
-        SELECT id, name, description, regions, created_at, updated_at
+        SELECT id, name, description, regions, page_previews, created_at, updated_at
         FROM form_templates
         WHERE user_id = ${user.userId} OR (client_id IS NOT NULL AND client_id = ${user.clientId})
         ORDER BY created_at DESC
@@ -50,13 +50,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // POST /api/templates - Crear una nueva plantilla
   if (req.method === 'POST') {
     try {
-      const { name, description, regions } = req.body;
+      const { name, description, regions, page_previews } = req.body;
       if (!name || !regions || !Array.isArray(regions)) {
         return res.status(400).json({ error: 'Faltan campos requeridos: name, regions' });
       }
       const result = await sql`
-        INSERT INTO form_templates (user_id, client_id, name, description, regions)
-        VALUES (${user.userId}, ${user.clientId}, ${name}, ${description || null}, ${JSON.stringify(regions)}::jsonb)
+        INSERT INTO form_templates (user_id, client_id, name, description, regions, page_previews)
+        VALUES (${user.userId}, ${user.clientId}, ${name}, ${description || null}, ${JSON.stringify(regions)}::jsonb, ${page_previews ? JSON.stringify(page_previews) : null}::jsonb)
         RETURNING *
       `;
       return res.status(201).json(result.rows[0]);
