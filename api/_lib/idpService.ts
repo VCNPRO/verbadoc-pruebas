@@ -17,7 +17,7 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
 
 export const classifyDocument = async (base64Image: string, templates: FormTemplate[]): Promise<{id: string, confidence: number} | null> => {
   return withRetry(async () => {
-    const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
     const prompt = `Analiza este documento y compáralo con los siguientes IDs de plantilla: ${templates.map(t => t.id).join(', ')}. 
     Identifica cuál coincide mejor basándote en la estructura visual. 
     Responde estrictamente en formato JSON: { "match_id": "string", "confidence": number }`;
@@ -35,7 +35,7 @@ export const classifyDocument = async (base64Image: string, templates: FormTempl
 
 export const recalibrateRegions = async (base64Image: string, currentRegions: Region[]): Promise<Region[]> => {
   return withRetry(async () => {
-    const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
     const prompt = `Este documento puede tener ligeras variaciones de alineación o escala. 
     Ajusta las coordenadas (x, y, width, height) para estos campos: ${currentRegions.map(r => r.label).join(', ')}. 
     Mantén el nombre del label intacto. 
@@ -57,7 +57,7 @@ export const recalibrateRegions = async (base64Image: string, currentRegions: Re
 
 export const extractWithConfidence = async (base64Image: string, region: Region): Promise<{value: string}> => {
   return withRetry(async () => {
-    const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
     
     const prompt = region.type === 'box' 
       ? `VISIÓN CRÍTICA: Analiza el recuadro. ¿Hay una marca deliberada (X, ✓, raya)? 
@@ -76,7 +76,7 @@ export const extractWithConfidence = async (base64Image: string, region: Region)
 
 export const analyzeDocumentStructure = async (base64Image: string): Promise<Region[]> => {
   return withRetry(async () => {
-    const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY);
+    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
     // Prompt optimizado - igual que la app IDP original que funciona perfectamente
     const prompt = `Analiza detalladamente este formulario. Localiza y extrae las coordenadas de TODOS los elementos interactivos:

@@ -39,7 +39,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const value = await withRetry(async () => {
-      const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY);
+      const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
       const isCheckbox = region?.type === 'box';
 
