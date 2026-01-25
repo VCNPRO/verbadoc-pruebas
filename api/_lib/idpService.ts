@@ -77,28 +77,28 @@ export const extractWithConfidence = async (base64Image: string, region: Region)
 export const analyzeDocumentStructure = async (base64Image: string): Promise<Region[]> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY);
-    const prompt = `Analiza este formulario/documento e identifica TODAS las áreas donde el usuario debe introducir información.
 
-INSTRUCCIONES CRÍTICAS para las coordenadas:
-- x: posición horizontal de la ESQUINA SUPERIOR IZQUIERDA del campo, en porcentaje (0-100) del ancho total de la imagen
-- y: posición vertical de la ESQUINA SUPERIOR IZQUIERDA del campo, en porcentaje (0-100) del alto total de la imagen
-- width: ancho del campo en porcentaje del ancho total de la imagen
-- height: alto del campo en porcentaje del alto total de la imagen
+    // Prompt optimizado - igual que la app IDP original que funciona perfectamente
+    const prompt = `Analiza detalladamente este formulario. Localiza y extrae las coordenadas de TODOS los elementos interactivos:
 
-TIPOS de campos:
-- "box": casillas de verificación, checkboxes, cuadrados para marcar
-- "field": campos de texto, líneas para escribir, espacios para rellenar
+1. Casillas de verificación ('box') - cualquier cuadrado, círculo o espacio para marcar
+2. Campos de entrada de texto ('field') - líneas, recuadros o espacios para escribir texto
 
 IMPORTANTE:
-- Sé MUY PRECISO con las coordenadas
-- El origen (0,0) está en la esquina SUPERIOR IZQUIERDA de la imagen
-- Incluye TODOS los campos visibles donde el usuario deba escribir o marcar algo
-- El label debe describir qué información va en ese campo`;
+- Detecta TODOS los campos, no solo los principales
+- Incluye campos pequeños como casillas de verificación individuales
+- Las coordenadas son en porcentaje (0-100) relativas al tamaño de la imagen
+- x,y = esquina superior izquierda del campo
+- Sé EXHAUSTIVO, es preferible detectar de más que de menos
+
+Retorna estrictamente un array JSON de objetos con: label (nombre descriptivo en español), type (box/field), x, y, width, height (porcentajes 0-100).`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
-      contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] },
-      config: { 
+      model: 'gemini-1.5-pro',  // Modelo PRO para máxima precisión en análisis de documentos
+      contents: {
+        parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }]
+      },
+      config: {
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -106,11 +106,11 @@ IMPORTANTE:
             type: Type.OBJECT,
             properties: {
               label: { type: Type.STRING },
-              type: { type: Type.STRING },
+              type: { type: Type.STRING, enum: ["box", "field"] },
               x: { type: Type.NUMBER },
               y: { type: Type.NUMBER },
               width: { type: Type.NUMBER },
-              height: { type: Type.NUMBER },
+              height: { type: Type.NUMBER }
             },
             required: ['label', 'type', 'x', 'y', 'width', 'height']
           }
@@ -123,7 +123,10 @@ IMPORTANTE:
       id: crypto.randomUUID(),
       label: item.label,
       type: (item.type === 'box' || item.type === 'checkbox') ? 'box' : 'field',
-      x: item.x, y: item.y, width: item.width, height: item.height,
+      x: Math.max(0, Math.min(100, item.x)),
+      y: Math.max(0, Math.min(100, item.y)),
+      width: Math.max(1, Math.min(100, item.width)),
+      height: Math.max(1, Math.min(100, item.height)),
     }));
   });
 };
