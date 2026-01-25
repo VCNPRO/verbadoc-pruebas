@@ -103,6 +103,12 @@ export default function TemplateEditorPage() {
   const dragOffset = useRef({ x: 0, y: 0 });
   const resizeStart = useRef({ x: 0, y: 0, width: 0, height: 0 });
 
+  // Coordenadas del cursor en tiempo real
+  const [cursorCoords, setCursorCoords] = useState<{ x: number; y: number } | null>(null);
+
+  // Panel de precisión visible
+  const [showPrecisionPanel, setShowPrecisionPanel] = useState(true);
+
   // Cargar plantillas desde la API al iniciar
   useEffect(() => {
     const init = async () => {
@@ -391,6 +397,47 @@ export default function TemplateEditorPage() {
     setSelectedRegionIds([id]);
   };
 
+  // Trackear coordenadas del cursor sobre el documento
+  const handleDocumentMouseMove = (e: React.MouseEvent) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setCursorCoords({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+  };
+
+  const handleDocumentMouseLeave = () => {
+    setCursorCoords(null);
+  };
+
+  // Actualizar propiedades de región con precisión
+  const updateRegionProperty = (regionId: string, property: keyof Region, value: number) => {
+    setEditorDoc(prev => prev ? {
+      ...prev,
+      regions: prev.regions.map(r => r.id === regionId ? { ...r, [property]: Math.max(0, Math.min(100, value)) } : r)
+    } : null);
+  };
+
+  // Seleccionar todas las regiones detectadas
+  const handleSelectAll = () => {
+    if (!editorDoc) return;
+    const currentPageRegions = editorDoc.regions.filter(r => r.pageIndex === currentPage);
+    setSelectedRegionIds(currentPageRegions.map(r => r.id));
+  };
+
+  // Toggle región como ancla
+  const toggleAnchor = (regionId: string) => {
+    setEditorDoc(prev => prev ? {
+      ...prev,
+      regions: prev.regions.map(r => r.id === regionId ? { ...r, isAnchor: !r.isAnchor } : r)
+    } : null);
+  };
+
+  // Obtener región seleccionada (para panel de precisión)
+  const selectedRegion = selectedRegionIds.length === 1
+    ? editorDoc?.regions.find(r => r.id === selectedRegionIds[0])
+    : null;
+
   if (isInitializing) return (
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center gap-6">
       <Loader2 className="animate-spin text-indigo-500" size={40} />
@@ -517,7 +564,10 @@ export default function TemplateEditorPage() {
 
                     <div className="p-6 flex justify-between items-center bg-slate-900/10">
                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2"><Layers size={14} className="text-indigo-500"/> Regiones de Datos</span>
-                       <button onClick={() => setEditorDoc(p => p ? {...p, regions: p.regions.filter(r => r.pageIndex !== currentPage)} : null)} className="text-slate-600 hover:text-red-400 p-1 transition-colors" title="Borrar mapeo de página"><Trash2 size={16}/></button>
+                       <div className="flex items-center gap-2">
+                         <button onClick={handleSelectAll} className="text-slate-600 hover:text-indigo-400 p-1 transition-colors" title="Seleccionar Todo"><CheckSquare size={16}/></button>
+                         <button onClick={() => setEditorDoc(p => p ? {...p, regions: p.regions.filter(r => r.pageIndex !== currentPage)} : null)} className="text-slate-600 hover:text-red-400 p-1 transition-colors" title="Borrar mapeo de página"><Trash2 size={16}/></button>
+                       </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-950/20">
@@ -573,6 +623,16 @@ export default function TemplateEditorPage() {
                         </div>
                         <button onClick={() => setZoom(prev => Math.min(4.0, prev + 0.1))} className="p-2 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-all"><ZoomIn size={20}/></button>
                       </div>
+                      {/* Coordenadas del cursor en tiempo real */}
+                      {cursorCoords && (
+                        <div className="flex items-center gap-4 border-l border-slate-800 pl-10">
+                          <div className="flex flex-col items-center">
+                            <span className="text-[12px] font-mono text-emerald-400">X: {cursorCoords.x.toFixed(1)}%</span>
+                            <span className="text-[12px] font-mono text-emerald-400">Y: {cursorCoords.y.toFixed(1)}%</span>
+                          </div>
+                          <span className="text-[8px] font-bold text-slate-500 uppercase">Cursor</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex-1 flex justify-center w-full min-h-full pb-32 mt-24">
@@ -581,6 +641,8 @@ export default function TemplateEditorPage() {
                         className="relative bg-white shadow-[0_40px_100px_rgba(0,0,0,0.6)] transition-all duration-300 ring-1 ring-white/10"
                         style={{ width: `${BASE_WIDTH * zoom}px` }}
                         onClick={() => setSelectedRegionIds([])}
+                        onMouseMove={handleDocumentMouseMove}
+                        onMouseLeave={handleDocumentMouseLeave}
                       >
                         <img src={editorDoc.previews[currentPage]} className="w-full h-auto select-none pointer-events-none brightness-[1.02] contrast-[1.05]" />
                         {editorDoc.regions.filter(r => r.pageIndex === currentPage).map(r => (
@@ -590,7 +652,8 @@ export default function TemplateEditorPage() {
                             className={`absolute border-2 transition-all cursor-move flex items-center justify-center ${selectedRegionIds.includes(r.id) ? 'border-indigo-600 bg-indigo-500/10 z-30 ring-4 ring-indigo-500/20' : r.type === 'box' ? 'border-blue-400/60 bg-blue-500/10 hover:border-blue-400 z-20' : 'border-emerald-400/60 bg-emerald-500/10 hover:border-emerald-400 z-20'}`}
                             style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.width}%`, height: `${r.height}%` }}
                           >
-                            <div className={`absolute -top-5 left-0 text-white text-[9px] font-black px-2 py-0.5 rounded-t-md uppercase select-none tracking-widest ${selectedRegionIds.includes(r.id) ? 'bg-indigo-600' : r.type === 'box' ? 'bg-blue-600/80' : 'bg-emerald-600/80'}`}>
+                            <div className={`absolute -top-5 left-0 text-white text-[9px] font-black px-2 py-0.5 rounded-t-md uppercase select-none tracking-widest flex items-center gap-1 ${selectedRegionIds.includes(r.id) ? 'bg-indigo-600' : r.isAnchor ? 'bg-amber-600' : r.type === 'box' ? 'bg-blue-600/80' : 'bg-emerald-600/80'}`}>
+                              {r.isAnchor && <span>⚓</span>}
                               {r.label}
                             </div>
                             {/* Tirador de Redimensionamiento */}
@@ -604,6 +667,99 @@ export default function TemplateEditorPage() {
                         ))}
                       </div>
                     </div>
+
+                    {/* Panel de Precisión Flotante */}
+                    {selectedRegion && showPrecisionPanel && (
+                      <div className="fixed right-8 top-40 w-72 bg-slate-900/95 backdrop-blur-xl border border-slate-800/50 rounded-3xl shadow-2xl z-[200] overflow-hidden">
+                        <div className="p-4 border-b border-slate-800/50 flex justify-between items-center">
+                          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.3em]">Ajuste de Precisión</span>
+                          <button onClick={() => setShowPrecisionPanel(false)} className="text-slate-600 hover:text-white p-1"><X size={16}/></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                          <div className="text-[11px] font-black text-white uppercase mb-3 truncate">{selectedRegion.label}</div>
+
+                          {/* Coordenadas X, Y */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">X (%)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="100"
+                                value={selectedRegion.x.toFixed(1)}
+                                onChange={(e) => updateRegionProperty(selectedRegion.id, 'x', parseFloat(e.target.value) || 0)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-[12px] font-mono focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Y (%)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="100"
+                                value={selectedRegion.y.toFixed(1)}
+                                onChange={(e) => updateRegionProperty(selectedRegion.id, 'y', parseFloat(e.target.value) || 0)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-[12px] font-mono focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Dimensiones W, H */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Ancho (%)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="1"
+                                max="100"
+                                value={selectedRegion.width.toFixed(1)}
+                                onChange={(e) => updateRegionProperty(selectedRegion.id, 'width', parseFloat(e.target.value) || 1)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-[12px] font-mono focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Alto (%)</label>
+                              <input
+                                type="number"
+                                step="0.1"
+                                min="1"
+                                max="100"
+                                value={selectedRegion.height.toFixed(1)}
+                                onChange={(e) => updateRegionProperty(selectedRegion.id, 'height', parseFloat(e.target.value) || 1)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-[12px] font-mono focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Tipo y Ancla */}
+                          <div className="grid grid-cols-2 gap-3 pt-2">
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Tipo</label>
+                              <select
+                                value={selectedRegion.type}
+                                onChange={(e) => setEditorDoc(prev => prev ? {...prev, regions: prev.regions.map(r => r.id === selectedRegion.id ? {...r, type: e.target.value as any} : r)} : null)}
+                                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white text-[11px] font-bold uppercase focus:border-indigo-500 focus:outline-none"
+                              >
+                                <option value="field">Campo</option>
+                                <option value="box">Casilla</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-1">Ancla</label>
+                              <button
+                                onClick={() => toggleAnchor(selectedRegion.id)}
+                                className={`w-full py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${selectedRegion.isAnchor ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-500 border border-slate-700 hover:border-amber-600'}`}
+                              >
+                                {selectedRegion.isAnchor ? '⚓ Activa' : 'Marcar'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
