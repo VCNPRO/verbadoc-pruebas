@@ -94,7 +94,7 @@ IMPORTANTE:
 Retorna estrictamente un array JSON de objetos con: label (nombre descriptivo en español), type (box/field), x, y, width, height (porcentajes 0-100).`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro',  // Modelo PRO para máxima precisión en análisis de documentos
+      model: 'gemini-2.0-flash',  // Modelo rápido con buena precisión
       contents: {
         parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }]
       },
