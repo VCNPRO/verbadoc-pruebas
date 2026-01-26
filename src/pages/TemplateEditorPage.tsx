@@ -677,7 +677,8 @@ export default function TemplateEditorPage() {
                     </div>
                     <button onClick={() => { setEditorDoc({ previews: t.pagePreviews || [], regions: t.regions, name: t.name }); setActiveTab('editor'); }} className="mt-auto w-full py-3 bg-slate-800 text-white text-[9px] font-black uppercase border border-slate-700 rounded-xl hover:bg-indigo-600 hover:border-indigo-500 transition-all tracking-widest">Cargar</button>
                   </div>
-                );}))
+                  );
+                })
               )}
             </div>
           ) : activeTab === 'batch' ? (
