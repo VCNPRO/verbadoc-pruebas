@@ -36,6 +36,7 @@ interface FormTemplate {
   totalHeight?: number;
   createdAt?: string;
   updatedAt?: string;
+  isActive?: boolean; // 🔥 Para marcar plantillas terminadas vs en desarrollo
 }
 
 interface BatchItem {
@@ -165,7 +166,8 @@ export default function TemplateEditorPage() {
           regions: t.regions || [],
           pagePreviews: t.page_previews || [],
           createdAt: t.created_at,
-          updatedAt: t.updated_at
+          updatedAt: t.updated_at,
+          isActive: t.is_active ?? true // 🔥 Incluir estado activo
         }));
         setTemplates(formatted);
       }
@@ -319,6 +321,31 @@ export default function TemplateEditorPage() {
     } catch (error) {
       console.error(error);
       showStatus("Error al eliminar", 'error');
+    }
+  };
+
+  // 🔥 Toggle activar/desactivar plantilla
+  const toggleTemplateActive = async (id: string, currentState: boolean) => {
+    try {
+      const res = await fetch(`/api/templates?id=${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !currentState })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Actualizar estado local inmediatamente
+        setTemplates(prev => prev.map(t =>
+          t.id === id ? { ...t, isActive: data.is_active } : t
+        ));
+        showStatus(data.is_active ? "✅ Plantilla ACTIVADA para extracción" : "⏸️ Plantilla desactivada", 'success');
+      } else {
+        showStatus("Error al cambiar estado", 'error');
+      }
+    } catch (error) {
+      console.error(error);
+      showStatus("Error de conexión", 'error');
     }
   };
 
@@ -667,20 +694,43 @@ export default function TemplateEditorPage() {
                     day: '2-digit', month: '2-digit', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                   }) : 'Sin fecha';
+                  const isActive = t.isActive !== false; // Por defecto true
                   return (
-                  <div key={t.id} className="p-6 bg-slate-900/40 border border-slate-800 rounded-2xl shadow-2xl hover:border-indigo-500/50 transition-all group flex flex-col gap-4 backdrop-blur-sm">
-                    <div className="flex justify-between items-start">
+                  <div key={t.id} className={`p-6 bg-slate-900/40 border rounded-2xl shadow-2xl transition-all group flex flex-col gap-4 backdrop-blur-sm ${isActive ? 'border-emerald-500/50 hover:border-emerald-400' : 'border-slate-800 hover:border-slate-600 opacity-60'}`}>
+                    {/* Header con nombre y acciones */}
+                    <div className="flex justify-between items-start gap-2">
                       <h3 className="text-[13px] font-black text-white uppercase tracking-tight leading-tight flex-1">{t.name}</h3>
-                      <button onClick={() => deleteTemplate(t.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1"><Trash2 size={16}/></button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => deleteTemplate(t.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1" title="Eliminar"><Trash2 size={16}/></button>
+                      </div>
                     </div>
+
+                    {/* Badge de estado ACTIVA/EN DESARROLLO */}
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => toggleTemplateActive(t.id, isActive)}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${
+                          isActive
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 hover:bg-emerald-500/30'
+                            : 'bg-slate-700/50 text-slate-500 border border-slate-600 hover:bg-slate-600/50'
+                        }`}
+                        title={isActive ? 'Click para desactivar' : 'Click para activar'}
+                      >
+                        {isActive ? '✓ ACTIVA' : '⏸ EN DESARROLLO'}
+                      </button>
+                    </div>
+
+                    {/* Info: campos y fecha */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 font-black text-xs">{t.regions.length}</div>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${isActive ? 'bg-emerald-900/50 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>{t.regions.length}</div>
                         <span className="text-[9px] text-slate-500 font-bold uppercase">campos</span>
                       </div>
-                      <span className="text-[9px] text-emerald-400/70 font-mono">{fechaFormateada}</span>
+                      <span className="text-[9px] text-slate-500 font-mono">{fechaFormateada}</span>
                     </div>
-                    <button onClick={() => { setEditorDoc({ previews: t.pagePreviews || [], regions: t.regions, name: t.name }); setActiveTab('editor'); }} className="mt-auto w-full py-3 bg-slate-800 text-white text-[9px] font-black uppercase border border-slate-700 rounded-xl hover:bg-indigo-600 hover:border-indigo-500 transition-all tracking-widest">Cargar</button>
+
+                    {/* Botón cargar */}
+                    <button onClick={() => { setEditorDoc({ previews: t.pagePreviews || [], regions: t.regions, name: t.name }); setActiveTab('editor'); }} className="mt-auto w-full py-3 bg-slate-800 text-white text-[9px] font-black uppercase border border-slate-700 rounded-xl hover:bg-indigo-600 hover:border-indigo-500 transition-all tracking-widest">Cargar en Editor</button>
                   </div>
                   );
                 })

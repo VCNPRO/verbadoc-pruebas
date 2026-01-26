@@ -25,7 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -36,14 +36,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       const templates = await sql`
-        SELECT id, name, description, regions, page_previews, created_at, updated_at
+        SELECT id, name, description, regions, page_previews, is_active, created_at, updated_at
         FROM form_templates
         WHERE user_id = ${user.userId} OR (client_id IS NOT NULL AND client_id = ${user.clientId})
-        ORDER BY created_at DESC
+        ORDER BY is_active DESC, created_at DESC
       `;
       return res.status(200).json(templates.rows);
     } catch (error: any) {
       return res.status(500).json({ error: 'Error al obtener plantillas', message: error.message });
+    }
+  }
+
+  // PATCH /api/templates?id=xxx - Activar/desactivar plantilla
+  if (req.method === 'PATCH') {
+    try {
+      const { id } = req.query;
+      const { is_active } = req.body;
+
+      if (!id || typeof id !== 'string') {
+        return res.status(400).json({ error: 'Se requiere el ID de la plantilla' });
+      }
+      if (typeof is_active !== 'boolean') {
+        return res.status(400).json({ error: 'Se requiere is_active (boolean)' });
+      }
+
+      const result = await sql`
+        UPDATE form_templates
+        SET is_active = ${is_active}, updated_at = NOW()
+        WHERE id = ${id}
+          AND (user_id = ${user.userId} OR 'admin' = ${user.role})
+        RETURNING id, name, is_active
+      `;
+
+      if (result.rowCount === 0) {
+        return res.status(404).json({ error: 'Plantilla no encontrada o sin permisos' });
+      }
+
+      const template = result.rows[0];
+      console.log(`📋 Plantilla "${template.name}" ${template.is_active ? 'ACTIVADA' : 'DESACTIVADA'}`);
+      return res.status(200).json(template);
+    } catch (error: any) {
+      return res.status(500).json({ error: 'Error al actualizar plantilla', message: error.message });
     }
   }
 
