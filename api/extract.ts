@@ -71,7 +71,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    let mimeType = 'image/jpeg';
+    // 🔥 NUEVO: Si aún no hay datos, buscar en formato Vertex AI / Gemini
+    // Formato: { contents: { parts: [{ inlineData: { mimeType, data } }] } }
+    // O también: { contents: [{ parts: [{ inlineData: { mimeType, data } }] }] }
+    let detectedMimeType: string | null = null;
+
+    if (!base64Data && req.body.contents) {
+      console.log("   🔍 Detectado formato Vertex AI/Gemini, buscando en contents...");
+      try {
+        const contents = req.body.contents;
+        // contents puede ser un objeto o un array
+        const partsContainer = Array.isArray(contents) ? contents[0] : contents;
+        const parts = partsContainer?.parts || partsContainer;
+
+        if (Array.isArray(parts)) {
+          for (const part of parts) {
+            if (part?.inlineData?.data) {
+              base64Data = part.inlineData.data;
+              foundField = 'contents.parts[].inlineData.data';
+              // También extraer el mimeType si viene
+              if (part.inlineData.mimeType) {
+                detectedMimeType = part.inlineData.mimeType;
+                console.log(`   📎 MimeType del request: ${detectedMimeType}`);
+              }
+              console.log(`   ✅ Extraído base64 de formato Vertex AI (${base64Data.length} chars)`);
+              break;
+            }
+          }
+        }
+      } catch (parseError) {
+        console.log("   ⚠️ Error parseando formato Vertex AI:", parseError);
+      }
+    }
+
+    // Usar el mimeType detectado del request Vertex AI, o detectar automáticamente
+    let mimeType = detectedMimeType || 'image/jpeg';
 
     if (!base64Data) {
       console.log("❌ Petición sin datos válidos. Body vacío o campos no reconocidos.");
@@ -87,24 +121,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log(`✅ Datos encontrados en campo "${foundField}", tamaño: ${base64Data.length} chars`);
 
-    // Detectar si es PDF o imagen basándose en el contenido base64
-    // PDF base64 empieza con "JVBERi" (que es "%PDF-" en base64)
-    if (base64Data.startsWith('JVBERi') || base64Data.startsWith('data:application/pdf')) {
-      mimeType = 'application/pdf';
-      // Limpiar prefijo data URL si existe
+    // Solo detectar automáticamente si no vino el mimeType del request Vertex AI
+    if (!detectedMimeType) {
+      // Detectar si es PDF o imagen basándose en el contenido base64
+      // PDF base64 empieza con "JVBERi" (que es "%PDF-" en base64)
+      if (base64Data.startsWith('JVBERi') || base64Data.startsWith('data:application/pdf')) {
+        mimeType = 'application/pdf';
+        // Limpiar prefijo data URL si existe
+        if (base64Data.includes(',')) {
+          base64Data = base64Data.split(',')[1];
+        }
+        console.log("📄 Detectado automáticamente: PDF");
+      } else {
+        // Limpiar prefijo data URL si existe
+        if (base64Data.includes(',')) {
+          const parts = base64Data.split(',');
+          if (parts[0].includes('image/png')) mimeType = 'image/png';
+          else if (parts[0].includes('image/jpeg') || parts[0].includes('image/jpg')) mimeType = 'image/jpeg';
+          base64Data = parts[1];
+        }
+        console.log("🖼️ Detectado automáticamente: Imagen");
+      }
+    } else {
+      // Limpiar prefijo data URL si existe (aunque venga el mimeType de Vertex AI)
       if (base64Data.includes(',')) {
         base64Data = base64Data.split(',')[1];
       }
-      console.log("📄 Detectado: PDF");
-    } else {
-      // Limpiar prefijo data URL si existe
-      if (base64Data.includes(',')) {
-        const parts = base64Data.split(',');
-        if (parts[0].includes('image/png')) mimeType = 'image/png';
-        else if (parts[0].includes('image/jpeg') || parts[0].includes('image/jpg')) mimeType = 'image/jpeg';
-        base64Data = parts[1];
-      }
-      console.log("🖼️ Detectado: Imagen");
+      console.log(`📎 Usando mimeType del request: ${mimeType}`);
     }
 
     // Usar base64Data como la variable para el resto del flujo
@@ -172,10 +215,13 @@ CASILLAS DE VERIFICACIÓN A DETECTAR (${checkboxes.length} casillas):
 ${checkboxList}
 
 INSTRUCCIONES:
-1. Para campos de texto: Extrae el valor escrito/impreso. Si está vacío, usa "".
+1. Para campos de texto: Extrae el valor escrito/impreso EXACTAMENTE como aparece. Si está vacío, usa "".
 2. Para casillas: Responde "[X]" si está marcada, "[ ]" si está vacía.
 3. Las coordenadas X/Y son porcentajes desde la esquina superior izquierda.
 4. IMPORTANTE: Revisa AMBAS páginas del documento.
+5. 🔥 CRÍTICO - Nº EXPEDIENTE: Los números de expediente pueden tener 1-2 LETRAS al final (ej: "F240012AB", "F230045XY").
+   SIEMPRE incluye las letras finales si existen. NO las omitas ni las confundas con otros caracteres.
+6. Extrae TODOS los caracteres alfanuméricos de cada campo, incluyendo letras mayúsculas y minúsculas.
 
 Responde en JSON con este formato exacto:
 {

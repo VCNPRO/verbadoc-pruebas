@@ -25,7 +25,8 @@ const VERIFICATION_PROMPT = `VERIFICACIÓN DE DATOS CRÍTICOS - FORMULARIO FUNDA
 
 Lee el documento y extrae ÚNICAMENTE estos 4 campos. NO INVENTES DATOS.
 
-1. numero_expediente: El código de expediente (formato F24XXXX o similar). Busca en la parte superior.
+1. numero_expediente: El código de expediente. Formato: letra + dígitos + OPCIONALMENTE 1-2 letras al final.
+   Ejemplos válidos: "F240012", "F240012AB", "F230045XY". SIEMPRE incluye las letras finales si existen.
 2. numero_accion: El número de la acción formativa. Un número simple.
 3. numero_grupo: El número del grupo. Un número simple.
 4. cif_empresa: El CIF/NIF de la empresa. Formato: letra + 8 dígitos.
@@ -34,6 +35,7 @@ IMPORTANTE:
 - Si un campo NO es visible o legible, devuelve null
 - NO adivines, NO completes datos
 - Solo extrae lo que puedes leer claramente
+- 🔥 CRÍTICO: El expediente puede tener LETRAS al final, NO las omitas
 
 Responde SOLO con JSON:
 {

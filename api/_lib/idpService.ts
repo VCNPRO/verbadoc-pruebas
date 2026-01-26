@@ -193,11 +193,26 @@ export const extractWithConfidence = async (base64Image: string, region: Region,
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    const prompt = region.type === 'box'
-      ? `VISIÓN CRÍTICA: Analiza el recuadro. ¿Hay una marca deliberada (X, ✓, raya)?
+    // Determinar si es un campo de expediente por su label
+    const labelLower = (region.label || '').toLowerCase();
+    const isExpedienteField = labelLower.includes('expediente') || labelLower.includes('exp');
+
+    let prompt: string;
+    if (region.type === 'box') {
+      prompt = `VISIÓN CRÍTICA: Analiza el recuadro. ¿Hay una marca deliberada (X, ✓, raya)?
          Ignora bordes del cuadro o motas de polvo.
-         Responde "[X]" si está marcada, "[ ]" si está vacía.`
-      : `Extrae el texto manuscrito o impreso. Si no hay nada, responde "N/A".`;
+         Responde "[X]" si está marcada, "[ ]" si está vacía.`;
+    } else if (isExpedienteField) {
+      // Prompt específico para campos de expediente
+      prompt = `Extrae el código de expediente EXACTAMENTE como aparece.
+         🔥 CRÍTICO: Los expedientes pueden tener 1-2 LETRAS al final (ej: "F240012AB", "F230045XY").
+         SIEMPRE incluye TODAS las letras y números. NO omitas letras finales.
+         Si no hay nada, responde "N/A".`;
+    } else {
+      prompt = `Extrae el texto manuscrito o impreso EXACTAMENTE como aparece.
+         Incluye TODOS los caracteres alfanuméricos (letras y números).
+         Si no hay nada, responde "N/A".`;
+    }
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
