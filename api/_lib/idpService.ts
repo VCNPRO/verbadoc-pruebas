@@ -118,12 +118,11 @@ FORMATO DE LABELS:
 Responde SOLO con el JSON array, sin explicaciones.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-2.0-flash',
       contents: {
         parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }]
       },
       config: {
-        temperature: 0.1, // Baja temperatura para respuestas más precisas
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
