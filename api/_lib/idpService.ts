@@ -78,56 +78,52 @@ export const analyzeDocumentStructure = async (base64Image: string): Promise<Reg
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    const prompt = `TAREA: Detectar TODOS los campos rellenables de este formulario con coordenadas PRECISAS.
+    // Prompt optimizado para detección precisa de bounding boxes
+    const prompt = `Eres un experto en análisis de formularios. Analiza esta imagen de formulario y detecta TODOS los campos rellenables.
 
-⚠️ SISTEMA DE COORDENADAS - MUY IMPORTANTE:
-- Coordenadas en PORCENTAJE de 0 a 100
-- x=0 es el borde IZQUIERDO de la imagen
-- x=100 es el borde DERECHO de la imagen
-- y=0 es el borde SUPERIOR de la imagen (la primera línea de contenido suele estar en y=5-10)
-- y=100 es el borde INFERIOR de la imagen (la última línea suele estar en y=90-95)
+INSTRUCCIONES DE COORDENADAS:
+Las coordenadas deben ser en porcentaje (0-100) de la imagen completa:
+- x: posición horizontal (0=izquierda, 100=derecha)
+- y: posición vertical (0=arriba, 100=abajo)
+- width: ancho del elemento
+- height: alto del elemento
 
-CALIBRACIÓN:
-- Si el documento tiene margen superior, el primer elemento estará aproximadamente en y=5-15
-- Si el documento tiene margen inferior, el último elemento estará aproximadamente en y=85-95
-- Un documento A4 típico tiene contenido entre y=5 y y=95
+MIDE CON PRECISIÓN mirando la posición real de cada elemento en la imagen.
 
-ELEMENTOS A DETECTAR:
+DETECTAR OBLIGATORIAMENTE:
 
-1. 'box' - CASILLAS DE VERIFICACIÓN (PRIORIDAD ALTA):
-   - Cuadrados pequeños vacíos para marcar con X o ✓
-   - Busca TODAS las casillas en escalas: NC/1/2/3/4, Sí/No, Hombre/Mujer
-   - Tamaño típico: width=1.5-2.5, height=1.5-2.5
-   - IMPORTANTE: Detecta CADA casilla individual, no grupos
-   - Label formato: "p1_nc", "p1_1", "p1_2", "p1_3", "p1_4" para pregunta 1 opciones NC,1,2,3,4
+A) CAMPOS DE TEXTO (type="field"):
+- Campo "Nº de expediente" - línea para escribir número
+- Campo "Denominación de la acción" - espacio para texto
+- Campo "Nombre y apellidos del participante" - línea larga
+- Campo "DNI/NIE" - espacio pequeño
+- Campo "Fecha de nacimiento" - espacio para fecha
+- Campo "Teléfono" - espacio para número
+- Campo de firma - recuadro grande al final
+- Campo de fecha de firma
+- Cualquier otro espacio subrayado o recuadro vacío para escribir
 
-2. 'field' - CAMPOS DE TEXTO:
-   - Líneas o recuadros donde escribir: nombre, DNI, fecha, firma
-   - Espacios subrayados o punteados
-   - Label: "nombre", "dni", "fecha_nacimiento", "firma", etc.
+B) CASILLAS DE VERIFICACIÓN (type="box"):
+- Casillas de Sexo: Hombre/Mujer
+- Casillas de categoría profesional
+- Casillas de nivel de estudios
+- Casillas de satisfacción/valoración (escalas 1-4 o NC/1/2/3/4)
+- DETECTA CADA CASILLA INDIVIDUAL con su label único
 
-IMPORTANTE - NO detectar:
-- Texto impreso (títulos, instrucciones, preguntas)
-- Solo detecta los ESPACIOS VACÍOS para rellenar
+FORMATO DE LABELS:
+- Campos: "expediente", "denominacion", "nombre_apellidos", "dni", "fecha_nac", "telefono", "firma", "fecha_firma"
+- Casillas sexo: "sexo_hombre", "sexo_mujer"
+- Casillas escala: "p1_1", "p1_2", "p1_3", "p1_4" (pregunta_opción)
 
-EJEMPLO para formulario de evaluación con preguntas 1-26 y escala NC/1/2/3/4:
-[
-  {"label": "expediente", "type": "field", "x": 20, "y": 8, "width": 15, "height": 2},
-  {"label": "p1_nc", "type": "box", "x": 65, "y": 32, "width": 2, "height": 2},
-  {"label": "p1_1", "type": "box", "x": 70, "y": 32, "width": 2, "height": 2},
-  {"label": "p1_2", "type": "box", "x": 75, "y": 32, "width": 2, "height": 2},
-  {"label": "p1_3", "type": "box", "x": 80, "y": 32, "width": 2, "height": 2},
-  {"label": "p1_4", "type": "box", "x": 85, "y": 32, "width": 2, "height": 2}
-]
-
-Devuelve JSON array con TODAS las casillas y campos del formulario.`;
+Responde SOLO con el JSON array, sin explicaciones.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-1.5-pro',
       contents: {
         parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }]
       },
       config: {
+        temperature: 0.1, // Baja temperatura para respuestas más precisas
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -149,7 +145,9 @@ Devuelve JSON array con TODAS las casillas y campos del formulario.`;
 
     const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
 
-    console.log(`📊 Detectados ${data.length} elementos. Primeros 3:`, data.slice(0, 3));
+    console.log(`📊 Detectados ${data.length} elementos`);
+    console.log(`   - Fields: ${data.filter((d:any) => d.type === 'field').length}`);
+    console.log(`   - Boxes: ${data.filter((d:any) => d.type === 'box').length}`);
 
     // Validar rangos y crear regiones
     return data.map((item: any) => ({
@@ -158,8 +156,8 @@ Devuelve JSON array con TODAS las casillas y campos del formulario.`;
       type: item.type === 'box' ? 'box' : 'field',
       x: Math.max(0, Math.min(100, item.x)),
       y: Math.max(0, Math.min(100, item.y)),
-      width: Math.max(1, Math.min(50, item.width)),
-      height: Math.max(1, Math.min(20, item.height)),
+      width: Math.max(1, Math.min(80, item.width)),
+      height: Math.max(1, Math.min(30, item.height)),
     }));
   });
 };
