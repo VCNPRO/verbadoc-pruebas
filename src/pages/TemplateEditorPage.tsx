@@ -649,16 +649,22 @@ export default function TemplateEditorPage() {
                       )}
                     </div>
 
-                    <div className="flex-1 flex justify-center w-full min-h-full pb-32 mt-24">
+                    <div className="flex-1 flex justify-center items-start w-full pb-32 mt-24">
                       <div
                         ref={containerRef}
-                        className="relative bg-white shadow-[0_40px_100px_rgba(0,0,0,0.6)] transition-all duration-300 ring-1 ring-white/10"
+                        className="relative bg-white shadow-[0_40px_100px_rgba(0,0,0,0.6)] transition-all duration-300 ring-1 ring-white/10 h-fit"
                         style={{ width: `${BASE_WIDTH * zoom}px` }}
                         onClick={() => setSelectedRegionIds([])}
                         onMouseMove={handleDocumentMouseMove}
                         onMouseLeave={handleDocumentMouseLeave}
                       >
-                        <img ref={imageRef} src={editorDoc.previews[currentPage]} className="w-full h-auto select-none pointer-events-none brightness-[1.02] contrast-[1.05]" />
+                        <img
+                          ref={imageRef}
+                          src={editorDoc.previews[currentPage]}
+                          className="w-full select-none brightness-[1.02] contrast-[1.05]"
+                          style={{ display: 'block', pointerEvents: 'none' }}
+                          draggable={false}
+                        />
                         {editorDoc.regions.filter(r => r.pageIndex === currentPage).map((r, index) => {
                           const isSelected = selectedRegionIds.includes(r.id);
                           // Z-index: seleccionados siempre encima, luego por posición Y invertida
