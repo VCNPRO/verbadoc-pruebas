@@ -726,37 +726,28 @@ export default function TemplateEditorPage() {
 
                   {/* Visor de Documentos */}
                   <div className="flex-1 bg-slate-950 overflow-auto flex flex-col items-center relative p-12 custom-scrollbar">
-                    {/* Barra HUD Flotante */}
-                    <div className="fixed top-24 bg-slate-900/80 backdrop-blur-2xl border border-slate-800/50 px-6 py-4 rounded-3xl z-[100] flex items-center gap-10 shadow-[0_30px_60px_rgba(0,0,0,0.5)] border-t border-slate-700/30 animate-in slide-in-from-top-4">
-                      <div className="flex items-center gap-6 border-r border-slate-800 pr-10">
-                        <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="p-2 disabled:opacity-10 hover:bg-slate-800 rounded-xl text-white transition-all active:scale-90"><ChevronLeft size={24}/></button>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[14px] font-black text-indigo-400 tracking-[0.3em]">{currentPage + 1} / {editorDoc.previews.length}</span>
-                          <span className="text-[8px] font-bold text-slate-500 uppercase">Página</span>
-                        </div>
-                        <button onClick={() => setCurrentPage(p => Math.min(editorDoc.previews.length - 1, p + 1))} disabled={currentPage === editorDoc.previews.length - 1} className="p-2 disabled:opacity-10 hover:bg-slate-800 rounded-xl text-white transition-all active:scale-90"><ChevronRight size={24}/></button>
+                    {/* Barra HUD Compacta - Esquina inferior izquierda */}
+                    <div className="fixed bottom-4 left-24 bg-slate-900/90 backdrop-blur-xl border border-slate-700/50 px-3 py-2 rounded-xl z-[100] flex items-center gap-4 shadow-lg text-xs">
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setCurrentPage(p => Math.max(0, p - 1))} disabled={currentPage === 0} className="p-1 disabled:opacity-20 hover:bg-slate-800 rounded text-white transition-all"><ChevronLeft size={16}/></button>
+                        <span className="text-indigo-400 font-bold min-w-[40px] text-center">{currentPage + 1}/{editorDoc.previews.length}</span>
+                        <button onClick={() => setCurrentPage(p => Math.min(editorDoc.previews.length - 1, p + 1))} disabled={currentPage === editorDoc.previews.length - 1} className="p-1 disabled:opacity-20 hover:bg-slate-800 rounded text-white transition-all"><ChevronRight size={16}/></button>
                       </div>
-                      <div className="flex items-center gap-6">
-                        <button onClick={() => setZoom(prev => Math.max(0.4, prev - 0.1))} className="p-2 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-all"><ZoomOut size={20}/></button>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[12px] font-black text-white w-14 text-center">{Math.round(zoom * 100)}%</span>
-                          <span className="text-[8px] font-bold text-slate-500 uppercase">Escala</span>
-                        </div>
-                        <button onClick={() => setZoom(prev => Math.min(4.0, prev + 0.1))} className="p-2 hover:bg-slate-800 rounded-xl text-slate-500 hover:text-white transition-all"><ZoomIn size={20}/></button>
+                      <div className="w-px h-4 bg-slate-700"/>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setZoom(prev => Math.max(0.4, prev - 0.1))} className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-all"><ZoomOut size={14}/></button>
+                        <span className="text-white font-bold min-w-[36px] text-center">{Math.round(zoom * 100)}%</span>
+                        <button onClick={() => setZoom(prev => Math.min(4.0, prev + 0.1))} className="p-1 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-all"><ZoomIn size={14}/></button>
                       </div>
-                      {/* Coordenadas del cursor en tiempo real */}
                       {cursorCoords && (
-                        <div className="flex items-center gap-4 border-l border-slate-800 pl-10">
-                          <div className="flex flex-col items-center">
-                            <span className="text-[12px] font-mono text-emerald-400">X: {cursorCoords.x.toFixed(1)}%</span>
-                            <span className="text-[12px] font-mono text-emerald-400">Y: {cursorCoords.y.toFixed(1)}%</span>
-                          </div>
-                          <span className="text-[8px] font-bold text-slate-500 uppercase">Cursor</span>
-                        </div>
+                        <>
+                          <div className="w-px h-4 bg-slate-700"/>
+                          <span className="font-mono text-emerald-400">X:{cursorCoords.x.toFixed(1)} Y:{cursorCoords.y.toFixed(1)}</span>
+                        </>
                       )}
                     </div>
 
-                    <div className="flex-1 flex justify-center items-start w-full pb-32 mt-24">
+                    <div className="flex-1 flex justify-center items-start w-full pb-16 pt-4">
                       <div
                         ref={containerRef}
                         className="relative bg-white shadow-[0_40px_100px_rgba(0,0,0,0.6)] transition-all duration-300 ring-1 ring-white/10 h-fit"
