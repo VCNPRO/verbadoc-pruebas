@@ -27,18 +27,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    // Aceptar múltiples formatos: base64Image, file, pdfBase64
-    let base64Data = req.body.base64Image || req.body.file || req.body.pdfBase64 || req.body.base64;
+    // DEBUG: Log completo del body recibido
+    const bodyKeys = Object.keys(req.body || {});
+    console.log(`📥 /api/extract recibido - Keys: [${bodyKeys.join(', ')}]`);
+
+    // Mostrar tamaño de cada campo (sin el contenido completo)
+    for (const key of bodyKeys) {
+      const value = req.body[key];
+      const size = typeof value === 'string' ? value.length : JSON.stringify(value).length;
+      console.log(`   - ${key}: ${typeof value}, ${size} chars`);
+    }
+
+    // Aceptar múltiples formatos: base64Image, file, pdfBase64, base64, image, data
+    let base64Data = req.body.base64Image || req.body.file || req.body.pdfBase64 || req.body.base64 || req.body.image || req.body.data;
     let mimeType = 'image/jpeg';
 
     if (!base64Data) {
-      console.log("❌ Petición sin datos. Body recibido:", Object.keys(req.body || {}));
+      console.log("❌ Petición sin datos válidos. Body vacío o campos no reconocidos.");
+      console.log("   Campos recibidos:", bodyKeys);
       return res.status(400).json({
-        error: 'Falta el campo requerido: base64Image, file, pdfBase64 o base64',
-        receivedFields: Object.keys(req.body || {}),
-        hint: 'Envía el documento como base64 (imagen o PDF)'
+        error: 'Falta el campo requerido',
+        receivedFields: bodyKeys,
+        expectedFields: ['base64Image', 'file', 'pdfBase64', 'base64', 'image', 'data'],
+        hint: 'Envía el documento como base64 en uno de los campos esperados'
       });
     }
+
+    console.log(`✅ Datos encontrados en campo, tamaño: ${base64Data.length} chars`);
 
     // Detectar si es PDF o imagen basándose en el contenido base64
     // PDF base64 empieza con "JVBERi" (que es "%PDF-" en base64)
