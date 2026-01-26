@@ -78,44 +78,48 @@ export const analyzeDocumentStructure = async (base64Image: string): Promise<Reg
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    // Prompt optimizado para detección precisa de bounding boxes
-    const prompt = `Eres un experto en análisis de formularios. Analiza esta imagen de formulario y detecta TODOS los campos rellenables.
+    // Prompt optimizado para formularios FUNDAE
+    const prompt = `Analiza este formulario y detecta TODOS los elementos rellenables con coordenadas EXACTAS en porcentaje (0-100).
 
-INSTRUCCIONES DE COORDENADAS:
-Las coordenadas deben ser en porcentaje (0-100) de la imagen completa:
-- x: posición horizontal (0=izquierda, 100=derecha)
-- y: posición vertical (0=arriba, 100=abajo)
-- width: ancho del elemento
-- height: alto del elemento
+COORDENADAS:
+- x: porcentaje desde la izquierda (0=izquierda, 100=derecha)
+- y: porcentaje desde arriba (0=arriba, 100=abajo)
+- width/height: tamaño en porcentaje
 
-MIDE CON PRECISIÓN mirando la posición real de cada elemento en la imagen.
+DETECTAR TODO:
 
-DETECTAR OBLIGATORIAMENTE:
+1. CASILLAS DE VERIFICACIÓN (type="box"):
+   - Cuadrados pequeños para marcar (típico: width=2, height=2)
+   - Escalas de valoración 1, 2, 3, 4
+   - Opciones Sí/No
+   - Opciones de selección única
+   - IMPORTANTE: Detecta CADA casilla por separado
+   - Label: "p1_1", "p1_2", "p1_3", "p1_4" para pregunta 1 opciones 1-4
+   - Label: "p8_si", "p8_no" para preguntas Sí/No
 
-A) CAMPOS DE TEXTO (type="field"):
-- Campo "Nº de expediente" - línea para escribir número
-- Campo "Denominación de la acción" - espacio para texto
-- Campo "Nombre y apellidos del participante" - línea larga
-- Campo "DNI/NIE" - espacio pequeño
-- Campo "Fecha de nacimiento" - espacio para fecha
-- Campo "Teléfono" - espacio para número
-- Campo de firma - recuadro grande al final
-- Campo de fecha de firma
-- Cualquier otro espacio subrayado o recuadro vacío para escribir
+2. CAMPOS DE TEXTO (type="field"):
+   - Líneas para escribir texto
+   - Espacios para fechas
+   - Recuadros vacíos para datos
+   - Label descriptivo: "fecha", "firma", "observaciones"
 
-B) CASILLAS DE VERIFICACIÓN (type="box"):
-- Casillas de Sexo: Hombre/Mujer
-- Casillas de categoría profesional
-- Casillas de nivel de estudios
-- Casillas de satisfacción/valoración (escalas 1-4 o NC/1/2/3/4)
-- DETECTA CADA CASILLA INDIVIDUAL con su label único
+ESCANEA TODA LA IMAGEN:
+- Recorre de arriba a abajo
+- Detecta TODAS las filas con casillas
+- Si hay una tabla con preguntas y casillas, detecta CADA fila
+- Mide la posición Y de cada fila con precisión
 
-FORMATO DE LABELS:
-- Campos: "expediente", "denominacion", "nombre_apellidos", "dni", "fecha_nac", "telefono", "firma", "fecha_firma"
-- Casillas sexo: "sexo_hombre", "sexo_mujer"
-- Casillas escala: "p1_1", "p1_2", "p1_3", "p1_4" (pregunta_opción)
+EJEMPLO de salida para un formulario con 3 preguntas escala 1-4:
+[
+  {"label":"p1_1","type":"box","x":82,"y":20,"width":2,"height":2},
+  {"label":"p1_2","type":"box","x":85,"y":20,"width":2,"height":2},
+  {"label":"p1_3","type":"box","x":88,"y":20,"width":2,"height":2},
+  {"label":"p1_4","type":"box","x":91,"y":20,"width":2,"height":2},
+  {"label":"p2_1","type":"box","x":82,"y":25,"width":2,"height":2},
+  ...
+]
 
-Responde SOLO con el JSON array, sin explicaciones.`;
+Devuelve JSON array con TODOS los elementos.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
