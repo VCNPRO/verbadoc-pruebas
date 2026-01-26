@@ -110,14 +110,44 @@ export default function TemplateEditorPage() {
   // Panel de precisión visible
   const [showPrecisionPanel, setShowPrecisionPanel] = useState(true);
 
-  // Cargar plantillas desde la API al iniciar
+  // Indicador de auto-guardado
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | null>(null);
+
+  // Cargar plantillas desde la API y trabajo guardado localmente
   useEffect(() => {
     const init = async () => {
       await fetchTemplates();
+
+      // Recuperar trabajo guardado en localStorage
+      const savedWork = localStorage.getItem('verbadoc_draft');
+      if (savedWork) {
+        try {
+          const parsed = JSON.parse(savedWork);
+          if (parsed.regions && parsed.regions.length > 0) {
+            setEditorDoc(parsed);
+            setAutoSaveStatus('saved');
+          }
+        } catch (e) {
+          console.error('Error loading saved work:', e);
+        }
+      }
+
       setIsInitializing(false);
     };
     init();
   }, []);
+
+  // Auto-guardar en localStorage cuando cambian las regiones
+  useEffect(() => {
+    if (editorDoc && editorDoc.regions.length > 0) {
+      setAutoSaveStatus('saving');
+      const timeout = setTimeout(() => {
+        localStorage.setItem('verbadoc_draft', JSON.stringify(editorDoc));
+        setAutoSaveStatus('saved');
+      }, 500); // Debounce de 500ms
+      return () => clearTimeout(timeout);
+    }
+  }, [editorDoc]);
 
   const fetchTemplates = async () => {
     try {
@@ -745,6 +775,27 @@ export default function TemplateEditorPage() {
                           <span className="font-mono text-emerald-400">X:{cursorCoords.x.toFixed(1)} Y:{cursorCoords.y.toFixed(1)}</span>
                         </>
                       )}
+                      {autoSaveStatus && (
+                        <>
+                          <div className="w-px h-4 bg-slate-700"/>
+                          <span className={`${autoSaveStatus === 'saving' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {autoSaveStatus === 'saving' ? '💾 Guardando...' : '✓ Auto-guardado'}
+                          </span>
+                        </>
+                      )}
+                      <button
+                        onClick={() => {
+                          if (confirm('¿Borrar todo el trabajo actual?')) {
+                            localStorage.removeItem('verbadoc_draft');
+                            setEditorDoc(null);
+                            setAutoSaveStatus(null);
+                          }
+                        }}
+                        className="p-1 hover:bg-red-900/50 rounded text-slate-500 hover:text-red-400 transition-all"
+                        title="Limpiar borrador"
+                      >
+                        <Trash2 size={14}/>
+                      </button>
                     </div>
 
                     <div className="flex-1 flex justify-center items-start w-full pb-16 pt-4">
