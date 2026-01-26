@@ -81,45 +81,46 @@ export const analyzeDocumentStructure = async (base64Image: string): Promise<Reg
     // Prompt optimizado para formularios FUNDAE
     const prompt = `Analiza este formulario y detecta TODOS los elementos rellenables con coordenadas EXACTAS en porcentaje (0-100).
 
-COORDENADAS:
-- x: porcentaje desde la izquierda (0=izquierda, 100=derecha)
-- y: porcentaje desde arriba (0=arriba, 100=abajo)
+COORDENADAS (0-100):
+- x: porcentaje desde la izquierda
+- y: porcentaje desde arriba
 - width/height: tamaño en porcentaje
 
-DETECTAR TODO:
+DETECTAR OBLIGATORIAMENTE:
 
-1. CASILLAS DE VERIFICACIÓN (type="box"):
-   - Cuadrados pequeños para marcar (típico: width=2, height=2)
-   - Escalas de valoración 1, 2, 3, 4
-   - Opciones Sí/No
-   - Opciones de selección única
-   - IMPORTANTE: Detecta CADA casilla por separado
-   - Label: "p1_1", "p1_2", "p1_3", "p1_4" para pregunta 1 opciones 1-4
-   - Label: "p8_si", "p8_no" para preguntas Sí/No
-
-2. CAMPOS DE TEXTO (type="field"):
-   - Líneas para escribir texto
-   - Espacios para fechas
+1. CAMPOS DE TEXTO (type="field") - PRIORIDAD ALTA:
+   - Líneas horizontales para escribir (subrayados, punteados)
    - Recuadros vacíos para datos
-   - Label descriptivo: "fecha", "firma", "observaciones"
+   - Espacios junto a etiquetas como: "Nº expediente:", "Fecha:", "DNI:", "Nombre:"
+   - Campos de firma (recuadros grandes)
+   - Campos de fecha de cumplimentación
+   - Campos de observaciones o comentarios
+   - TAMAÑO TÍPICO: width=10-40, height=2-4
+   - Labels: "expediente", "fecha", "dni", "nombre", "firma", "observaciones"
 
-ESCANEA TODA LA IMAGEN:
-- Recorre de arriba a abajo
-- Detecta TODAS las filas con casillas
-- Si hay una tabla con preguntas y casillas, detecta CADA fila
-- Mide la posición Y de cada fila con precisión
+2. CASILLAS DE VERIFICACIÓN (type="box"):
+   - Cuadrados pequeños para marcar con X
+   - Escalas de valoración 1, 2, 3, 4
+   - Opciones Sí/No, Hombre/Mujer
+   - TAMAÑO TÍPICO: width=2, height=2
+   - Labels: "p1_1", "p1_2", "p1_3", "p1_4" (pregunta_opción)
+   - Labels: "sexo_h", "sexo_m", "p8_si", "p8_no"
 
-EJEMPLO de salida para un formulario con 3 preguntas escala 1-4:
+ESCANEA TODA LA IMAGEN de arriba a abajo:
+- Busca PRIMERO todos los campos de texto (líneas, recuadros vacíos)
+- Luego busca todas las casillas de verificación
+- Detecta CADA elemento por separado
+
+EJEMPLO:
 [
+  {"label":"expediente","type":"field","x":25,"y":8,"width":20,"height":2.5},
+  {"label":"fecha","type":"field","x":70,"y":8,"width":15,"height":2.5},
+  {"label":"nombre","type":"field","x":25,"y":12,"width":50,"height":2.5},
   {"label":"p1_1","type":"box","x":82,"y":20,"width":2,"height":2},
-  {"label":"p1_2","type":"box","x":85,"y":20,"width":2,"height":2},
-  {"label":"p1_3","type":"box","x":88,"y":20,"width":2,"height":2},
-  {"label":"p1_4","type":"box","x":91,"y":20,"width":2,"height":2},
-  {"label":"p2_1","type":"box","x":82,"y":25,"width":2,"height":2},
-  ...
+  {"label":"p1_2","type":"box","x":85,"y":20,"width":2,"height":2}
 ]
 
-Devuelve JSON array con TODOS los elementos.`;
+Devuelve JSON con TODOS los campos de texto Y casillas.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
