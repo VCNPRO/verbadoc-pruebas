@@ -333,6 +333,92 @@ export default function TemplateEditorPage() {
     }
   };
 
+  // Importar plantilla desde archivo JSON
+  const handleImportTemplate = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      // Validar que tenga regiones
+      const regions = data.regions || data;
+      if (!Array.isArray(regions)) {
+        showStatus("El archivo no contiene regiones válidas", 'error');
+        return;
+      }
+
+      // Asegurar que cada región tenga un ID único y pageIndex
+      const importedRegions: Region[] = regions.map((r: any) => ({
+        id: r.id || crypto.randomUUID(),
+        label: r.label || 'CAMPO',
+        type: r.type === 'box' ? 'box' : 'field',
+        x: Number(r.x) || 0,
+        y: Number(r.y) || 0,
+        width: Number(r.width) || 5,
+        height: Number(r.height) || 2,
+        pageIndex: Number(r.pageIndex) || 0,
+        isAnchor: r.isAnchor || false,
+      }));
+
+      // Añadir las regiones importadas al documento actual
+      setEditorDoc(prev => {
+        if (!prev) return null;
+        // Filtrar regiones existentes de las páginas que se van a importar
+        const pagesToImport = [...new Set(importedRegions.map(r => r.pageIndex))];
+        const existingRegions = prev.regions.filter(r => !pagesToImport.includes(r.pageIndex));
+        return {
+          ...prev,
+          regions: [...existingRegions, ...importedRegions]
+        };
+      });
+
+      showStatus(`Importadas ${importedRegions.length} regiones correctamente`, 'success');
+
+      // Limpiar el input para permitir reimportar el mismo archivo
+      e.target.value = '';
+    } catch (error) {
+      console.error('Error importando plantilla:', error);
+      showStatus("Error al leer el archivo JSON", 'error');
+    }
+  };
+
+  // Exportar plantilla actual como JSON
+  const handleExportTemplate = () => {
+    if (!editorDoc || editorDoc.regions.length === 0) {
+      showStatus("No hay regiones para exportar", 'error');
+      return;
+    }
+
+    const exportData = {
+      regions: editorDoc.regions.map(r => ({
+        label: r.label,
+        type: r.type,
+        x: r.x,
+        y: r.y,
+        width: r.width,
+        height: r.height,
+        id: r.id,
+        pageIndex: r.pageIndex,
+        ...(r.isAnchor ? { isAnchor: true } : {})
+      })),
+      exportedAt: new Date().toISOString(),
+      totalRegions: editorDoc.regions.length,
+      pages: [...new Set(editorDoc.regions.map(r => r.pageIndex))].length
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `plantilla_verbadoc_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    showStatus(`Exportadas ${editorDoc.regions.length} regiones`, 'success');
+  };
+
   // Función auxiliar para calcular coordenadas del mouse relativas al documento
   const getMouseCoordsInDocument = useCallback((e: MouseEvent | React.MouseEvent) => {
     // Usar la imagen como referencia ya que tiene las dimensiones reales
@@ -570,10 +656,19 @@ export default function TemplateEditorPage() {
                 <>
                   {/* Panel de Herramientas Lateral */}
                   <aside className="w-80 border-r border-slate-800/50 bg-slate-900/40 backdrop-blur-md flex flex-col z-20 shrink-0 shadow-2xl">
-                    <div className="p-6 border-b border-slate-800/50 bg-slate-900/20">
+                    <div className="p-6 border-b border-slate-800/50 bg-slate-900/20 space-y-3">
                        <button onClick={handleAutoDetect} disabled={isAnalyzing} className="w-full py-4 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-500 disabled:opacity-50 transition-all shadow-[0_15px_30px_rgba(79,70,229,0.25)] active:scale-95">
                          {isAnalyzing ? <Loader2 className="animate-spin" size={18}/> : <Search size={18}/>} Auto-Mapeo Neural
                        </button>
+                       <div className="flex gap-2">
+                         <label className="flex-1 py-3 bg-amber-600/80 text-white text-[9px] font-black uppercase tracking-[0.15em] rounded-xl flex items-center justify-center gap-1.5 hover:bg-amber-500 cursor-pointer transition-all">
+                           <FileText size={14}/> Importar
+                           <input type="file" className="hidden" accept=".json" onChange={handleImportTemplate} />
+                         </label>
+                         <button onClick={handleExportTemplate} className="flex-1 py-3 bg-emerald-600/80 text-white text-[9px] font-black uppercase tracking-[0.15em] rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-500 transition-all">
+                           <Save size={14}/> Exportar
+                         </button>
+                       </div>
                     </div>
 
                     <div className="p-6 flex justify-between items-center bg-slate-900/10">
