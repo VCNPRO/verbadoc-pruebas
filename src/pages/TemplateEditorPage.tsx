@@ -34,6 +34,8 @@ interface FormTemplate {
   pagePreviews: string[];
   totalWidth?: number;
   totalHeight?: number;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface BatchItem {
@@ -161,7 +163,9 @@ export default function TemplateEditorPage() {
           id: t.id,
           name: t.name,
           regions: t.regions || [],
-          pagePreviews: t.page_previews || []
+          pagePreviews: t.page_previews || [],
+          createdAt: t.created_at,
+          updatedAt: t.updated_at
         }));
         setTemplates(formatted);
       }
@@ -652,19 +656,28 @@ export default function TemplateEditorPage() {
                   <span className="text-[11px] font-black uppercase tracking-[0.5em] opacity-40">Sin Registros en el Archivo</span>
                 </div>
               ) : (
-                templates.map(t => (
-                  <div key={t.id} className="p-8 bg-slate-900/40 border border-slate-800 rounded-3xl shadow-2xl hover:border-indigo-500/50 transition-all group flex flex-col gap-6 backdrop-blur-sm">
+                templates.map(t => {
+                  const fecha = t.updatedAt || t.createdAt;
+                  const fechaFormateada = fecha ? new Date(fecha).toLocaleString('es-ES', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                  }) : 'Sin fecha';
+                  return (
+                  <div key={t.id} className="p-6 bg-slate-900/40 border border-slate-800 rounded-2xl shadow-2xl hover:border-indigo-500/50 transition-all group flex flex-col gap-4 backdrop-blur-sm">
                     <div className="flex justify-between items-start">
-                      <h3 className="text-[14px] font-black text-white uppercase tracking-tight leading-tight">{t.name}</h3>
-                      <button onClick={() => deleteTemplate(t.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1"><Trash2 size={18}/></button>
+                      <h3 className="text-[13px] font-black text-white uppercase tracking-tight leading-tight flex-1">{t.name}</h3>
+                      <button onClick={() => deleteTemplate(t.id)} className="text-slate-600 hover:text-red-400 transition-colors p-1"><Trash2 size={16}/></button>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-indigo-400 font-black text-xs">{t.regions.length}</div>
-                      <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Campos Mapeados</span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 font-black text-xs">{t.regions.length}</div>
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">campos</span>
+                      </div>
+                      <span className="text-[9px] text-emerald-400/70 font-mono">{fechaFormateada}</span>
                     </div>
-                    <button onClick={() => { setEditorDoc({ previews: t.pagePreviews || [], regions: t.regions }); setActiveTab('editor'); }} className="mt-auto w-full py-3.5 bg-slate-800 text-white text-[10px] font-black uppercase border border-slate-700 rounded-2xl hover:bg-indigo-600 hover:border-indigo-500 transition-all tracking-widest">Activar Configuración</button>
+                    <button onClick={() => { setEditorDoc({ previews: t.pagePreviews || [], regions: t.regions, name: t.name }); setActiveTab('editor'); }} className="mt-auto w-full py-3 bg-slate-800 text-white text-[9px] font-black uppercase border border-slate-700 rounded-xl hover:bg-indigo-600 hover:border-indigo-500 transition-all tracking-widest">Cargar</button>
                   </div>
-                ))
+                );}))
               )}
             </div>
           ) : activeTab === 'batch' ? (
