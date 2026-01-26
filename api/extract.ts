@@ -292,10 +292,13 @@ Responde en JSON con este formato exacto:
 
     return res.status(200).json({
       extractedData,
+      // 🔥 COMPATIBILIDAD: El frontend espera result.text con el JSON en string
+      text: JSON.stringify(extractedData),
       confidence: finalConfidence,
       matchedTemplateId: matchedTemplate.id,
       status: finalConfidence > 0.85 ? 'valid' : 'needs_review',
       timestamp: new Date().toISOString(),
+      location: 'europe-west1', // Para el log del frontend
     });
 
   } catch (error: any) {
