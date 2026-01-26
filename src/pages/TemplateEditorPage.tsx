@@ -350,6 +350,7 @@ export default function TemplateEditorPage() {
       }
 
       // Asegurar que cada región tenga un ID único y pageIndex
+      // Si no tiene pageIndex, usar la página actual del editor
       const importedRegions: Region[] = regions.map((r: any) => ({
         id: r.id || crypto.randomUUID(),
         label: r.label || 'CAMPO',
@@ -358,7 +359,7 @@ export default function TemplateEditorPage() {
         y: Number(r.y) || 0,
         width: Number(r.width) || 5,
         height: Number(r.height) || 2,
-        pageIndex: Number(r.pageIndex) || 0,
+        pageIndex: r.pageIndex !== undefined ? Number(r.pageIndex) : currentPage,
         isAnchor: r.isAnchor || false,
       }));
 
