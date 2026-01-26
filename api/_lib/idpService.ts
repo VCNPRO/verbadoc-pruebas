@@ -78,54 +78,49 @@ export const analyzeDocumentStructure = async (base64Image: string): Promise<Reg
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    const prompt = `TAREA: Analizar este formulario y detectar TODOS los elementos interactivos y sus etiquetas.
+    const prompt = `TAREA: Detectar TODOS los campos rellenables de este formulario con coordenadas PRECISAS.
 
-SISTEMA DE COORDENADAS:
-- Usa porcentajes de 0 a 100 (NO 0-1000)
-- (0,0) = esquina SUPERIOR IZQUIERDA de la página
-- (100,100) = esquina INFERIOR DERECHA de la página
-- x = porcentaje horizontal desde la izquierda
-- y = porcentaje vertical desde arriba
+⚠️ SISTEMA DE COORDENADAS - MUY IMPORTANTE:
+- Coordenadas en PORCENTAJE de 0 a 100
+- x=0 es el borde IZQUIERDO de la imagen
+- x=100 es el borde DERECHO de la imagen
+- y=0 es el borde SUPERIOR de la imagen (la primera línea de contenido suele estar en y=5-10)
+- y=100 es el borde INFERIOR de la imagen (la última línea suele estar en y=90-95)
 
-IMPORTANTE: Sé MUY PRECISO con las coordenadas. Mide visualmente dónde está cada elemento.
+CALIBRACIÓN:
+- Si el documento tiene margen superior, el primer elemento estará aproximadamente en y=5-15
+- Si el documento tiene margen inferior, el último elemento estará aproximadamente en y=85-95
+- Un documento A4 típico tiene contenido entre y=5 y y=95
 
-TIPOS DE ELEMENTOS A DETECTAR:
+ELEMENTOS A DETECTAR:
 
-1. 'field' - CAMPOS PARA ESCRIBIR:
-   - Líneas horizontales donde se escribe a mano
-   - Recuadros vacíos para datos (nombre, fecha, DNI, etc.)
-   - Espacios subrayados o con puntos suspensivos
-   - Label: nombre del dato que va ahí (ej: "nombre_participante", "dni", "fecha_nacimiento")
+1. 'box' - CASILLAS DE VERIFICACIÓN (PRIORIDAD ALTA):
+   - Cuadrados pequeños vacíos para marcar con X o ✓
+   - Busca TODAS las casillas en escalas: NC/1/2/3/4, Sí/No, Hombre/Mujer
+   - Tamaño típico: width=1.5-2.5, height=1.5-2.5
+   - IMPORTANTE: Detecta CADA casilla individual, no grupos
+   - Label formato: "p1_nc", "p1_1", "p1_2", "p1_3", "p1_4" para pregunta 1 opciones NC,1,2,3,4
 
-2. 'box' - CASILLAS DE VERIFICACIÓN:
-   - Cuadrados pequeños para marcar con X o ✓
-   - Típico en opciones: Sí/No, escalas 1-4, NC/1/2/3/4
-   - Tamaño típico: width=2-3, height=2-3
-   - Label: identificador único (ej: "pregunta_1_opcion_1", "sexo_hombre", "valoracion_2")
+2. 'field' - CAMPOS DE TEXTO:
+   - Líneas o recuadros donde escribir: nombre, DNI, fecha, firma
+   - Espacios subrayados o punteados
+   - Label: "nombre", "dni", "fecha_nacimiento", "firma", etc.
 
-3. 'label' - ETIQUETAS DE TEXTO (como referencia/ancla):
-   - Títulos de secciones importantes
-   - Textos junto a campos que identifican qué dato pedir
-   - Preguntas numeradas
-   - Label: el texto exacto o resumen
+IMPORTANTE - NO detectar:
+- Texto impreso (títulos, instrucciones, preguntas)
+- Solo detecta los ESPACIOS VACÍOS para rellenar
 
-ESTRUCTURA DEL FORMULARIO - Detecta TODO:
-- Encabezados y títulos de secciones
-- Datos de identificación (nombre, DNI, fecha, etc.)
-- Todas las preguntas numeradas
-- Todas las opciones de respuesta con sus casillas
-- Campos de firma y fecha al final
-
-EJEMPLO DE SALIDA:
+EJEMPLO para formulario de evaluación con preguntas 1-26 y escala NC/1/2/3/4:
 [
-  {"label": "TITULO_SECCION", "type": "label", "x": 5, "y": 2, "width": 90, "height": 3},
-  {"label": "numero_expediente", "type": "field", "x": 25, "y": 8, "width": 20, "height": 2.5},
-  {"label": "Nº Expediente", "type": "label", "x": 5, "y": 8, "width": 18, "height": 2.5},
-  {"label": "pregunta_1_NC", "type": "box", "x": 45, "y": 35, "width": 2.5, "height": 2.5},
-  {"label": "pregunta_1_1", "type": "box", "x": 50, "y": 35, "width": 2.5, "height": 2.5}
+  {"label": "expediente", "type": "field", "x": 20, "y": 8, "width": 15, "height": 2},
+  {"label": "p1_nc", "type": "box", "x": 65, "y": 32, "width": 2, "height": 2},
+  {"label": "p1_1", "type": "box", "x": 70, "y": 32, "width": 2, "height": 2},
+  {"label": "p1_2", "type": "box", "x": 75, "y": 32, "width": 2, "height": 2},
+  {"label": "p1_3", "type": "box", "x": 80, "y": 32, "width": 2, "height": 2},
+  {"label": "p1_4", "type": "box", "x": 85, "y": 32, "width": 2, "height": 2}
 ]
 
-Devuelve un JSON array COMPLETO con TODOS los elementos del formulario.`;
+Devuelve JSON array con TODAS las casillas y campos del formulario.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
@@ -140,7 +135,7 @@ Devuelve un JSON array COMPLETO con TODOS los elementos del formulario.`;
             type: Type.OBJECT,
             properties: {
               label: { type: Type.STRING },
-              type: { type: Type.STRING, enum: ["box", "field", "label"] },
+              type: { type: Type.STRING, enum: ["box", "field"] },
               x: { type: Type.NUMBER },
               y: { type: Type.NUMBER },
               width: { type: Type.NUMBER },
@@ -154,16 +149,17 @@ Devuelve un JSON array COMPLETO con TODOS los elementos del formulario.`;
 
     const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
 
-    // Ya están en porcentaje (0-100), solo validar rangos
+    console.log(`📊 Detectados ${data.length} elementos. Primeros 3:`, data.slice(0, 3));
+
+    // Validar rangos y crear regiones
     return data.map((item: any) => ({
       id: crypto.randomUUID(),
       label: item.label,
-      type: item.type === 'box' ? 'box' : item.type === 'label' ? 'label' : 'field',
+      type: item.type === 'box' ? 'box' : 'field',
       x: Math.max(0, Math.min(100, item.x)),
       y: Math.max(0, Math.min(100, item.y)),
-      width: Math.max(0.5, Math.min(100, item.width)),
-      height: Math.max(0.5, Math.min(100, item.height)),
-      isAnchor: item.type === 'label', // Marcar labels como anclas
+      width: Math.max(1, Math.min(50, item.width)),
+      height: Math.max(1, Math.min(20, item.height)),
     }));
   });
 };
