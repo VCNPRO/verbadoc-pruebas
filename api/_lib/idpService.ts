@@ -33,13 +33,24 @@ export const classifyDocument = async (base64Image: string, templates: FormTempl
   });
 };
 
-export const recalibrateRegions = async (base64Image: string, currentRegions: Region[]): Promise<Region[]> => {
+// Detectar posición de anclas en un documento nuevo
+export const detectAnchors = async (base64Image: string, anchors: Region[]): Promise<{label: string, x: number, y: number}[]> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
-    const prompt = `Este documento puede tener ligeras variaciones de alineación o escala. 
-    Ajusta las coordenadas (x, y, width, height) para estos campos: ${currentRegions.map(r => r.label).join(', ')}. 
-    Mantén el nombre del label intacto. 
-    Responde solo JSON: { "recalibrated": [...] }`;
+
+    const anchorDescriptions = anchors.map(a => `"${a.label}": buscar en zona aproximada x=${a.x}%, y=${a.y}%`).join('\n');
+
+    const prompt = `TAREA: Localizar puntos de referencia (anclas) en este documento.
+
+ANCLAS A BUSCAR:
+${anchorDescriptions}
+
+INSTRUCCIONES:
+1. Cada ancla es un elemento FIJO del formulario (logo, título, esquina de recuadro)
+2. Encuentra la posición EXACTA de cada ancla en este documento específico
+3. Las coordenadas son en porcentaje (0-100%)
+
+Responde JSON: { "anchors": [{"label": "nombre", "x": número, "y": número}, ...] }`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
@@ -48,11 +59,134 @@ export const recalibrateRegions = async (base64Image: string, currentRegions: Re
     });
 
     const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
-    return currentRegions.map(r => {
-      const match = data.recalibrated?.find((m: any) => m.label === r.label);
-      return match ? { ...r, ...match } : r;
-    });
+    return data.anchors || [];
   });
+};
+
+// Calcular transformación basada en anclas
+const calculateTransformation = (
+  originalAnchors: Region[],
+  detectedAnchors: {label: string, x: number, y: number}[]
+): { offsetX: number, offsetY: number, scaleX: number, scaleY: number } => {
+
+  // Si no hay anclas detectadas, no hay transformación
+  if (detectedAnchors.length === 0) {
+    console.log("   ⚠️ No se detectaron anclas, usando coordenadas originales");
+    return { offsetX: 0, offsetY: 0, scaleX: 1, scaleY: 1 };
+  }
+
+  // Calcular offset promedio basado en todas las anclas
+  let totalOffsetX = 0;
+  let totalOffsetY = 0;
+  let matchedCount = 0;
+
+  for (const original of originalAnchors) {
+    const detected = detectedAnchors.find(d => d.label === original.label);
+    if (detected) {
+      totalOffsetX += detected.x - original.x;
+      totalOffsetY += detected.y - original.y;
+      matchedCount++;
+    }
+  }
+
+  if (matchedCount === 0) {
+    console.log("   ⚠️ Ningún ancla coincidió, usando coordenadas originales");
+    return { offsetX: 0, offsetY: 0, scaleX: 1, scaleY: 1 };
+  }
+
+  const offsetX = totalOffsetX / matchedCount;
+  const offsetY = totalOffsetY / matchedCount;
+
+  // Para escala, necesitamos al menos 2 anclas distantes
+  let scaleX = 1;
+  let scaleY = 1;
+
+  if (matchedCount >= 2) {
+    // Buscar dos anclas con mayor distancia horizontal y vertical
+    const matched = originalAnchors.filter(o => detectedAnchors.find(d => d.label === o.label));
+    if (matched.length >= 2) {
+      const [a1, a2] = [matched[0], matched[matched.length - 1]];
+      const d1 = detectedAnchors.find(d => d.label === a1.label)!;
+      const d2 = detectedAnchors.find(d => d.label === a2.label)!;
+
+      const originalDistX = Math.abs(a2.x - a1.x);
+      const originalDistY = Math.abs(a2.y - a1.y);
+      const detectedDistX = Math.abs(d2.x - d1.x);
+      const detectedDistY = Math.abs(d2.y - d1.y);
+
+      if (originalDistX > 5) scaleX = detectedDistX / originalDistX;
+      if (originalDistY > 5) scaleY = detectedDistY / originalDistY;
+
+      // Limitar escala a ±20% para evitar errores extremos
+      scaleX = Math.max(0.8, Math.min(1.2, scaleX));
+      scaleY = Math.max(0.8, Math.min(1.2, scaleY));
+    }
+  }
+
+  console.log(`   📐 Transformación calculada: offset(${offsetX.toFixed(2)}%, ${offsetY.toFixed(2)}%), escala(${scaleX.toFixed(3)}, ${scaleY.toFixed(3)})`);
+
+  return { offsetX, offsetY, scaleX, scaleY };
+};
+
+// Aplicar transformación a una región
+const applyTransformation = (
+  region: Region,
+  transform: { offsetX: number, offsetY: number, scaleX: number, scaleY: number },
+  referencePoint: { x: number, y: number } // Punto de referencia (primera ancla)
+): Region => {
+  // Aplicar escala relativa al punto de referencia, luego offset
+  const newX = referencePoint.x + (region.x - referencePoint.x) * transform.scaleX + transform.offsetX;
+  const newY = referencePoint.y + (region.y - referencePoint.y) * transform.scaleY + transform.offsetY;
+  const newWidth = region.width * transform.scaleX;
+  const newHeight = region.height * transform.scaleY;
+
+  return {
+    ...region,
+    x: Math.max(0, Math.min(100, newX)),
+    y: Math.max(0, Math.min(100, newY)),
+    width: Math.max(1, Math.min(50, newWidth)),
+    height: Math.max(0.5, Math.min(20, newHeight))
+  };
+};
+
+export const recalibrateRegions = async (base64Image: string, currentRegions: Region[]): Promise<Region[]> => {
+  // Separar anclas de campos de datos
+  const anchors = currentRegions.filter(r => r.isAnchor);
+  const dataRegions = currentRegions.filter(r => !r.isAnchor);
+
+  console.log(`   🔗 Anclas definidas: ${anchors.length}`);
+
+  // Si no hay anclas definidas, devolver regiones sin cambios
+  if (anchors.length === 0) {
+    console.log("   ⚠️ No hay anclas definidas en la plantilla. Usando coordenadas originales.");
+    console.log("   💡 Tip: Marca 2-3 elementos fijos como anclas para mejor precisión.");
+    return currentRegions;
+  }
+
+  try {
+    // Detectar posición de anclas en el documento nuevo
+    const detectedAnchors = await detectAnchors(base64Image, anchors);
+    console.log(`   🎯 Anclas detectadas: ${detectedAnchors.length}/${anchors.length}`);
+
+    // Calcular transformación
+    const transform = calculateTransformation(anchors, detectedAnchors);
+
+    // Punto de referencia (primera ancla original)
+    const referencePoint = { x: anchors[0].x, y: anchors[0].y };
+
+    // Aplicar transformación a todas las regiones de datos
+    const calibratedRegions = dataRegions.map(region =>
+      applyTransformation(region, transform, referencePoint)
+    );
+
+    // Devolver anclas + regiones calibradas
+    return [...anchors, ...calibratedRegions];
+
+  } catch (error) {
+    console.error("   ❌ Error en recalibración:", error);
+    console.log("   ↩️ Usando coordenadas originales como fallback");
+    return currentRegions;
+  }
 };
 
 export const extractWithConfidence = async (base64Image: string, region: Region): Promise<{value: string}> => {

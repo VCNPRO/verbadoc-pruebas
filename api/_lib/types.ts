@@ -7,6 +7,8 @@ export interface Region {
   y: number;
   width: number;
   height: number;
+  pageIndex?: number;
+  isAnchor?: boolean;
   extractedValue?: string;
   isProcessing?: boolean;
 }
