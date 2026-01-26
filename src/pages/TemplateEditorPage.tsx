@@ -98,6 +98,7 @@ export default function TemplateEditorPage() {
   const [selectedResult, setSelectedResult] = useState<BatchItem | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [resizingId, setResizingId] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -332,35 +333,46 @@ export default function TemplateEditorPage() {
     }
   };
 
+  // Función auxiliar para calcular coordenadas del mouse relativas al documento
+  const getMouseCoordsInDocument = useCallback((e: MouseEvent | React.MouseEvent) => {
+    if (!containerRef.current) return { x: 0, y: 0 };
+
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+
+    // Calcular posición relativa al contenedor usando clientX/Y y el rect
+    const relativeX = e.clientX - rect.left;
+    const relativeY = e.clientY - rect.top;
+
+    // Convertir a porcentaje usando las dimensiones del contenedor
+    const x = (relativeX / rect.width) * 100;
+    const y = (relativeY / rect.height) * 100;
+
+    return { x, y };
+  }, []);
+
   // Drag & Drop de regiones
   const handleMouseDown = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    e.preventDefault(); // Prevenir selección de texto mientras se arrastra
     const region = editorDoc?.regions.find(r => r.id === id);
     if (!region || !containerRef.current) return;
     setSelectedRegionIds([id]);
     setDraggingId(id);
-    const rect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRef.current.offsetWidth;
-    const containerHeight = containerRef.current.offsetHeight;
-    const mouseX = ((e.clientX - rect.left) / containerWidth) * 100;
-    const mouseY = ((e.clientY - rect.top) / containerHeight) * 100;
-    dragOffset.current = { x: mouseX - region.x, y: mouseY - region.y };
+
+    const coords = getMouseCoordsInDocument(e);
+    dragOffset.current = { x: coords.x - region.x, y: coords.y - region.y };
   };
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!containerRef.current) return;
+    if (!draggingId && !resizingId) return;
 
-    // Usar las dimensiones reales del contenedor (offsetWidth/offsetHeight)
-    // en lugar de getBoundingClientRect que puede dar problemas con scroll
-    const rect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRef.current.offsetWidth;
-    const containerHeight = containerRef.current.offsetHeight;
+    const coords = getMouseCoordsInDocument(e);
 
     if (draggingId) {
-      const mouseX = ((e.clientX - rect.left) / containerWidth) * 100;
-      const mouseY = ((e.clientY - rect.top) / containerHeight) * 100;
-      const newX = Math.max(0, Math.min(100, mouseX - dragOffset.current.x));
-      const newY = Math.max(0, Math.min(100, mouseY - dragOffset.current.y));
+      const newX = Math.max(0, Math.min(100, coords.x - dragOffset.current.x));
+      const newY = Math.max(0, Math.min(100, coords.y - dragOffset.current.y));
       setEditorDoc(prev => prev ? {
         ...prev,
         regions: prev.regions.map(r => r.id === draggingId ? { ...r, x: newX, y: newY } : r)
@@ -368,19 +380,17 @@ export default function TemplateEditorPage() {
     }
 
     if (resizingId) {
-      const mouseX = ((e.clientX - rect.left) / containerWidth) * 100;
-      const mouseY = ((e.clientY - rect.top) / containerHeight) * 100;
       const region = editorDoc?.regions.find(r => r.id === resizingId);
       if (region) {
-        const newWidth = Math.max(2, mouseX - region.x);
-        const newHeight = Math.max(2, mouseY - region.y);
+        const newWidth = Math.max(2, Math.min(100 - region.x, coords.x - region.x));
+        const newHeight = Math.max(2, Math.min(100 - region.y, coords.y - region.y));
         setEditorDoc(prev => prev ? {
           ...prev,
           regions: prev.regions.map(r => r.id === resizingId ? { ...r, width: newWidth, height: newHeight } : r)
         } : null);
       }
     }
-  }, [draggingId, resizingId, editorDoc]);
+  }, [draggingId, resizingId, editorDoc, getMouseCoordsInDocument]);
 
   useEffect(() => {
     const handleMouseUp = () => {
@@ -405,13 +415,8 @@ export default function TemplateEditorPage() {
 
   // Trackear coordenadas del cursor sobre el documento
   const handleDocumentMouseMove = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const containerWidth = containerRef.current.offsetWidth;
-    const containerHeight = containerRef.current.offsetHeight;
-    const x = ((e.clientX - rect.left) / containerWidth) * 100;
-    const y = ((e.clientY - rect.top) / containerHeight) * 100;
-    setCursorCoords({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+    const coords = getMouseCoordsInDocument(e);
+    setCursorCoords({ x: Math.max(0, Math.min(100, coords.x)), y: Math.max(0, Math.min(100, coords.y)) });
   };
 
   const handleDocumentMouseLeave = () => {
@@ -655,20 +660,31 @@ export default function TemplateEditorPage() {
                         <img src={editorDoc.previews[currentPage]} className="w-full h-auto select-none pointer-events-none brightness-[1.02] contrast-[1.05]" />
                         {editorDoc.regions.filter(r => r.pageIndex === currentPage).map((r, index) => {
                           const isSelected = selectedRegionIds.includes(r.id);
-                          // Z-index basado en posición Y (los de abajo encima) + boost si seleccionado
-                          const zIndex = isSelected ? 100 : Math.floor(r.y) + 10;
+                          // Z-index: seleccionados siempre encima, luego por posición Y invertida
+                          const zIndex = isSelected ? 200 : 100 - Math.floor(r.y);
                           return (
                           <div
                             key={r.id}
                             onMouseDown={(e) => handleMouseDown(e, r.id)}
-                            className={`absolute border-2 transition-all cursor-move flex items-center justify-center group/region ${isSelected ? 'border-indigo-600 bg-indigo-500/10 ring-4 ring-indigo-500/20' : r.type === 'box' ? 'border-blue-400/60 bg-blue-500/10 hover:border-blue-400' : 'border-emerald-400/60 bg-emerald-500/10 hover:border-emerald-400'}`}
+                            className={`absolute border-2 cursor-move flex items-center justify-center group/region ${isSelected ? 'border-indigo-600 bg-indigo-500/20 ring-4 ring-indigo-500/30' : r.type === 'box' ? 'border-blue-400 bg-blue-500/10 hover:bg-blue-500/20' : 'border-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'}`}
                             style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.width}%`, height: `${r.height}%`, zIndex }}
                           >
-                            {/* Label: visible completo en selección/hover, minimizado por defecto */}
-                            <div className={`absolute -top-5 left-0 text-white text-[9px] font-black px-2 py-0.5 rounded-t-md uppercase select-none tracking-widest flex items-center gap-1 whitespace-nowrap transition-all duration-200 ${isSelected ? 'bg-indigo-600 opacity-100 max-w-none' : r.isAnchor ? 'bg-amber-600 opacity-70 group-hover/region:opacity-100' : r.type === 'box' ? 'bg-blue-600/80 opacity-50 group-hover/region:opacity-100 max-w-[60px] overflow-hidden group-hover/region:max-w-none' : 'bg-emerald-600/80 opacity-50 group-hover/region:opacity-100 max-w-[60px] overflow-hidden group-hover/region:max-w-none'}`}>
-                              {r.isAnchor && <span>⚓</span>}
+                            {/* Label: OCULTO por defecto, visible SOLO en hover o selección */}
+                            <div
+                              className={`absolute left-0 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg select-none whitespace-nowrap pointer-events-none transition-opacity duration-150 ${
+                                isSelected
+                                  ? 'opacity-100 bg-indigo-600 -top-5'
+                                  : 'opacity-0 group-hover/region:opacity-100 -top-4 ' + (r.type === 'box' ? 'bg-blue-600' : 'bg-emerald-600')
+                              }`}
+                              style={{ zIndex: zIndex + 1 }}
+                            >
+                              {r.isAnchor && <span className="mr-1">⚓</span>}
                               {r.label}
                             </div>
+                            {/* Indicador pequeño siempre visible */}
+                            {!isSelected && (
+                              <div className={`absolute -top-1 -left-1 w-2 h-2 rounded-full shadow ${r.type === 'box' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                            )}
                             {/* Tirador de Redimensionamiento */}
                             {isSelected && (
                               <div
