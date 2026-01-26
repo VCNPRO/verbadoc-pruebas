@@ -467,9 +467,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Asegurar que extractedData sea un objeto
       const dataObj = typeof extractedData === 'string' ? JSON.parse(extractedData) : extractedData;
 
-      const rawExpediente = String(dataObj?.numero_expediente || dataObj?.expediente || '').trim();
-      const rawAccion = String(dataObj?.numero_accion || dataObj?.accion || dataObj?.num_accion || '').trim();
-      const rawGrupo = String(dataObj?.numero_grupo || dataObj?.grupo || dataObj?.num_grupo || '').trim();
+      // 🔥 NORMALIZACIÓN DE CAMPOS: Buscar campos por múltiples patrones
+      // Esto permite que plantillas con nombres como "1. Nº expediente" funcionen
+      const findFieldValue = (obj: any, patterns: string[]): string => {
+        // Primero buscar por nombre exacto
+        for (const pattern of patterns) {
+          if (obj[pattern]) return String(obj[pattern]).trim();
+        }
+        // Luego buscar por coincidencia parcial (case-insensitive)
+        const keys = Object.keys(obj);
+        for (const pattern of patterns) {
+          const patternLower = pattern.toLowerCase();
+          const matchingKey = keys.find(k => k.toLowerCase().includes(patternLower));
+          if (matchingKey && obj[matchingKey]) {
+            return String(obj[matchingKey]).trim();
+          }
+        }
+        return '';
+      };
+
+      const rawExpediente = findFieldValue(dataObj, ['numero_expediente', 'expediente', 'nº expediente', 'n expediente', 'num_expediente']);
+      const rawAccion = findFieldValue(dataObj, ['numero_accion', 'accion', 'nº acción', 'nº accion', 'n accion', 'num_accion']);
+      const rawGrupo = findFieldValue(dataObj, ['numero_grupo', 'grupo', 'nº grupo', 'n grupo', 'num_grupo']);
+
+      console.log(`🔍 Campos extraídos: expediente="${rawExpediente}", accion="${rawAccion}", grupo="${rawGrupo}"`);
 
       // 1. Verificar que existan los campos críticos
       const missingFields: string[] = [];
