@@ -570,6 +570,13 @@ export default function TemplateEditorPage() {
     ? editorDoc?.regions.find(r => r.id === selectedRegionIds[0])
     : null;
 
+  // Abrir panel de precisión automáticamente al seleccionar una región
+  useEffect(() => {
+    if (selectedRegion) {
+      setShowPrecisionPanel(true);
+    }
+  }, [selectedRegion?.id]);
+
   if (isInitializing) return (
     <div className="h-screen bg-slate-950 flex flex-col items-center justify-center gap-6">
       <Loader2 className="animate-spin text-indigo-500" size={40} />
