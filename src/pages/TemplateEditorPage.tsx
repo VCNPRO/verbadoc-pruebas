@@ -91,7 +91,7 @@ export default function TemplateEditorPage() {
   const [templates, setTemplates] = useState<FormTemplate[]>([]);
   const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
 
-  const [editorDoc, setEditorDoc] = useState<{previews: string[], regions: Region[]} | null>(null);
+  const [editorDoc, setEditorDoc] = useState<{previews: string[], regions: Region[], name?: string} | null>(null);
 
   const [batch, setBatch] = useState<BatchItem[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -266,11 +266,17 @@ export default function TemplateEditorPage() {
 
   const handleSaveTemplate = async () => {
     if (!editorDoc) return;
-    const name = prompt("Asigna un nombre descriptivo a esta configuración:");
+    // Usar el nombre del editor si existe, si no pedir uno
+    let name = editorDoc.name?.trim();
+    if (!name) {
+      name = prompt("Asigna un nombre descriptivo a esta configuración:");
+    }
     if (!name || editorDoc.regions.length === 0) {
       showStatus("Se necesita un nombre y al menos una región", 'error');
       return;
     }
+    // Guardar el nombre en el estado
+    setEditorDoc(prev => prev ? {...prev, name} : null);
 
     showStatus("Guardando plantilla...", 'info', 0);
     try {
@@ -617,9 +623,18 @@ export default function TemplateEditorPage() {
           </div>
           <div className="flex items-center gap-4">
             {editorDoc && activeTab === 'editor' && (
-              <span className="text-[10px] text-slate-500 font-bold">
-                {editorDoc.regions.length} regiones
-              </span>
+              <>
+                <input
+                  type="text"
+                  placeholder="Nombre de plantilla..."
+                  value={editorDoc.name || ''}
+                  onChange={(e) => setEditorDoc(prev => prev ? {...prev, name: e.target.value} : null)}
+                  className="bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-1.5 text-white text-[11px] font-bold focus:border-indigo-500 focus:outline-none w-48"
+                />
+                <span className="text-[10px] text-slate-500 font-bold">
+                  {editorDoc.regions.length} regiones
+                </span>
+              </>
             )}
           </div>
         </header>
@@ -845,6 +860,7 @@ export default function TemplateEditorPage() {
                           <div
                             key={r.id}
                             onMouseDown={(e) => handleMouseDown(e, r.id)}
+                            onClick={(e) => { e.stopPropagation(); setSelectedRegionIds([r.id]); }}
                             className={`absolute border-2 cursor-move flex items-center justify-center group/region ${
                               isSelected
                                 ? 'border-indigo-600 bg-indigo-500/20 ring-4 ring-indigo-500/30'
