@@ -680,11 +680,22 @@ export default function TemplateEditorPage() {
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-slate-950/20">
-                      <button onClick={() => {
-                          const id = crypto.randomUUID();
-                          setEditorDoc(p => p ? { ...p, regions: [...p.regions, { id, label: `CAMPO_${p.regions.length+1}`, type: 'field', x: 40, y: 40, width: 15, height: 4, pageIndex: currentPage }] } : null);
-                          setSelectedRegionIds([id]);
-                       }} className="w-full py-3 bg-slate-800/50 text-slate-500 text-[10px] font-black uppercase border border-slate-700/50 border-dashed rounded-xl hover:text-slate-200 hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mb-4"><Plus size={14}/> Nuevo Campo Manual</button>
+                      <div className="flex gap-2 mb-4">
+                        <button onClick={() => {
+                            const id = crypto.randomUUID();
+                            setEditorDoc(p => p ? { ...p, regions: [...p.regions, { id, label: `TEXTO_${p.regions.filter(r=>r.type==='field').length+1}`, type: 'field', x: 40, y: 40, width: 15, height: 2.5, pageIndex: currentPage }] } : null);
+                            setSelectedRegionIds([id]);
+                         }} className="flex-1 py-3 bg-emerald-900/30 text-emerald-400 text-[9px] font-black uppercase border border-emerald-700/50 border-dashed rounded-xl hover:text-emerald-300 hover:bg-emerald-900/50 transition-all flex items-center justify-center gap-1.5">
+                          <FileType size={14}/> Campo Texto
+                        </button>
+                        <button onClick={() => {
+                            const id = crypto.randomUUID();
+                            setEditorDoc(p => p ? { ...p, regions: [...p.regions, { id, label: `CASILLA_${p.regions.filter(r=>r.type==='box').length+1}`, type: 'box', x: 40, y: 40, width: 2.5, height: 2, pageIndex: currentPage }] } : null);
+                            setSelectedRegionIds([id]);
+                         }} className="flex-1 py-3 bg-blue-900/30 text-blue-400 text-[9px] font-black uppercase border border-blue-700/50 border-dashed rounded-xl hover:text-blue-300 hover:bg-blue-900/50 transition-all flex items-center justify-center gap-1.5">
+                          <CheckSquare size={14}/> Casilla
+                        </button>
+                      </div>
 
                       {editorDoc.regions.filter(r => r.pageIndex === currentPage).map(r => (
                         <div key={r.id} onClick={() => setSelectedRegionIds([r.id])} className={`px-5 py-4 rounded-2xl border transition-all duration-300 group cursor-pointer flex flex-col gap-2 ${selectedRegionIds.includes(r.id) ? 'bg-indigo-600 border-indigo-400 shadow-xl scale-[1.02]' : 'bg-slate-900/60 border-slate-800 hover:border-slate-600'}`}>
