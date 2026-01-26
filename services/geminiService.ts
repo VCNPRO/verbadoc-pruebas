@@ -309,7 +309,9 @@ export const extractDataFromDocument = async (
     console.log(`🇪🇺 Región: europe-west1 (Bélgica)`);
 
     try {
-        const result = await callVertexAIAPI('extract', {
+        // 🔥 CAMBIO: Usar /api/extract-ai para extracción DIRECTA con el prompt del frontend
+        // Esto bypasea el sistema de plantillas y envía el prompt directamente a Gemini
+        const result = await callVertexAIAPI('extract-ai', {
             model: modelId,
             contents: {
                 role: 'user',
@@ -318,17 +320,26 @@ export const extractDataFromDocument = async (
                     generativePart
                 ]
             },
+            schema: validSchemaFields, // Enviar schema para que el backend lo use
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: vertexAISchema,
             },
         });
 
-        console.log(`✅ Extracción completada`);
+        console.log(`✅ Extracción IA DIRECTA completada`);
         console.log(`📍 Procesado en: ${result.location || 'europe-west1'}`);
+        console.log(`📊 Método: ${result.method || 'ai_direct'}`);
 
-        const jsonStr = result.text.trim();
-        const rawData = JSON.parse(jsonStr);
+        // El resultado puede venir en extractedData o text
+        let rawData: any;
+        if (result.extractedData) {
+            rawData = result.extractedData;
+        } else if (result.text) {
+            rawData = JSON.parse(result.text.trim());
+        } else {
+            throw new Error('Respuesta vacía del servidor');
+        }
 
         // Post-procesamiento: convertir null a "NC" y manejar valoracion_7_x
         const processedData = postProcessExtraction(rawData);
