@@ -55,8 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Faltan campos requeridos: name, regions' });
       }
       const result = await sql`
-        INSERT INTO form_templates (user_id, client_id, name, description, regions, page_previews)
-        VALUES (${user.userId}, ${user.clientId}, ${name}, ${description || null}, ${JSON.stringify(regions)}::jsonb, ${page_previews ? JSON.stringify(page_previews) : null}::jsonb)
+        INSERT INTO form_templates (user_id, client_id, name, description, regions, page_previews, is_active)
+        VALUES (${user.userId}, ${user.clientId}, ${name}, ${description || null}, ${JSON.stringify(regions)}::jsonb, ${page_previews ? JSON.stringify(page_previews) : null}::jsonb, true)
         RETURNING *
       `;
       return res.status(201).json(result.rows[0]);

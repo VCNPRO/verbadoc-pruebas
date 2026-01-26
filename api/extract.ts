@@ -29,7 +29,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const { base64Image } = req.body;
     if (!base64Image) {
-      return res.status(400).json({ error: 'Falta el campo requerido: base64Image' });
+      console.log("❌ Petición sin base64Image. Body recibido:", Object.keys(req.body || {}));
+      return res.status(400).json({
+        error: 'Falta el campo requerido: base64Image',
+        receivedFields: Object.keys(req.body || {}),
+        hint: 'Envía el documento como imagen base64, no como archivo PDF'
+      });
     }
 
     console.log("🚀 Iniciando flujo de extracción IDP...");
