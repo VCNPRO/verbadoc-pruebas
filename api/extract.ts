@@ -205,33 +205,100 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
         // Separar regiones por tipo para el prompt
-        const textFields = recalibratedRegions.filter(r => r.type === 'field' || r.type === 'text');
-        const checkboxes = recalibratedRegions.filter(r => r.type === 'box');
+        const textFields = recalibratedRegions.filter((r: any) => r.type === 'field' || r.type === 'text');
+        const escalaFields = recalibratedRegions.filter((r: any) => r.type === 'escala_1_4');
+        const siNoFields = recalibratedRegions.filter((r: any) => r.type === 'si_no');
+        const grupoFields = recalibratedRegions.filter((r: any) => r.type === 'grupo_exclusivo');
+        const checkboxes = recalibratedRegions.filter((r: any) => r.type === 'box');
 
-        const fieldsList = textFields.map(r => `- "${r.label}" (página ${(r.pageIndex || 0) + 1}, posición: x=${Math.round(r.x)}%, y=${Math.round(r.y)}%)`).join('\n');
-        const checkboxList = checkboxes.map(r => `- "${r.label}" (página ${(r.pageIndex || 0) + 1}, posición: x=${Math.round(r.x)}%, y=${Math.round(r.y)}%)`).join('\n');
+        // Construir lista de campos de texto
+        const fieldsList = textFields.map((r: any) => {
+          const hint = r.hint ? ` - ${r.hint}` : '';
+          return `- "${r.label}" (pág ${(r.pageIndex || 0) + 1}, x=${Math.round(r.x)}%, y=${Math.round(r.y)}%)${hint}`;
+        }).join('\n');
 
-        const prompt = `TAREA: Extraer datos de este formulario FUNDAE de 2 páginas.
+        // Construir lista de escalas 1-4
+        const escalaList = escalaFields.map((r: any) => {
+          const pregunta = r.pregunta ? ` "${r.pregunta}"` : '';
+          return `- "${r.label}":${pregunta} (pág ${(r.pageIndex || 0) + 1}, y≈${Math.round(r.y)}%)`;
+        }).join('\n');
 
-CAMPOS DE TEXTO A EXTRAER (${textFields.length} campos):
-${fieldsList}
+        // Construir lista de campos Sí/No
+        const siNoList = siNoFields.map((r: any) => {
+          const pregunta = r.pregunta ? ` "${r.pregunta}"` : '';
+          return `- "${r.label}":${pregunta} (pág ${(r.pageIndex || 0) + 1})`;
+        }).join('\n');
 
-CASILLAS DE VERIFICACIÓN A DETECTAR (${checkboxes.length} casillas):
-${checkboxList}
+        // Construir lista de grupos exclusivos
+        const grupoList = grupoFields.map((r: any) => {
+          const hint = r.hint ? ` - ${r.hint}` : '';
+          return `- "${r.label}"${hint} (pág ${(r.pageIndex || 0) + 1})`;
+        }).join('\n');
 
-INSTRUCCIONES:
-1. Para campos de texto: Extrae el valor escrito/impreso EXACTAMENTE como aparece. Si está vacío, usa "".
-2. Para casillas: Responde "[X]" si está marcada, "[ ]" si está vacía.
-3. Las coordenadas X/Y son porcentajes desde la esquina superior izquierda.
-4. IMPORTANTE: Revisa AMBAS páginas del documento.
-5. 🔥 CRÍTICO - Nº EXPEDIENTE: Los números de expediente pueden tener 1-2 LETRAS al final (ej: "F240012AB", "F230045XY").
-   SIEMPRE incluye las letras finales si existen. NO las omitas ni las confundas con otros caracteres.
-6. Extrae TODOS los caracteres alfanuméricos de cada campo, incluyendo letras mayúsculas y minúsculas.
+        // Construir lista de casillas individuales (formato antiguo)
+        const checkboxList = checkboxes.map((r: any) => `- "${r.label}" (pág ${(r.pageIndex || 0) + 1}, x=${Math.round(r.x)}%, y=${Math.round(r.y)}%)`).join('\n');
 
-Responde en JSON con este formato exacto:
+        const prompt = `TAREA: Extraer datos del formulario FUNDAE "Cuestionario de Evaluación de Calidad".
+
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ REGLAS CRÍTICAS - ESTE SISTEMA PROCESARÁ 18,000 DOCUMENTOS
+═══════════════════════════════════════════════════════════════════════════════
+
+REGLA 1 - NUNCA INVENTES: Si no ves una marca clara → devuelve "NC"
+REGLA 2 - MARCAS MÚLTIPLES = NC: Si hay 2+ marcas en la misma fila → "NC"
+REGLA 3 - ANTE LA DUDA → "NC"
+
+═══════════════════════════════════════════════════════════════════════════════
+CAMPOS DE TEXTO (${textFields.length} campos) - Extraer valor exacto o ""
+═══════════════════════════════════════════════════════════════════════════════
+${fieldsList || '(ninguno)'}
+
+🔥 CRÍTICO para numero_expediente: Puede tener 1-2 LETRAS al final (ej: "F240012AB").
+   SIEMPRE incluye las letras finales.
+
+═══════════════════════════════════════════════════════════════════════════════
+VALORACIONES ESCALA 1-4 (${escalaFields.length} campos)
+═══════════════════════════════════════════════════════════════════════════════
+${escalaList || '(ninguno)'}
+
+MÉTODO DE LECTURA:
+1. Localiza la fila de la pregunta en la página 2
+2. Las 4 casillas están en columnas: 1=izquierda, 2, 3, 4=derecha
+3. Busca cuál casilla tiene marca (X, ✓, círculo, relleno)
+4. Devuelve el NÚMERO de la posición (1, 2, 3 o 4)
+5. Si ninguna marcada o no clara → "NC"
+
+Escala: 1=Completamente en desacuerdo, 2=En desacuerdo, 3=De acuerdo, 4=Completamente de acuerdo
+
+═══════════════════════════════════════════════════════════════════════════════
+CAMPOS SÍ/NO (${siNoFields.length} campos)
+═══════════════════════════════════════════════════════════════════════════════
+${siNoList || '(ninguno)'}
+
+Devolver exactamente: "Sí" o "No" (con tilde). Si no hay marca clara → "NC"
+
+═══════════════════════════════════════════════════════════════════════════════
+GRUPOS EXCLUSIVOS (${grupoFields.length} campos) - UNA sola opción marcada
+═══════════════════════════════════════════════════════════════════════════════
+${grupoList || '(ninguno)'}
+
+Devolver el CÓDIGO numérico de la opción marcada según el hint. Si ninguna → "9" (NC)
+
+═══════════════════════════════════════════════════════════════════════════════
+CASILLAS INDIVIDUALES (${checkboxes.length} casillas) - Formato antiguo
+═══════════════════════════════════════════════════════════════════════════════
+${checkboxList || '(ninguno)'}
+
+Devolver "[X]" si marcada, "[ ]" si vacía.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Responde en JSON con TODOS los campos solicitados:
 {
-  "campo1": "valor1",
-  "campo2": "[X]",
+  "numero_expediente": "F24XXXXAB",
+  "valoracion_1_1": "3",
+  "valoracion_8_1": "Sí",
+  "sexo": "1",
   ...
 }`;
 
@@ -256,9 +323,20 @@ Responde en JSON con este formato exacto:
           extractionResults.push({
             label: region.label,
             value: String(value),
-            success: value !== '' && value !== undefined
+            success: value !== '' && value !== undefined && value !== 'NC'
           });
         }
+
+        // Log de campos críticos FUNDAE
+        const exp = parsed.numero_expediente || parsed['1. Nº expediente'] || '';
+        const acc = parsed.numero_accion || parsed['4. Nº Acción'] || '';
+        const grp = parsed.numero_grupo || parsed['5. Nº grupo'] || '';
+        console.log(`   🔍 Campos clave: exp="${exp}", acc="${acc}", grp="${grp}"`);
+
+        // Log de valoraciones
+        const valoraciones = Object.entries(parsed).filter(([k]) => k.startsWith('valoracion_'));
+        const valOK = valoraciones.filter(([_, v]) => v && v !== 'NC').length;
+        console.log(`   📊 Valoraciones: ${valOK}/${valoraciones.length} con valor`);
 
         console.log(`   ✅ Extracción PDF completada: ${Object.keys(parsed).length} campos extraídos`);
 
