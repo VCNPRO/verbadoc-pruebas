@@ -110,24 +110,103 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const recalibratedRegions = await recalibrateRegions(base64Image, matchedTemplate.regions, mimeType);
     console.log("   ✅ Coordenadas recalibradas.");
 
-    // 4. Extraer datos de cada región individualmente
-    console.log("   - Capa 3: Extrayendo datos por región...");
-    const extractedData = {};
-    const extractionResults = [];
+    // 4. Extraer datos - método diferente según si es PDF o imagen
+    console.log("   - Capa 3: Extrayendo datos...");
+    const extractedData: Record<string, any> = {};
+    const extractionResults: Array<{label: string, value: string, success: boolean}> = [];
 
-    for (const region of recalibratedRegions) {
+    if (mimeType === 'application/pdf') {
+      // 🔥 Para PDFs: Usar Gemini directamente con el documento completo
+      // Gemini 2.0 soporta PDFs multi-página nativamente
+      console.log(`   📄 Modo PDF: Extrayendo ${recalibratedRegions.length} campos con Gemini...`);
+
       try {
-        const regionImageBase64 = await cropImage(base64Image, region);
-        const result = await extractWithConfidence(regionImageBase64, region);
-        extractedData[region.label] = result.value;
-        extractionResults.push({ label: region.label, value: result.value, success: true });
-      } catch (regionError) {
-        console.error(`      - ❌ Error extrayendo la región "${region.label}":`, regionError);
-        extractedData[region.label] = 'ERROR_EXTRACCION';
-        extractionResults.push({ label: region.label, value: 'ERROR', success: false });
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
+
+        // Separar regiones por tipo para el prompt
+        const textFields = recalibratedRegions.filter(r => r.type === 'field' || r.type === 'text');
+        const checkboxes = recalibratedRegions.filter(r => r.type === 'box');
+
+        const fieldsList = textFields.map(r => `- "${r.label}" (página ${(r.pageIndex || 0) + 1}, posición: x=${Math.round(r.x)}%, y=${Math.round(r.y)}%)`).join('\n');
+        const checkboxList = checkboxes.map(r => `- "${r.label}" (página ${(r.pageIndex || 0) + 1}, posición: x=${Math.round(r.x)}%, y=${Math.round(r.y)}%)`).join('\n');
+
+        const prompt = `TAREA: Extraer datos de este formulario FUNDAE de 2 páginas.
+
+CAMPOS DE TEXTO A EXTRAER (${textFields.length} campos):
+${fieldsList}
+
+CASILLAS DE VERIFICACIÓN A DETECTAR (${checkboxes.length} casillas):
+${checkboxList}
+
+INSTRUCCIONES:
+1. Para campos de texto: Extrae el valor escrito/impreso. Si está vacío, usa "".
+2. Para casillas: Responde "[X]" si está marcada, "[ ]" si está vacía.
+3. Las coordenadas X/Y son porcentajes desde la esquina superior izquierda.
+4. IMPORTANTE: Revisa AMBAS páginas del documento.
+
+Responde en JSON con este formato exacto:
+{
+  "campo1": "valor1",
+  "campo2": "[X]",
+  ...
+}`;
+
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: {
+            parts: [
+              { inlineData: { mimeType: 'application/pdf', data: base64Image } },
+              { text: prompt }
+            ]
+          },
+          config: { responseMimeType: "application/json" }
+        });
+
+        const responseText = response.text || '{}';
+        const parsed = JSON.parse(responseText.replace(/```json|```/g, '').trim());
+
+        // Mapear resultados
+        for (const region of recalibratedRegions) {
+          const value = parsed[region.label] ?? '';
+          extractedData[region.label] = value;
+          extractionResults.push({
+            label: region.label,
+            value: String(value),
+            success: value !== '' && value !== undefined
+          });
+        }
+
+        console.log(`   ✅ Extracción PDF completada: ${Object.keys(parsed).length} campos extraídos`);
+
+      } catch (pdfError: any) {
+        console.error('   ❌ Error en extracción PDF con Gemini:', pdfError.message);
+        // Fallback: marcar todos como error
+        for (const region of recalibratedRegions) {
+          extractedData[region.label] = 'ERROR_EXTRACCION';
+          extractionResults.push({ label: region.label, value: 'ERROR', success: false });
+        }
+      }
+
+    } else {
+      // 🖼️ Para imágenes: Usar el método original región por región
+      console.log(`   🖼️ Modo Imagen: Extrayendo ${recalibratedRegions.length} campos por región...`);
+
+      for (const region of recalibratedRegions) {
+        try {
+          const regionImageBase64 = await cropImage(base64Image, region);
+          const result = await extractWithConfidence(regionImageBase64, region);
+          extractedData[region.label] = result.value;
+          extractionResults.push({ label: region.label, value: result.value, success: true });
+        } catch (regionError) {
+          console.error(`      - ❌ Error extrayendo la región "${region.label}":`, regionError);
+          extractedData[region.label] = 'ERROR_EXTRACCION';
+          extractionResults.push({ label: region.label, value: 'ERROR', success: false });
+        }
       }
     }
-    console.log("   ✅ Extracción por región completada.");
+
+    console.log(`   ✅ Extracción completada: ${extractionResults.filter(r => r.success).length}/${extractionResults.length} campos OK`);
 
     // 5. Ensamblar y responder
     const finalConfidence = (extractionResults.filter(r => r.success).length / extractionResults.length);
