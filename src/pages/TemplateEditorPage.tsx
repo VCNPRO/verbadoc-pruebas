@@ -98,7 +98,7 @@ export default function TemplateEditorPage() {
   const [selectedResult, setSelectedResult] = useState<BatchItem | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [resizingId, setResizingId] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -335,16 +335,17 @@ export default function TemplateEditorPage() {
 
   // Función auxiliar para calcular coordenadas del mouse relativas al documento
   const getMouseCoordsInDocument = useCallback((e: MouseEvent | React.MouseEvent) => {
-    if (!containerRef.current) return { x: 0, y: 0 };
+    // Usar la imagen como referencia ya que tiene las dimensiones reales
+    const element = imageRef.current || containerRef.current;
+    if (!element) return { x: 0, y: 0 };
 
-    const container = containerRef.current;
-    const rect = container.getBoundingClientRect();
+    const rect = element.getBoundingClientRect();
 
-    // Calcular posición relativa al contenedor usando clientX/Y y el rect
+    // Calcular posición relativa al elemento
     const relativeX = e.clientX - rect.left;
     const relativeY = e.clientY - rect.top;
 
-    // Convertir a porcentaje usando las dimensiones del contenedor
+    // Convertir a porcentaje
     const x = (relativeX / rect.width) * 100;
     const y = (relativeY / rect.height) * 100;
 
@@ -657,7 +658,7 @@ export default function TemplateEditorPage() {
                         onMouseMove={handleDocumentMouseMove}
                         onMouseLeave={handleDocumentMouseLeave}
                       >
-                        <img src={editorDoc.previews[currentPage]} className="w-full h-auto select-none pointer-events-none brightness-[1.02] contrast-[1.05]" />
+                        <img ref={imageRef} src={editorDoc.previews[currentPage]} className="w-full h-auto select-none pointer-events-none brightness-[1.02] contrast-[1.05]" />
                         {editorDoc.regions.filter(r => r.pageIndex === currentPage).map((r, index) => {
                           const isSelected = selectedRegionIds.includes(r.id);
                           // Z-index: seleccionados siempre encima, luego por posición Y invertida
