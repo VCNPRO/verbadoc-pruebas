@@ -78,49 +78,64 @@ export const analyzeDocumentStructure = async (base64Image: string): Promise<Reg
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    // Prompt optimizado para formularios FUNDAE
-    const prompt = `Analiza este formulario y detecta TODOS los elementos rellenables con coordenadas EXACTAS en porcentaje (0-100).
+    // Prompt optimizado para formularios FUNDAE - estructura dos columnas
+    const prompt = `TAREA: Detectar TODOS los campos rellenables de este formulario.
 
-COORDENADAS (0-100):
-- x: porcentaje desde la izquierda
-- y: porcentaje desde arriba
-- width/height: tamaño en porcentaje
+ESTRUCTURA DEL FORMULARIO:
+- IZQUIERDA (x: 5-50%): Textos de preguntas y campos para escribir datos
+- DERECHA (x: 75-95%): Casillas de verificación para respuestas
 
-DETECTAR OBLIGATORIAMENTE:
+COORDENADAS en porcentaje 0-100:
+- x=0: borde izquierdo, x=100: borde derecho
+- y=0: borde superior, y=100: borde inferior
 
-1. CAMPOS DE TEXTO (type="field") - PRIORIDAD ALTA:
-   - Líneas horizontales para escribir (subrayados, punteados)
-   - Recuadros vacíos para datos
-   - Espacios junto a etiquetas como: "Nº expediente:", "Fecha:", "DNI:", "Nombre:"
-   - Campos de firma (recuadros grandes)
-   - Campos de fecha de cumplimentación
-   - Campos de observaciones o comentarios
-   - TAMAÑO TÍPICO: width=10-40, height=2-4
-   - Labels: "expediente", "fecha", "dni", "nombre", "firma", "observaciones"
+═══════════════════════════════════════════════════════
+CAMPOS DE TEXTO (type="field") - ZONA IZQUIERDA:
+═══════════════════════════════════════════════════════
+Busca en la parte IZQUIERDA del formulario:
+- Líneas horizontales vacías para escribir
+- Espacios subrayados o punteados
+- Recuadros vacíos junto a etiquetas
+- Campos para: expediente, fecha, DNI, nombre, firma, observaciones
 
-2. CASILLAS DE VERIFICACIÓN (type="box"):
-   - Cuadrados pequeños para marcar con X
-   - Escalas de valoración 1, 2, 3, 4
-   - Opciones Sí/No, Hombre/Mujer
-   - TAMAÑO TÍPICO: width=2, height=2
-   - Labels: "p1_1", "p1_2", "p1_3", "p1_4" (pregunta_opción)
-   - Labels: "sexo_h", "sexo_m", "p8_si", "p8_no"
+Coordenadas típicas de fields:
+- x: entre 5% y 50% (zona izquierda)
+- width: 15-40%
+- height: 2-3%
 
-ESCANEA TODA LA IMAGEN de arriba a abajo:
-- Busca PRIMERO todos los campos de texto (líneas, recuadros vacíos)
-- Luego busca todas las casillas de verificación
-- Detecta CADA elemento por separado
+═══════════════════════════════════════════════════════
+CASILLAS (type="box") - ZONA DERECHA:
+═══════════════════════════════════════════════════════
+Busca en la parte DERECHA del formulario:
+- Cuadrados pequeños vacíos para marcar
+- Escalas: 1, 2, 3, 4 (4 casillas por fila)
+- Opciones: Sí/No (2 casillas por fila)
 
-EJEMPLO:
-[
-  {"label":"expediente","type":"field","x":25,"y":8,"width":20,"height":2.5},
-  {"label":"fecha","type":"field","x":70,"y":8,"width":15,"height":2.5},
-  {"label":"nombre","type":"field","x":25,"y":12,"width":50,"height":2.5},
-  {"label":"p1_1","type":"box","x":82,"y":20,"width":2,"height":2},
-  {"label":"p1_2","type":"box","x":85,"y":20,"width":2,"height":2}
-]
+Coordenadas típicas de boxes:
+- x: entre 75% y 95% (zona derecha)
+- width: 2-3%
+- height: 1.5-2.5%
 
-Devuelve JSON con TODOS los campos de texto Y casillas.`;
+═══════════════════════════════════════════════════════
+RECORRE TODA LA PÁGINA LÍNEA POR LÍNEA:
+═══════════════════════════════════════════════════════
+Desde y=5% hasta y=95%, detecta en CADA línea:
+1. Si hay campo de texto a la izquierda → añádelo
+2. Si hay casillas a la derecha → añade CADA una
+
+LABELS:
+- Fields: "expediente", "denominacion", "nombre", "dni", "fecha", "firma"
+- Boxes escala: "p1_1", "p1_2", "p1_3", "p1_4" (pregunta 1, opciones 1-4)
+- Boxes si/no: "p8_si", "p8_no"
+
+EJEMPLO de una fila con campo y casillas:
+{"label":"observaciones","type":"field","x":10,"y":45,"width":35,"height":2.5}
+{"label":"p5_1","type":"box","x":78,"y":45,"width":2.2,"height":2}
+{"label":"p5_2","type":"box","x":82,"y":45,"width":2.2,"height":2}
+{"label":"p5_3","type":"box","x":86,"y":45,"width":2.2,"height":2}
+{"label":"p5_4","type":"box","x":90,"y":45,"width":2.2,"height":2}
+
+Devuelve JSON array con ABSOLUTAMENTE TODOS los elementos detectados.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
