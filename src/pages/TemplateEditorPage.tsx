@@ -628,6 +628,11 @@ export default function TemplateEditorPage() {
           <div className="flex items-center gap-4">
             {editorDoc && activeTab === 'editor' && (
               <>
+                <div className="flex items-center gap-2 bg-slate-800/30 px-3 py-1 rounded-lg border border-slate-700/50">
+                  <span className="text-[8px] text-amber-500 font-black uppercase tracking-wider">Borrador</span>
+                  {autoSaveStatus === 'saving' && <Loader2 size={10} className="animate-spin text-amber-500"/>}
+                  {autoSaveStatus === 'saved' && <span className="text-[8px] text-emerald-500">✓</span>}
+                </div>
                 <input
                   type="text"
                   placeholder="Nombre de plantilla..."
@@ -725,6 +730,20 @@ export default function TemplateEditorPage() {
                   {/* Panel de Herramientas Lateral */}
                   <aside className="w-80 border-r border-slate-800/50 bg-slate-900/40 backdrop-blur-md flex flex-col z-20 shrink-0 shadow-2xl">
                     <div className="p-6 border-b border-slate-800/50 bg-slate-900/20 space-y-3">
+                       {/* Botón Nueva Plantilla */}
+                       <label className="w-full py-3 bg-slate-800 text-slate-300 text-[10px] font-black uppercase tracking-[0.15em] rounded-xl flex items-center justify-center gap-2 hover:bg-slate-700 cursor-pointer transition-all border border-slate-700 hover:border-indigo-500/50">
+                         <Plus size={16}/> Nueva Plantilla (Cargar otro PDF)
+                         <input type="file" className="hidden" accept=".pdf" onChange={(e) => {
+                           if (e.target.files && e.target.files[0]) {
+                             const confirmar = window.confirm('¿Empezar nueva plantilla?\n\nEl borrador actual se perderá.\n(Lo guardado en Biblioteca NO se borra)');
+                             if (confirmar) {
+                               localStorage.removeItem('verbadoc_draft');
+                               setAutoSaveStatus(null);
+                               onFileUpload(e, true);
+                             }
+                           }
+                         }} />
+                       </label>
                        <button onClick={handleAutoDetect} disabled={isAnalyzing} className="w-full py-4 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-500 disabled:opacity-50 transition-all shadow-[0_15px_30px_rgba(79,70,229,0.25)] active:scale-95">
                          {isAnalyzing ? <Loader2 className="animate-spin" size={18}/> : <Search size={18}/>} Auto-Mapeo Neural
                        </button>
