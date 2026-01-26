@@ -78,41 +78,54 @@ export const analyzeDocumentStructure = async (base64Image: string): Promise<Reg
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    // Prompt ultra-preciso - detectar ESPACIOS VACÍOS, no etiquetas
-    const prompt = `TAREA: Detectar ÚNICAMENTE los espacios vacíos para rellenar en este formulario.
+    const prompt = `TAREA: Analizar este formulario y detectar TODOS los elementos interactivos y sus etiquetas.
 
-SISTEMA DE COORDENADAS (0-1000):
-- (0,0) = esquina SUPERIOR IZQUIERDA
-- (1000,1000) = esquina INFERIOR DERECHA
-- x = distancia horizontal desde la izquierda
-- y = distancia vertical desde ARRIBA
+SISTEMA DE COORDENADAS:
+- Usa porcentajes de 0 a 100 (NO 0-1000)
+- (0,0) = esquina SUPERIOR IZQUIERDA de la página
+- (100,100) = esquina INFERIOR DERECHA de la página
+- x = porcentaje horizontal desde la izquierda
+- y = porcentaje vertical desde arriba
 
-⚠️ MUY IMPORTANTE - QUÉ DETECTAR:
+IMPORTANTE: Sé MUY PRECISO con las coordenadas. Mide visualmente dónde está cada elemento.
 
-1. CASILLAS VACÍAS ('box'):
-   - Cuadrados PEQUEÑOS (aprox. 15-30 unidades) con INTERIOR VACÍO para marcar con X
-   - Típicamente junto a opciones como: "Sí/No", "1/2/3/4", "NC/1/2/3/4"
-   - NO detectes rectángulos grandes ni celdas de tabla
-   - Tamaño típico: width=20, height=20
+TIPOS DE ELEMENTOS A DETECTAR:
 
-2. CAMPOS DE ESCRITURA ('field'):
-   - LÍNEAS HORIZONTALES vacías donde se escribe texto a mano
-   - Espacios en blanco JUNTO A etiquetas como "Nombre:", "DNI:", "Fecha:"
-   - Recuadros VACÍOS para rellenar datos
-   - NO detectes el texto impreso de las etiquetas
+1. 'field' - CAMPOS PARA ESCRIBIR:
+   - Líneas horizontales donde se escribe a mano
+   - Recuadros vacíos para datos (nombre, fecha, DNI, etc.)
+   - Espacios subrayados o con puntos suspensivos
+   - Label: nombre del dato que va ahí (ej: "nombre_participante", "dni", "fecha_nacimiento")
 
-⛔ NO DETECTAR:
-- Texto impreso (títulos, etiquetas, instrucciones)
-- Celdas de tabla que contienen texto
-- Logos, sellos o imágenes
-- Bordes decorativos
+2. 'box' - CASILLAS DE VERIFICACIÓN:
+   - Cuadrados pequeños para marcar con X o ✓
+   - Típico en opciones: Sí/No, escalas 1-4, NC/1/2/3/4
+   - Tamaño típico: width=2-3, height=2-3
+   - Label: identificador único (ej: "pregunta_1_opcion_1", "sexo_hombre", "valoracion_2")
 
-EJEMPLOS CORRECTOS:
-- Campo "Nº expediente" con línea vacía al lado: x=250, y=340, width=150, height=25, type="field"
-- Casilla pequeña vacía junto a "Mujer": x=820, y=450, width=20, height=20, type="box"
-- Campo para escribir edad: x=180, y=450, width=80, height=25, type="field"
+3. 'label' - ETIQUETAS DE TEXTO (como referencia/ancla):
+   - Títulos de secciones importantes
+   - Textos junto a campos que identifican qué dato pedir
+   - Preguntas numeradas
+   - Label: el texto exacto o resumen
 
-Devuelve JSON array con: label (qué dato va ahí), type ("box"/"field"), x, y, width, height (escala 0-1000).`;
+ESTRUCTURA DEL FORMULARIO - Detecta TODO:
+- Encabezados y títulos de secciones
+- Datos de identificación (nombre, DNI, fecha, etc.)
+- Todas las preguntas numeradas
+- Todas las opciones de respuesta con sus casillas
+- Campos de firma y fecha al final
+
+EJEMPLO DE SALIDA:
+[
+  {"label": "TITULO_SECCION", "type": "label", "x": 5, "y": 2, "width": 90, "height": 3},
+  {"label": "numero_expediente", "type": "field", "x": 25, "y": 8, "width": 20, "height": 2.5},
+  {"label": "Nº Expediente", "type": "label", "x": 5, "y": 8, "width": 18, "height": 2.5},
+  {"label": "pregunta_1_NC", "type": "box", "x": 45, "y": 35, "width": 2.5, "height": 2.5},
+  {"label": "pregunta_1_1", "type": "box", "x": 50, "y": 35, "width": 2.5, "height": 2.5}
+]
+
+Devuelve un JSON array COMPLETO con TODOS los elementos del formulario.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
@@ -127,7 +140,7 @@ Devuelve JSON array con: label (qué dato va ahí), type ("box"/"field"), x, y, 
             type: Type.OBJECT,
             properties: {
               label: { type: Type.STRING },
-              type: { type: Type.STRING, enum: ["box", "field"] },
+              type: { type: Type.STRING, enum: ["box", "field", "label"] },
               x: { type: Type.NUMBER },
               y: { type: Type.NUMBER },
               width: { type: Type.NUMBER },
@@ -141,15 +154,16 @@ Devuelve JSON array con: label (qué dato va ahí), type ("box"/"field"), x, y, 
 
     const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
 
-    // Normalizar de escala 0-1000 a 0-100 (porcentaje)
+    // Ya están en porcentaje (0-100), solo validar rangos
     return data.map((item: any) => ({
       id: crypto.randomUUID(),
       label: item.label,
-      type: (item.type === 'box' || item.type === 'checkbox') ? 'box' : 'field',
-      x: Math.max(0, Math.min(100, item.x / 10)),
-      y: Math.max(0, Math.min(100, item.y / 10)),
-      width: Math.max(0.5, Math.min(100, item.width / 10)),
-      height: Math.max(0.5, Math.min(100, item.height / 10)),
+      type: item.type === 'box' ? 'box' : item.type === 'label' ? 'label' : 'field',
+      x: Math.max(0, Math.min(100, item.x)),
+      y: Math.max(0, Math.min(100, item.y)),
+      width: Math.max(0.5, Math.min(100, item.width)),
+      height: Math.max(0.5, Math.min(100, item.height)),
+      isAnchor: item.type === 'label', // Marcar labels como anclas
     }));
   });
 };

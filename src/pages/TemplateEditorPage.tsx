@@ -667,30 +667,47 @@ export default function TemplateEditorPage() {
                         />
                         {editorDoc.regions.filter(r => r.pageIndex === currentPage).map((r, index) => {
                           const isSelected = selectedRegionIds.includes(r.id);
-                          // Z-index: seleccionados siempre encima, luego por posición Y invertida
-                          const zIndex = isSelected ? 200 : 100 - Math.floor(r.y);
+                          const isLabel = r.type === 'label' || r.isAnchor;
+                          // Z-index: seleccionados encima, labels debajo, otros en medio
+                          const zIndex = isSelected ? 200 : isLabel ? 5 : 100 - Math.floor(r.y);
+
+                          // Colores según tipo
+                          const colors = isLabel
+                            ? { border: 'border-amber-400/60', bg: 'bg-amber-500/5', hoverBg: 'hover:bg-amber-500/10', dot: 'bg-amber-500', labelBg: 'bg-amber-600' }
+                            : r.type === 'box'
+                            ? { border: 'border-blue-400', bg: 'bg-blue-500/10', hoverBg: 'hover:bg-blue-500/20', dot: 'bg-blue-500', labelBg: 'bg-blue-600' }
+                            : { border: 'border-emerald-400', bg: 'bg-emerald-500/10', hoverBg: 'hover:bg-emerald-500/20', dot: 'bg-emerald-500', labelBg: 'bg-emerald-600' };
+
                           return (
                           <div
                             key={r.id}
                             onMouseDown={(e) => handleMouseDown(e, r.id)}
-                            className={`absolute border-2 cursor-move flex items-center justify-center group/region ${isSelected ? 'border-indigo-600 bg-indigo-500/20 ring-4 ring-indigo-500/30' : r.type === 'box' ? 'border-blue-400 bg-blue-500/10 hover:bg-blue-500/20' : 'border-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20'}`}
+                            className={`absolute border-2 cursor-move flex items-center justify-center group/region ${
+                              isSelected
+                                ? 'border-indigo-600 bg-indigo-500/20 ring-4 ring-indigo-500/30'
+                                : `${colors.border} ${colors.bg} ${colors.hoverBg}`
+                            } ${isLabel ? 'border-dashed' : ''}`}
                             style={{ left: `${r.x}%`, top: `${r.y}%`, width: `${r.width}%`, height: `${r.height}%`, zIndex }}
                           >
-                            {/* Label: OCULTO por defecto, visible SOLO en hover o selección */}
+                            {/* Label del campo */}
                             <div
                               className={`absolute left-0 text-white text-[8px] font-bold px-1.5 py-0.5 rounded shadow-lg select-none whitespace-nowrap pointer-events-none transition-opacity duration-150 ${
                                 isSelected
                                   ? 'opacity-100 bg-indigo-600 -top-5'
-                                  : 'opacity-0 group-hover/region:opacity-100 -top-4 ' + (r.type === 'box' ? 'bg-blue-600' : 'bg-emerald-600')
+                                  : isLabel
+                                  ? 'opacity-70 -top-4 ' + colors.labelBg
+                                  : 'opacity-0 group-hover/region:opacity-100 -top-4 ' + colors.labelBg
                               }`}
                               style={{ zIndex: zIndex + 1 }}
                             >
-                              {r.isAnchor && <span className="mr-1">⚓</span>}
+                              {isLabel && <span className="mr-1">📌</span>}
+                              {r.type === 'box' && <span className="mr-1">☐</span>}
+                              {r.type === 'field' && <span className="mr-1">✏️</span>}
                               {r.label}
                             </div>
-                            {/* Indicador pequeño siempre visible */}
-                            {!isSelected && (
-                              <div className={`absolute -top-1 -left-1 w-2 h-2 rounded-full shadow ${r.type === 'box' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                            {/* Indicador pequeño siempre visible (excepto labels que ya muestran su etiqueta) */}
+                            {!isSelected && !isLabel && (
+                              <div className={`absolute -top-1 -left-1 w-2 h-2 rounded-full shadow ${colors.dot}`} />
                             )}
                             {/* Tirador de Redimensionamiento */}
                             {isSelected && (
