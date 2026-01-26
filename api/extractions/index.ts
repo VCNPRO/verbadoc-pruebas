@@ -492,6 +492,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`🔍 Campos extraídos: expediente="${rawExpediente}", accion="${rawAccion}", grupo="${rawGrupo}"`);
 
+      // 🔥 NORMALIZAR: Asegurar que los campos estén con nombres estándar
+      if (rawExpediente && !dataObj.numero_expediente) dataObj.numero_expediente = rawExpediente;
+      if (rawAccion && !dataObj.numero_accion) dataObj.numero_accion = rawAccion;
+      if (rawGrupo && !dataObj.numero_grupo) dataObj.numero_grupo = rawGrupo;
+
       // 1. Verificar que existan los campos críticos
       const missingFields: string[] = [];
       if (!rawExpediente) missingFields.push('Nº Expediente');
