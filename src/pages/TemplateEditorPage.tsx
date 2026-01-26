@@ -7,7 +7,8 @@ import {
   ChevronLeft, ChevronRight, Trash2,
   Save, FileType, Fingerprint, Cpu, Plus,
   AlertTriangle, BookOpen, RefreshCw,
-  ZoomIn, ZoomOut, Layers, Monitor, ArrowLeft
+  ZoomIn, ZoomOut, Layers, Monitor, ArrowLeft,
+  Upload, Download, FolderOpen
 } from 'lucide-react';
 import * as pdfjs from 'pdfjs-dist';
 
@@ -609,9 +610,9 @@ export default function TemplateEditorPage() {
           </div>
           <div className="flex items-center gap-4">
             {editorDoc && activeTab === 'editor' && (
-              <button onClick={handleSaveTemplate} className="px-6 py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-indigo-500 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 shadow-[0_10px_20px_rgba(79,70,229,0.2)]">
-                <Save size={14}/> Guardar Estructura
-              </button>
+              <span className="text-[10px] text-slate-500 font-bold">
+                {editorDoc.regions.length} regiones
+              </span>
             )}
           </div>
         </header>
@@ -691,13 +692,19 @@ export default function TemplateEditorPage() {
                        <button onClick={handleAutoDetect} disabled={isAnalyzing} className="w-full py-4 bg-indigo-600 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 hover:bg-indigo-500 disabled:opacity-50 transition-all shadow-[0_15px_30px_rgba(79,70,229,0.25)] active:scale-95">
                          {isAnalyzing ? <Loader2 className="animate-spin" size={18}/> : <Search size={18}/>} Auto-Mapeo Neural
                        </button>
-                       <div className="flex gap-2">
-                         <label className="flex-1 py-3 bg-amber-600/80 text-white text-[9px] font-black uppercase tracking-[0.15em] rounded-xl flex items-center justify-center gap-1.5 hover:bg-amber-500 cursor-pointer transition-all">
-                           <FileText size={14}/> Importar
+                       <div className="grid grid-cols-2 gap-2">
+                         <label className="py-2.5 bg-amber-600/80 text-white text-[8px] font-black uppercase tracking-[0.1em] rounded-lg flex items-center justify-center gap-1 hover:bg-amber-500 cursor-pointer transition-all">
+                           <Upload size={12}/> Cargar JSON
                            <input type="file" className="hidden" accept=".json" onChange={handleImportTemplate} />
                          </label>
-                         <button onClick={handleExportTemplate} className="flex-1 py-3 bg-emerald-600/80 text-white text-[9px] font-black uppercase tracking-[0.15em] rounded-xl flex items-center justify-center gap-1.5 hover:bg-emerald-500 transition-all">
-                           <Save size={14}/> Exportar
+                         <button onClick={handleExportTemplate} className="py-2.5 bg-emerald-600/80 text-white text-[8px] font-black uppercase tracking-[0.1em] rounded-lg flex items-center justify-center gap-1 hover:bg-emerald-500 transition-all">
+                           <Download size={12}/> Descargar JSON
+                         </button>
+                         <button onClick={() => setActiveTab('library')} className="py-2.5 bg-slate-700/80 text-white text-[8px] font-black uppercase tracking-[0.1em] rounded-lg flex items-center justify-center gap-1 hover:bg-slate-600 transition-all">
+                           <FolderOpen size={12}/> Cargar Biblioteca
+                         </button>
+                         <button onClick={handleSaveTemplate} className="py-2.5 bg-indigo-600/80 text-white text-[8px] font-black uppercase tracking-[0.1em] rounded-lg flex items-center justify-center gap-1 hover:bg-indigo-500 transition-all">
+                           <Save size={12}/> Guardar Biblioteca
                          </button>
                        </div>
                     </div>
