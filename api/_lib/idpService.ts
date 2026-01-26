@@ -15,16 +15,16 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
   }
 }
 
-export const classifyDocument = async (base64Image: string, templates: FormTemplate[]): Promise<{id: string, confidence: number} | null> => {
+export const classifyDocument = async (base64Image: string, templates: FormTemplate[], mimeType: string = 'image/jpeg'): Promise<{id: string, confidence: number} | null> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
-    const prompt = `Analiza este documento y compáralo con los siguientes IDs de plantilla: ${templates.map(t => t.id).join(', ')}. 
-    Identifica cuál coincide mejor basándote en la estructura visual. 
+    const prompt = `Analiza este documento y compáralo con los siguientes IDs de plantilla: ${templates.map(t => t.id).join(', ')}.
+    Identifica cuál coincide mejor basándote en la estructura visual.
     Responde estrictamente en formato JSON: { "match_id": "string", "confidence": number }`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
-      contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] },
+      contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
 
@@ -34,7 +34,7 @@ export const classifyDocument = async (base64Image: string, templates: FormTempl
 };
 
 // Detectar posición de anclas en un documento nuevo
-export const detectAnchors = async (base64Image: string, anchors: Region[]): Promise<{label: string, x: number, y: number}[]> => {
+export const detectAnchors = async (base64Image: string, anchors: Region[], mimeType: string = 'image/jpeg'): Promise<{label: string, x: number, y: number}[]> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
@@ -54,7 +54,7 @@ Responde JSON: { "anchors": [{"label": "nombre", "x": número, "y": número}, ..
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
-      contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] },
+      contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
 
@@ -149,7 +149,7 @@ const applyTransformation = (
   };
 };
 
-export const recalibrateRegions = async (base64Image: string, currentRegions: Region[]): Promise<Region[]> => {
+export const recalibrateRegions = async (base64Image: string, currentRegions: Region[], mimeType: string = 'image/jpeg'): Promise<Region[]> => {
   // Separar anclas de campos de datos
   const anchors = currentRegions.filter(r => r.isAnchor);
   const dataRegions = currentRegions.filter(r => !r.isAnchor);
@@ -165,7 +165,7 @@ export const recalibrateRegions = async (base64Image: string, currentRegions: Re
 
   try {
     // Detectar posición de anclas en el documento nuevo
-    const detectedAnchors = await detectAnchors(base64Image, anchors);
+    const detectedAnchors = await detectAnchors(base64Image, anchors, mimeType);
     console.log(`   🎯 Anclas detectadas: ${detectedAnchors.length}/${anchors.length}`);
 
     // Calcular transformación
@@ -189,26 +189,26 @@ export const recalibrateRegions = async (base64Image: string, currentRegions: Re
   }
 };
 
-export const extractWithConfidence = async (base64Image: string, region: Region): Promise<{value: string}> => {
+export const extractWithConfidence = async (base64Image: string, region: Region, mimeType: string = 'image/jpeg'): Promise<{value: string}> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
-    
-    const prompt = region.type === 'box' 
-      ? `VISIÓN CRÍTICA: Analiza el recuadro. ¿Hay una marca deliberada (X, ✓, raya)? 
-         Ignora bordes del cuadro o motas de polvo. 
+
+    const prompt = region.type === 'box'
+      ? `VISIÓN CRÍTICA: Analiza el recuadro. ¿Hay una marca deliberada (X, ✓, raya)?
+         Ignora bordes del cuadro o motas de polvo.
          Responde "[X]" si está marcada, "[ ]" si está vacía.`
       : `Extrae el texto manuscrito o impreso. Si no hay nada, responde "N/A".`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
-      contents: { parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }] }
+      contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] }
     });
 
     return { value: response.text?.trim() || "N/A" };
   });
 };
 
-export const analyzeDocumentStructure = async (base64Image: string): Promise<Region[]> => {
+export const analyzeDocumentStructure = async (base64Image: string, mimeType: string = 'image/jpeg'): Promise<Region[]> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
@@ -274,7 +274,7 @@ Devuelve JSON array con ABSOLUTAMENTE TODOS los elementos detectados.`;
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
       contents: {
-        parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64Image } }, { text: prompt }]
+        parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }]
       },
       config: {
         responseMimeType: "application/json",

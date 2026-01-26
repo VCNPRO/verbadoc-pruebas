@@ -27,17 +27,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { base64Image } = req.body;
-    if (!base64Image) {
-      console.log("❌ Petición sin base64Image. Body recibido:", Object.keys(req.body || {}));
+    // Aceptar múltiples formatos: base64Image, file, pdfBase64
+    let base64Data = req.body.base64Image || req.body.file || req.body.pdfBase64 || req.body.base64;
+    let mimeType = 'image/jpeg';
+
+    if (!base64Data) {
+      console.log("❌ Petición sin datos. Body recibido:", Object.keys(req.body || {}));
       return res.status(400).json({
-        error: 'Falta el campo requerido: base64Image',
+        error: 'Falta el campo requerido: base64Image, file, pdfBase64 o base64',
         receivedFields: Object.keys(req.body || {}),
-        hint: 'Envía el documento como imagen base64, no como archivo PDF'
+        hint: 'Envía el documento como base64 (imagen o PDF)'
       });
     }
 
-    console.log("🚀 Iniciando flujo de extracción IDP...");
+    // Detectar si es PDF o imagen basándose en el contenido base64
+    // PDF base64 empieza con "JVBERi" (que es "%PDF-" en base64)
+    if (base64Data.startsWith('JVBERi') || base64Data.startsWith('data:application/pdf')) {
+      mimeType = 'application/pdf';
+      // Limpiar prefijo data URL si existe
+      if (base64Data.includes(',')) {
+        base64Data = base64Data.split(',')[1];
+      }
+      console.log("📄 Detectado: PDF");
+    } else {
+      // Limpiar prefijo data URL si existe
+      if (base64Data.includes(',')) {
+        const parts = base64Data.split(',');
+        if (parts[0].includes('image/png')) mimeType = 'image/png';
+        else if (parts[0].includes('image/jpeg') || parts[0].includes('image/jpg')) mimeType = 'image/jpeg';
+        base64Data = parts[1];
+      }
+      console.log("🖼️ Detectado: Imagen");
+    }
+
+    // Usar base64Data como la variable para el resto del flujo
+    const base64Image = base64Data;
+
+    console.log(`🚀 Iniciando flujo de extracción IDP... (${mimeType})`);
 
     // 1. Obtener todas las plantillas activas de la base de datos
     console.log("   - Capa 0: Obteniendo plantillas de la BD...");
@@ -52,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2. Clasificar el documento para encontrar la mejor plantilla
     console.log("   - Capa 1: Clasificando documento...");
-    const classification = await classifyDocument(base64Image, templates);
+    const classification = await classifyDocument(base64Image, templates, mimeType);
     if (!classification || classification.confidence < 0.7) {
       console.log(`   ⚠️  Clasificación fallida o con baja confianza (${(classification?.confidence || 0) * 100}%)`);
       return res.status(422).json({
@@ -66,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 3. Recalibrar las coordenadas de la plantilla para este documento específico
     console.log("   - Capa 2: Recalibrando coordenadas...");
-    const recalibratedRegions = await recalibrateRegions(base64Image, matchedTemplate.regions);
+    const recalibratedRegions = await recalibrateRegions(base64Image, matchedTemplate.regions, mimeType);
     console.log("   ✅ Coordenadas recalibradas.");
 
     // 4. Extraer datos de cada región individualmente
