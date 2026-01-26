@@ -38,22 +38,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log(`   - ${key}: ${typeof value}, ${size} chars`);
     }
 
-    // Aceptar múltiples formatos: base64Image, file, pdfBase64, base64, image, data
-    let base64Data = req.body.base64Image || req.body.file || req.body.pdfBase64 || req.body.base64 || req.body.image || req.body.data;
+    // Aceptar múltiples formatos de campo
+    const possibleFields = [
+      'base64Image', 'file', 'pdfBase64', 'base64', 'image', 'data',
+      'pdf', 'document', 'content', 'imageBase64', 'fileData', 'pdfData',
+      'documentBase64', 'imageData', 'fileBase64'
+    ];
+
+    let base64Data = null;
+    let foundField = null;
+
+    // Buscar en todos los campos posibles
+    for (const field of possibleFields) {
+      if (req.body[field]) {
+        base64Data = req.body[field];
+        foundField = field;
+        break;
+      }
+    }
+
+    // Si no se encuentra, buscar cualquier campo que contenga base64 largo
+    if (!base64Data) {
+      for (const key of bodyKeys) {
+        const value = req.body[key];
+        if (typeof value === 'string' && value.length > 1000) {
+          // Parece ser datos base64
+          base64Data = value;
+          foundField = key;
+          console.log(`   🔍 Encontrado datos en campo no estándar: "${key}"`);
+          break;
+        }
+      }
+    }
+
     let mimeType = 'image/jpeg';
 
     if (!base64Data) {
       console.log("❌ Petición sin datos válidos. Body vacío o campos no reconocidos.");
       console.log("   Campos recibidos:", bodyKeys);
+      console.log("   Tamaños:", bodyKeys.map(k => `${k}=${typeof req.body[k] === 'string' ? req.body[k].length : 'no-string'}`).join(', '));
       return res.status(400).json({
         error: 'Falta el campo requerido',
         receivedFields: bodyKeys,
-        expectedFields: ['base64Image', 'file', 'pdfBase64', 'base64', 'image', 'data'],
+        expectedFields: possibleFields,
         hint: 'Envía el documento como base64 en uno de los campos esperados'
       });
     }
 
-    console.log(`✅ Datos encontrados en campo, tamaño: ${base64Data.length} chars`);
+    console.log(`✅ Datos encontrados en campo "${foundField}", tamaño: ${base64Data.length} chars`);
 
     // Detectar si es PDF o imagen basándose en el contenido base64
     // PDF base64 empieza con "JVBERi" (que es "%PDF-" en base64)
