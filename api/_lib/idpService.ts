@@ -18,9 +18,30 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
 export const classifyDocument = async (base64Image: string, templates: FormTemplate[], mimeType: string = 'image/jpeg'): Promise<{id: string, confidence: number} | null> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
-    const prompt = `Analiza este documento y compáralo con los siguientes IDs de plantilla: ${templates.map(t => t.id).join(', ')}.
-    Identifica cuál coincide mejor basándote en la estructura visual.
-    Responde estrictamente en formato JSON: { "match_id": "string", "confidence": number }`;
+
+    // 🔥 MEJORADO: Incluir nombres y descripciones de las plantillas, no solo IDs
+    const templateDescriptions = templates.map((t, index) => {
+      const regionCount = Array.isArray(t.regions) ? t.regions.length : 0;
+      const fieldTypes = Array.isArray(t.regions)
+        ? [...new Set(t.regions.map((r: any) => r.type))].join(', ')
+        : 'desconocido';
+      return `${index + 1}. ID: "${t.id}" | Nombre: "${t.name}" | Campos: ${regionCount} | Tipos: ${fieldTypes}`;
+    }).join('\n');
+
+    const prompt = `TAREA: Clasificar este documento para identificar qué plantilla de formulario coincide mejor.
+
+PLANTILLAS DISPONIBLES:
+${templateDescriptions}
+
+INSTRUCCIONES:
+1. Analiza la estructura visual del documento (encabezados, logos, disposición de campos)
+2. Compara con las plantillas disponibles basándote en el NOMBRE y estructura
+3. Si el documento es un formulario FUNDAE de participantes, busca plantillas con ese nombre
+4. Responde con el ID de la plantilla que mejor coincide
+
+IMPORTANTE: Si ninguna plantilla coincide claramente, usa confidence < 0.5
+
+Responde en JSON: { "match_id": "el-id-de-la-plantilla", "confidence": 0.0-1.0, "reason": "breve explicación" }`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-2.0-flash',
@@ -29,6 +50,7 @@ export const classifyDocument = async (base64Image: string, templates: FormTempl
     });
 
     const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
+    console.log(`   📋 Clasificación: "${data.reason}" (${Math.round((data.confidence || 0) * 100)}%)`);
     return data.match_id ? { id: data.match_id, confidence: data.confidence } : null;
   });
 };

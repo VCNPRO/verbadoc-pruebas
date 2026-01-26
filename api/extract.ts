@@ -164,7 +164,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (templates.length === 0) {
       return res.status(500).json({ error: 'No hay plantillas de formulario activas en la base de datos.' });
     }
-    console.log(`   ✅ Obtenidas ${templates.length} plantillas.`);
+    // 🔥 Log detallado de plantillas disponibles
+    console.log(`   ✅ Obtenidas ${templates.length} plantillas activas:`);
+    templates.forEach((t: any, i: number) => {
+      const regionCount = Array.isArray(t.regions) ? t.regions.length : 0;
+      console.log(`      ${i + 1}. "${t.name}" (${regionCount} campos) - ID: ${t.id.substring(0, 8)}...`);
+    });
 
     // 2. Clasificar el documento para encontrar la mejor plantilla
     console.log("   - Capa 1: Clasificando documento...");
