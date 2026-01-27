@@ -148,6 +148,13 @@ REGLA 5 - ANTE LA DUDA → "NC":
 - No estás seguro → "NC"
 - Parece tachado/corregido → "NC"
 
+REGLA 6 - CAMPOS QUE NO EXISTEN FÍSICAMENTE EN EL PDF:
+⚠️ MUY IMPORTANTE: Distinguir entre "campo vacío" y "campo inexistente":
+- Si el campo/pregunta EXISTE en el PDF pero la respuesta está vacía → devuelve "NC"
+- Si el campo/pregunta NO EXISTE FÍSICAMENTE en el PDF (no aparece la pregunta) → NO INCLUIR ese campo en el JSON
+Ejemplo: Si la pregunta "¿Recomendaría este curso?" NO aparece en el PDF, NO devuelvas recomendaria_curso en absoluto.
+Solo incluye en el JSON los campos que SÍ existen físicamente en el documento.
+
 Las marcas válidas son: X, ✓, ✗, círculo, tachado, o relleno completo de casilla.
 
 ═══════════════════════════════════════════════════════════════════════════════
