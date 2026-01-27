@@ -761,6 +761,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         'valoracion_8_1', 'valoracion_8_2',
         'valoracion_9_1', 'valoracion_9_2', 'valoracion_9_3', 'valoracion_9_4', 'valoracion_9_5',
         'valoracion_10',
+        // Pregunta final
+        'recomendaria_curso',
         // Campos finales
         'fecha_cumplimentacion', 'sugerencias'
       ];
