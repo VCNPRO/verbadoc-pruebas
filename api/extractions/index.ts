@@ -794,7 +794,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ) VALUES (
               ${user.userId}::UUID,
               ${filename}::VARCHAR,
-              'formulario_incompleto'::VARCHAR,
+              'incompleto'::VARCHAR,
               ${`Formulario físicamente incompleto: faltan ${camposFaltantes.length} de ${totalCamposEsperados} campos (${Math.round(porcentajeFaltantes)}%). Campos no encontrados: ${camposFaltantes.slice(0, 8).join(', ')}${camposFaltantes.length > 8 ? '...' : ''}`}::TEXT,
               ${JSON.stringify(dataObj)}::JSONB,
               ${rawExpediente},
@@ -807,7 +807,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             RETURNING id
           `;
           unprocessableId = result.rows[0]?.id;
-          console.log(`✅ Documento registrado como no procesable: formulario_incompleto, ID:`, unprocessableId);
+          console.log(`✅ Documento registrado como no procesable: incompleto, ID:`, unprocessableId);
         } catch (unprocessableError) {
           console.error('⚠️ Error al registrar no procesable:', unprocessableError);
         }
@@ -815,7 +815,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(422).json({
           error: 'Documento no procesable',
           reason: `Formulario físicamente incompleto - faltan ${camposFaltantes.length} campos`,
-          category: 'formulario_incompleto',
+          category: 'incompleto',
           canProcess: false,
           unprocessableId,
           extractedData: {
