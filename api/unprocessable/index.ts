@@ -90,7 +90,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             u.can_retry,
             u.created_at,
             u.updated_at,
-            u.reviewed_at
+            u.reviewed_at,
+            u.pdf_blob_url
           FROM unprocessable_documents u
           JOIN users usr ON u.user_id = usr.id
           WHERE usr.client_id = $1
@@ -114,7 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             can_retry,
             created_at,
             updated_at,
-            reviewed_at
+            reviewed_at,
+            pdf_blob_url
           FROM unprocessable_documents
           WHERE user_id = $1
         `;

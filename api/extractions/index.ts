@@ -513,7 +513,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             INSERT INTO unprocessable_documents (
               user_id, filename, rejection_category, rejection_reason,
               extracted_data, numero_expediente, numero_accion, numero_grupo,
-              file_size_bytes, file_type
+              file_size_bytes, file_type, pdf_blob_url
             ) VALUES (
               ${user.userId}::UUID,
               ${filename}::VARCHAR,
@@ -524,7 +524,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ${rawAccion || null},
               ${rawGrupo || null},
               ${fileSizeBytes || null},
-              ${fileType || 'application/pdf'}
+              ${fileType || 'application/pdf'},
+              ${fileUrl || null}
             )
             RETURNING id
           `;
@@ -580,7 +581,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             INSERT INTO unprocessable_documents (
               user_id, filename, rejection_category, rejection_reason,
               extracted_data, numero_expediente, numero_accion, numero_grupo,
-              file_size_bytes, file_type
+              file_size_bytes, file_type, pdf_blob_url
             ) VALUES (
               ${user.userId}::UUID,
               ${filename}::VARCHAR,
@@ -591,7 +592,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ${rawAccion || null},
               ${rawGrupo || null},
               ${fileSizeBytes || null},
-              ${fileType || 'application/pdf'}
+              ${fileType || 'application/pdf'},
+              ${fileUrl || null}
             )
             RETURNING id
           `;
@@ -679,7 +681,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             INSERT INTO unprocessable_documents (
               user_id, filename, rejection_category, rejection_reason,
               extracted_data, numero_expediente, numero_accion, numero_grupo,
-              file_size_bytes, file_type
+              file_size_bytes, file_type, pdf_blob_url
             ) VALUES (
               ${user.userId}::UUID,
               ${filename}::VARCHAR,
@@ -690,7 +692,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ${rawAccion},
               ${rawGrupo},
               ${fileSizeBytes || null},
-              ${fileType || 'application/pdf'}
+              ${fileType || 'application/pdf'},
+              ${fileUrl || null}
             )
             RETURNING id
           `;
@@ -728,12 +731,102 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const cityCatalog = loadCityCodesCatalog();
         const extractedCity = String(dataObj.ciudad || dataObj.poblacion || '').toUpperCase().trim();
-        
+
         if (extractedCity && cityCatalog[extractedCity]) {
           dataObj.ciudad = cityCatalog[extractedCity];
           if (dataObj.poblacion) dataObj.poblacion = cityCatalog[extractedCity];
         }
       } catch (cityError) {}
+
+      // =====================================================
+      // 4. DETECCIÓN DE FORMULARIOS INCOMPLETOS
+      // =====================================================
+      // Lista de TODOS los campos esperados en un formulario FUNDAE completo
+      const CAMPOS_ESPERADOS = [
+        // Campos de cabecera
+        'numero_expediente', 'perfil', 'cif_empresa', 'numero_accion', 'numero_grupo',
+        'denominacion_aaff', 'modalidad',
+        // Datos personales
+        'edad', 'sexo', 'lugar_trabajo', 'titulacion_codigo', 'categoria_profesional',
+        'horario_curso', 'porcentaje_jornada', 'tamano_empresa',
+        // Valoraciones página 2
+        'valoracion_1_1', 'valoracion_1_2',
+        'valoracion_2_1', 'valoracion_2_2',
+        'valoracion_3_1', 'valoracion_3_2',
+        'valoracion_4_1_formadores', 'valoracion_4_1_tutores',
+        'valoracion_4_2_formadores', 'valoracion_4_2_tutores',
+        'valoracion_5_1', 'valoracion_5_2',
+        'valoracion_6_1', 'valoracion_6_2',
+        'valoracion_7_1', 'valoracion_7_2',
+        'valoracion_8_1', 'valoracion_8_2',
+        'valoracion_9_1', 'valoracion_9_2', 'valoracion_9_3', 'valoracion_9_4', 'valoracion_9_5',
+        'valoracion_10',
+        // Campos finales
+        'fecha_cumplimentacion', 'sugerencias'
+      ];
+
+      // Detectar campos que NO EXISTEN en la extracción (no confundir con NC)
+      // Un campo "no existe" si no está presente como key en el objeto extraído
+      const camposFaltantes = CAMPOS_ESPERADOS.filter(field => {
+        return !(field in dataObj);
+      });
+
+      const totalCamposEsperados = CAMPOS_ESPERADOS.length;
+      const camposExtraidos = totalCamposEsperados - camposFaltantes.length;
+      const porcentajeFaltantes = (camposFaltantes.length / totalCamposEsperados) * 100;
+
+      console.log(`📋 Campos extraídos: ${camposExtraidos}/${totalCamposEsperados} (faltan ${camposFaltantes.length})`);
+
+      // Si faltan más del 20% de los campos, el formulario está físicamente incompleto
+      const UMBRAL_INCOMPLETO = 20; // 20% de campos faltantes = formulario incompleto
+      if (porcentajeFaltantes >= UMBRAL_INCOMPLETO) {
+        console.log(`⚠️ Formulario INCOMPLETO detectado: faltan ${camposFaltantes.length} campos (${Math.round(porcentajeFaltantes)}%)`);
+        console.log(`   Campos faltantes: ${camposFaltantes.slice(0, 10).join(', ')}${camposFaltantes.length > 10 ? '...' : ''}`);
+
+        let unprocessableId = null;
+        try {
+          const result = await sql`
+            INSERT INTO unprocessable_documents (
+              user_id, filename, rejection_category, rejection_reason,
+              extracted_data, numero_expediente, numero_accion, numero_grupo,
+              file_size_bytes, file_type, pdf_blob_url
+            ) VALUES (
+              ${user.userId}::UUID,
+              ${filename}::VARCHAR,
+              'formulario_incompleto'::VARCHAR,
+              ${`Formulario físicamente incompleto: faltan ${camposFaltantes.length} de ${totalCamposEsperados} campos (${Math.round(porcentajeFaltantes)}%). Campos no encontrados: ${camposFaltantes.slice(0, 8).join(', ')}${camposFaltantes.length > 8 ? '...' : ''}`}::TEXT,
+              ${JSON.stringify(dataObj)}::JSONB,
+              ${rawExpediente},
+              ${rawAccion || null},
+              ${rawGrupo || null},
+              ${fileSizeBytes || null},
+              ${fileType || 'application/pdf'},
+              ${fileUrl || null}
+            )
+            RETURNING id
+          `;
+          unprocessableId = result.rows[0]?.id;
+          console.log(`✅ Documento registrado como no procesable: formulario_incompleto, ID:`, unprocessableId);
+        } catch (unprocessableError) {
+          console.error('⚠️ Error al registrar no procesable:', unprocessableError);
+        }
+
+        return res.status(422).json({
+          error: 'Documento no procesable',
+          reason: `Formulario físicamente incompleto - faltan ${camposFaltantes.length} campos`,
+          category: 'formulario_incompleto',
+          canProcess: false,
+          unprocessableId,
+          extractedData: {
+            expediente: rawExpediente,
+            accion: rawAccion,
+            grupo: rawGrupo,
+            camposExtraidos: camposExtraidos,
+            totalCamposEsperados: totalCamposEsperados,
+            camposFaltantes: camposFaltantes
+          }
+        });
+      }
 
       // 🔒 DOBLE VERIFICACIÓN (si se proporcionaron datos de verificación)
       let verificationResult: VerificationResult | null = null;

@@ -25,6 +25,7 @@ interface UnprocessableDocument {
   created_at: string;
   updated_at: string;
   reviewed_at?: string;
+  pdf_blob_url?: string;
 }
 
 interface Stats {
@@ -42,6 +43,11 @@ const CATEGORY_LABELS: Record<string, { text: string; color: string; icon: strin
     text: 'Campos Faltantes',
     color: 'bg-orange-100 text-orange-800 border-orange-200',
     icon: '📝'
+  },
+  formulario_incompleto: {
+    text: 'Formulario Incompleto',
+    color: 'bg-amber-100 text-amber-800 border-amber-200',
+    icon: '📋'
   },
   ilegible: {
     text: 'Ilegible',
@@ -623,69 +629,112 @@ export default function UnprocessablePage() {
         </div>
       </div>
 
-      {/* Modal de detalles */}
+      {/* Modal de detalles con visor de PDF */}
       {selectedDoc && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header del modal */}
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+              <div>
                 <h2 className="text-xl font-bold text-gray-900">Detalles del Documento</h2>
-                <button
-                  onClick={() => setSelectedDoc(null)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
+                <p className="text-sm text-gray-500 mt-1">{selectedDoc.filename}</p>
+              </div>
+              <button
+                onClick={() => setSelectedDoc(null)}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Contenido principal - Layout lado a lado */}
+            <div className="flex-1 overflow-hidden flex">
+              {/* Panel izquierdo: Visor PDF */}
+              <div className="w-1/2 border-r border-gray-200 bg-gray-100 flex flex-col">
+                <div className="p-2 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600 flex items-center gap-2">
+                  <span>📄</span> Vista previa del PDF
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  {selectedDoc.pdf_blob_url ? (
+                    <iframe
+                      src={selectedDoc.pdf_blob_url}
+                      className="w-full h-full border-0"
+                      title={`Vista previa: ${selectedDoc.filename}`}
+                    />
+                  ) : (
+                    <div className="h-full flex items-center justify-center text-gray-400 flex-col gap-2">
+                      <span className="text-4xl">📄</span>
+                      <span className="text-sm">PDF no disponible</span>
+                      <span className="text-xs text-gray-300">El archivo original no fue guardado</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Archivo:</label>
-                  <p className="text-gray-900">{selectedDoc.filename}</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Categoría:</label>
-                  <div className="mt-1">{getCategoryBadge(selectedDoc.rejection_category)}</div>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Motivo del rechazo:</label>
-                  <p className="text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 mt-1">
-                    {selectedDoc.rejection_reason}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
+              {/* Panel derecho: Detalles */}
+              <div className="w-1/2 overflow-auto p-4">
+                <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Expediente:</label>
-                    <p className="text-gray-900">{selectedDoc.numero_expediente || 'N/A'}</p>
+                    <label className="text-sm font-medium text-gray-500">Categoría:</label>
+                    <div className="mt-1">{getCategoryBadge(selectedDoc.rejection_category)}</div>
                   </div>
+
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Acción:</label>
-                    <p className="text-gray-900">{selectedDoc.numero_accion || 'N/A'}</p>
+                    <label className="text-sm font-medium text-gray-500">Motivo del rechazo:</label>
+                    <p className="text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 mt-1 text-sm">
+                      {selectedDoc.rejection_reason}
+                    </p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Grupo:</label>
-                    <p className="text-gray-900">{selectedDoc.numero_grupo || 'N/A'}</p>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Expediente:</label>
+                      <p className="text-gray-900 text-sm">{selectedDoc.numero_expediente || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Acción:</label>
+                      <p className="text-gray-900 text-sm">{selectedDoc.numero_accion || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Grupo:</label>
+                      <p className="text-gray-900 text-sm">{selectedDoc.numero_grupo || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  {selectedDoc.extracted_data && Object.keys(selectedDoc.extracted_data).length > 0 && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Datos extraídos:</label>
+                      <pre className="text-xs text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 mt-1 overflow-auto max-h-48">
+                        {JSON.stringify(selectedDoc.extracted_data, null, 2)}
+                      </pre>
+                    </div>
+                  )}
+
+                  <div className="text-sm text-gray-500">
+                    Fecha: {new Date(selectedDoc.created_at).toLocaleString('es-ES')}
                   </div>
                 </div>
+              </div>
+            </div>
 
-                {selectedDoc.extracted_data && (
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Datos extraídos:</label>
-                    <pre className="text-xs text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 mt-1 overflow-auto max-h-60">
-                      {JSON.stringify(selectedDoc.extracted_data, null, 2)}
-                    </pre>
-                  </div>
+            {/* Footer con acciones */}
+            <div className="p-4 border-t border-gray-200 flex justify-between items-center shrink-0 bg-gray-50">
+              <div className="text-sm text-gray-500">
+                {selectedDoc.pdf_blob_url && (
+                  <a
+                    href={selectedDoc.pdf_blob_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    Abrir PDF en nueva pestaña
+                  </a>
                 )}
-
-                <div className="text-sm text-gray-500">
-                  Fecha: {new Date(selectedDoc.created_at).toLocaleString()}
-                </div>
               </div>
-
-              <div className="mt-6 flex justify-end gap-3">
+              <div className="flex gap-3">
                 <button
                   onClick={() => setSelectedDoc(null)}
                   className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
@@ -697,8 +746,11 @@ export default function UnprocessablePage() {
                     handleSendToReview(selectedDoc.id);
                     setSelectedDoc(null);
                   }}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
                 >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
                   Enviar a Revisión
                 </button>
                 <button
@@ -706,8 +758,11 @@ export default function UnprocessablePage() {
                     handleDelete(selectedDoc.id);
                     setSelectedDoc(null);
                   }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
                 >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
                   Eliminar
                 </button>
               </div>
