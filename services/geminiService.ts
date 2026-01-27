@@ -626,7 +626,10 @@ IMPORTANTE: Este es un documento escaneado (imagen). Por favor:
 // SISTEMA HÍBRIDO: Coordenadas + IA
 // ============================================
 
-export type ExtractionMethod = 'coordinates' | 'ai' | 'hybrid';
+// 🔧 CONFIGURACIÓN TEMPORAL: Desactivar coordenadas para procesamiento masivo
+const SKIP_COORDINATES_SYSTEM = true; // Cambiar a false para reactivar coordenadas
+
+export type ExtractionMethod = 'coordinates' | 'ai' | 'hybrid' | 'ai_escalated';
 
 export interface HybridExtractionResult {
   data: any;
@@ -636,11 +639,20 @@ export interface HybridExtractionResult {
   processingTimeMs: number;
   usedFallback: boolean;
   fallbackReason?: string;
+  modelUsed: GeminiModel;        // 🆕 Qué modelo procesó el documento
+  modelEscalated: boolean;       // 🆕 Si se escaló a modelo superior
+  attempts: number;              // 🆕 Número de intentos
 }
 
 /**
- * Extracción híbrida: Primero intenta con coordenadas, luego con IA si es necesario
- * Este es el método RECOMENDADO para formularios FUNDAE
+ * Extracción con IA y escalado automático de modelos
+ *
+ * FLUJO ACTUAL (SKIP_COORDINATES_SYSTEM = true):
+ * 1. Intenta con gemini-2.5-flash
+ * 2. Si confianza < 80%, escala a gemini-2.5-pro
+ * 3. Si aún hay dudas, marca para revisión
+ *
+ * Este es el método RECOMENDADO para procesamiento masivo FUNDAE
  */
 export const extractWithHybridSystem = async (
   file: File,
@@ -650,27 +662,104 @@ export const extractWithHybridSystem = async (
   options?: {
     forceAI?: boolean;           // Forzar uso de IA (saltar coordenadas)
     forceCoordinates?: boolean;  // Forzar uso de coordenadas (no usar fallback)
-    confidenceThreshold?: number; // Umbral de confianza (default: 0.5)
+    confidenceThreshold?: number; // Umbral de confianza (default: 0.8)
+    enableModelEscalation?: boolean; // Habilitar escalado automático (default: true)
   }
 ): Promise<HybridExtractionResult> => {
   const startTime = Date.now();
-  const threshold = options?.confidenceThreshold ?? 0.5;
+  const threshold = options?.confidenceThreshold ?? 0.8;
+  const enableEscalation = options?.enableModelEscalation ?? true;
 
-  // Si se fuerza IA, ir directamente a Vertex AI
-  if (options?.forceAI) {
-    console.log('🤖 Forzando uso de IA (forceAI=true)');
-    const aiData = await extractDataFromDocument(file, schema, prompt, modelId);
-    return {
-      data: aiData,
-      method: 'ai',
-      confidence: 0.9, // Asumimos alta confianza para IA
-      confidencePercentage: 90,
-      processingTimeMs: Date.now() - startTime,
-      usedFallback: false,
-    };
+  // 🔧 MODO PROCESAMIENTO MASIVO: Saltar coordenadas, ir directo a IA
+  if (SKIP_COORDINATES_SYSTEM || options?.forceAI) {
+    console.log('🚀 MODO IA DIRECTA (coordenadas desactivadas para procesamiento masivo)');
+
+    let currentModel: GeminiModel = 'gemini-2.5-flash';
+    let attempts = 0;
+    let modelEscalated = false;
+    let lastData: any = null;
+    let lastConfidence = 0;
+
+    // INTENTO 1: gemini-2.5-flash (modelo rápido y económico)
+    try {
+      attempts++;
+      console.log(`🤖 Intento ${attempts}: Usando ${currentModel}...`);
+
+      const aiData = await extractDataFromDocument(file, schema, prompt, currentModel);
+      lastData = aiData;
+
+      // Calcular confianza basada en campos extraídos
+      const totalFields = schema.length;
+      const extractedFields = Object.entries(aiData).filter(([_, v]) =>
+        v !== null && v !== undefined && v !== '' && v !== 'NC'
+      ).length;
+      lastConfidence = extractedFields / totalFields;
+
+      console.log(`📊 Resultado Flash: ${Math.round(lastConfidence * 100)}% confianza (${extractedFields}/${totalFields} campos)`);
+
+      // Si la confianza es suficiente, devolver resultado
+      if (lastConfidence >= threshold) {
+        console.log(`✅ Confianza suficiente con ${currentModel}`);
+        return {
+          data: aiData,
+          method: 'ai',
+          confidence: lastConfidence,
+          confidencePercentage: Math.round(lastConfidence * 100),
+          processingTimeMs: Date.now() - startTime,
+          usedFallback: false,
+          modelUsed: currentModel,
+          modelEscalated: false,
+          attempts: attempts,
+        };
+      }
+
+      // INTENTO 2: Escalar a gemini-2.5-pro si está habilitado
+      if (enableEscalation && lastConfidence < threshold) {
+        console.log(`⚠️ Confianza baja (${Math.round(lastConfidence * 100)}%), escalando a modelo superior...`);
+
+        currentModel = 'gemini-2.5-pro';
+        modelEscalated = true;
+        attempts++;
+
+        console.log(`🤖 Intento ${attempts}: Usando ${currentModel} (modelo avanzado)...`);
+
+        const proData = await extractDataFromDocument(file, schema, prompt, currentModel);
+        lastData = proData;
+
+        // Recalcular confianza
+        const proExtractedFields = Object.entries(proData).filter(([_, v]) =>
+          v !== null && v !== undefined && v !== '' && v !== 'NC'
+        ).length;
+        lastConfidence = proExtractedFields / totalFields;
+
+        console.log(`📊 Resultado Pro: ${Math.round(lastConfidence * 100)}% confianza (${proExtractedFields}/${totalFields} campos)`);
+      }
+
+      // Devolver el mejor resultado obtenido
+      const finalMethod: ExtractionMethod = modelEscalated ? 'ai_escalated' : 'ai';
+
+      return {
+        data: lastData,
+        method: finalMethod,
+        confidence: lastConfidence,
+        confidencePercentage: Math.round(lastConfidence * 100),
+        processingTimeMs: Date.now() - startTime,
+        usedFallback: modelEscalated,
+        fallbackReason: modelEscalated ? 'low_confidence_escalated_to_pro' : undefined,
+        modelUsed: currentModel,
+        modelEscalated: modelEscalated,
+        attempts: attempts,
+      };
+
+    } catch (error: any) {
+      console.error(`❌ Error en extracción IA:`, error.message);
+      throw new Error(`Error de extracción: ${error.message}`);
+    }
   }
 
-  // PASO 1: Intentar con sistema de coordenadas
+  // ============================================
+  // MODO COORDENADAS (cuando SKIP_COORDINATES_SYSTEM = false)
+  // ============================================
   console.log('📐 PASO 1: Intentando extracción con Sistema de Coordenadas...');
 
   try {
@@ -722,61 +811,49 @@ export const extractWithHybridSystem = async (
           confidencePercentage: coordResult.confidencePercentage,
           processingTimeMs: Date.now() - startTime,
           usedFallback: false,
+          modelUsed: 'gemini-2.5-flash', // Coordenadas usan flash internamente
+          modelEscalated: false,
+          attempts: 1,
         };
       }
 
-      // Si la confianza es baja y NO se fuerza coordenadas, hacer fallback a IA
-      if (coordResult.fallbackToAI && !options?.forceCoordinates) {
-        console.log(`⚠️ Confianza baja (${coordResult.confidencePercentage}%), haciendo fallback a IA...`);
+      // Si la confianza es baja, hacer fallback a IA con escalado
+      if (!options?.forceCoordinates) {
+        console.log(`⚠️ Confianza baja (${coordResult.confidencePercentage}%), escalando a IA...`);
 
-        // PASO 2: Fallback a IA
-        console.log('🤖 PASO 2: Usando Vertex AI como fallback...');
-        const aiData = await extractDataFromDocument(file, schema, prompt, modelId);
+        // Usar el sistema de IA con escalado
+        const aiResult = await extractWithHybridSystem(file, schema, prompt, modelId, {
+          ...options,
+          forceAI: true,
+        });
 
         return {
-          data: aiData,
+          ...aiResult,
           method: 'hybrid',
-          confidence: 0.85, // Confianza estimada para IA
-          confidencePercentage: 85,
-          processingTimeMs: Date.now() - startTime,
           usedFallback: true,
-          fallbackReason: coordResult.reason || 'low_confidence',
+          fallbackReason: 'coordinates_low_confidence',
         };
       }
-
-      // Usar coordenadas aunque la confianza sea baja (forceCoordinates)
-      return {
-        data: coordResult.extractedData,
-        method: 'coordinates',
-        confidence: coordResult.confidence,
-        confidencePercentage: coordResult.confidencePercentage,
-        processingTimeMs: Date.now() - startTime,
-        usedFallback: false,
-      };
     }
 
-    // Si el endpoint de coordenadas falló, ir a IA
-    console.log('⚠️ Endpoint de coordenadas no disponible, usando IA directamente');
     throw new Error('Coordinates endpoint failed');
 
   } catch (coordError: any) {
     console.warn('⚠️ Error en sistema de coordenadas:', coordError.message);
 
-    // Si se fuerza coordenadas, no hacer fallback
     if (options?.forceCoordinates) {
-      throw new Error(`Sistema de coordenadas falló y forceCoordinates=true: ${coordError.message}`);
+      throw new Error(`Sistema de coordenadas falló: ${coordError.message}`);
     }
 
-    // FALLBACK: Usar IA
-    console.log('🤖 Fallback a Vertex AI por error en coordenadas...');
-    const aiData = await extractDataFromDocument(file, schema, prompt, modelId);
+    // Fallback a IA con escalado
+    console.log('🤖 Fallback a IA por error en coordenadas...');
+    const aiResult = await extractWithHybridSystem(file, schema, prompt, modelId, {
+      ...options,
+      forceAI: true,
+    });
 
     return {
-      data: aiData,
-      method: 'ai',
-      confidence: 0.85,
-      confidencePercentage: 85,
-      processingTimeMs: Date.now() - startTime,
+      ...aiResult,
       usedFallback: true,
       fallbackReason: 'coordinates_error',
     };
