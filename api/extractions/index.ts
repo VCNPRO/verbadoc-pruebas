@@ -777,10 +777,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`📋 Campos extraídos: ${camposExtraidos}/${totalCamposEsperados} (faltan ${camposFaltantes.length})`);
 
-      // Si faltan más del 20% de los campos, el formulario está físicamente incompleto
-      const UMBRAL_INCOMPLETO = 20; // 20% de campos faltantes = formulario incompleto
-      if (porcentajeFaltantes >= UMBRAL_INCOMPLETO) {
-        console.log(`⚠️ Formulario INCOMPLETO detectado: faltan ${camposFaltantes.length} campos (${Math.round(porcentajeFaltantes)}%)`);
+      // Si falta CUALQUIER campo, el formulario está físicamente incompleto
+      if (camposFaltantes.length > 0) {
+        console.log(`⚠️ Formulario INCOMPLETO detectado: faltan ${camposFaltantes.length} campos`);
         console.log(`   Campos faltantes: ${camposFaltantes.slice(0, 10).join(', ')}${camposFaltantes.length > 10 ? '...' : ''}`);
 
         let unprocessableId = null;
