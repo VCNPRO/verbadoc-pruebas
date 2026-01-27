@@ -69,6 +69,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     const [selectedUserId, setSelectedUserId] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Estado para modal de crear usuario
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newUser, setNewUser] = useState({ email: '', password: '', name: '', role: 'user' as const });
+    const [createLoading, setCreateLoading] = useState(false);
+    const [createError, setCreateError] = useState<string | null>(null);
+
+    // Estado para acciones en usuarios
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+
     // Cargar usuarios de la BD
     const loadUsers = async () => {
         try {
@@ -116,6 +125,94 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
         }
     };
 
+    // Crear usuario
+    const handleCreateUser = async () => {
+        try {
+            setCreateLoading(true);
+            setCreateError(null);
+
+            const response = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(newUser),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al crear usuario');
+            }
+
+            // Recargar usuarios y cerrar modal
+            await loadUsers();
+            setShowCreateModal(false);
+            setNewUser({ email: '', password: '', name: '', role: 'user' });
+        } catch (err: any) {
+            setCreateError(err.message);
+        } finally {
+            setCreateLoading(false);
+        }
+    };
+
+    // Eliminar usuario
+    const handleDeleteUser = async (userId: string, userEmail: string) => {
+        if (!confirm(`¿Estás seguro de eliminar al usuario ${userEmail}?`)) {
+            return;
+        }
+
+        try {
+            setActionLoading(userId);
+
+            const response = await fetch('/api/admin/users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ userId }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al eliminar usuario');
+            }
+
+            // Recargar usuarios
+            await loadUsers();
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // Cambiar rol de usuario
+    const handleChangeRole = async (userId: string, newRole: string) => {
+        try {
+            setActionLoading(userId);
+
+            const response = await fetch('/api/admin/set-admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ userId, role: newRole }),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al cambiar rol');
+            }
+
+            // Recargar usuarios
+            await loadUsers();
+        } catch (err: any) {
+            alert(`Error: ${err.message}`);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     // Cargar datos al montar
     useEffect(() => {
         loadUsers();
@@ -131,14 +228,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     const filteredLogs = React.useMemo(() => {
         let result = logs;
 
-        // Filtrar por hoy
         if (filter === 'today') {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             result = result.filter(log => new Date(log.created_at) >= today);
         }
 
-        // Filtrar por búsqueda
         if (searchTerm) {
             result = result.filter(log =>
                 log.user_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -171,7 +266,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     const borderColor = isLightMode ? '#e5e7eb' : '#334155';
     const accentColor = isLightMode ? '#2563eb' : '#06b6d4';
 
-    // Verificar si el usuario actual es admin
     const isAdmin = user?.role === 'admin';
 
     if (!isAdmin) {
@@ -188,7 +282,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
         );
     }
 
-    // Color del rol
     const getRoleColor = (role: string) => {
         switch (role) {
             case 'admin': return { bg: '#7c3aed', text: '#ffffff' };
@@ -199,6 +292,92 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
 
     return (
         <div className="min-h-screen p-6" style={{ backgroundColor: bgColor, color: textColor }}>
+            {/* Modal Crear Usuario */}
+            {showCreateModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="p-6 rounded-lg max-w-md w-full mx-4" style={{ backgroundColor: cardBg }}>
+                        <h3 className="text-xl font-bold mb-4">Crear Nuevo Usuario</h3>
+
+                        {createError && (
+                            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                                {createError}
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Email *</label>
+                                <input
+                                    type="email"
+                                    value={newUser.email}
+                                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                    placeholder="usuario@ejemplo.com"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Contraseña *</label>
+                                <input
+                                    type="password"
+                                    value={newUser.password}
+                                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                    placeholder="Mínimo 6 caracteres"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Nombre</label>
+                                <input
+                                    type="text"
+                                    value={newUser.name}
+                                    onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                    placeholder="Nombre del usuario"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Rol</label>
+                                <select
+                                    value={newUser.role}
+                                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                >
+                                    <option value="user">Usuario</option>
+                                    <option value="reviewer">Revisor</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => setShowCreateModal(false)}
+                                className="flex-1 px-4 py-2 rounded-lg border"
+                                style={{ borderColor }}
+                                disabled={createLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleCreateUser}
+                                disabled={createLoading || !newUser.email || !newUser.password}
+                                className="flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                                style={{ backgroundColor: '#10b981' }}
+                            >
+                                {createLoading ? 'Creando...' : 'Crear Usuario'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Header */}
             <div className="max-w-7xl mx-auto mb-8">
                 <div className="flex justify-between items-center">
@@ -212,34 +391,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                         <button
                             onClick={() => { loadUsers(); loadLogs(); }}
                             className="px-4 py-2 rounded-lg transition-colors"
-                            style={{
-                                backgroundColor: '#10b981',
-                                color: '#ffffff'
-                            }}
+                            style={{ backgroundColor: '#10b981', color: '#ffffff' }}
                         >
                             Actualizar
                         </button>
                         <a
                             href="/"
                             className="px-4 py-2 rounded-lg transition-colors"
-                            style={{
-                                backgroundColor: cardBg,
-                                borderWidth: '1px',
-                                borderStyle: 'solid',
-                                borderColor
-                            }}
+                            style={{ backgroundColor: cardBg, borderWidth: '1px', borderStyle: 'solid', borderColor }}
                         >
-                            ← Volver a la App
+                            ← Volver
                         </a>
                         <button
                             onClick={logout}
                             className="px-4 py-2 rounded-lg transition-colors"
-                            style={{
-                                backgroundColor: '#dc2626',
-                                color: '#ffffff'
-                            }}
+                            style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
                         >
-                            Cerrar Sesión
+                            Salir
                         </button>
                     </div>
                 </div>
@@ -249,59 +417,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                 {/* Estadísticas */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                     <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Total Usuarios</p>
-                                <p className="text-3xl font-bold mt-1">{loadingUsers ? '...' : stats.totalUsers}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: accentColor }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                            </div>
-                        </div>
+                        <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Total Usuarios</p>
+                        <p className="text-3xl font-bold mt-1">{loadingUsers ? '...' : stats.totalUsers}</p>
                     </div>
-
                     <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Total Actividades</p>
-                                <p className="text-3xl font-bold mt-1">{loadingLogs ? '...' : stats.totalLogs}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#10b981' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                        </div>
+                        <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Total Actividades</p>
+                        <p className="text-3xl font-bold mt-1">{loadingLogs ? '...' : stats.totalLogs}</p>
                     </div>
-
                     <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Actividades Hoy</p>
-                                <p className="text-3xl font-bold mt-1">{loadingLogs ? '...' : stats.todayLogs}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#f59e0b' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                        </div>
+                        <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Actividades Hoy</p>
+                        <p className="text-3xl font-bold mt-1">{loadingLogs ? '...' : stats.todayLogs}</p>
                     </div>
-
                     <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Usuarios Activos Hoy</p>
-                                <p className="text-3xl font-bold mt-1">{loadingLogs ? '...' : stats.todayUsers}</p>
-                            </div>
-                            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#8b5cf6' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                            </div>
-                        </div>
+                        <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Usuarios Activos Hoy</p>
+                        <p className="text-3xl font-bold mt-1">{loadingLogs ? '...' : stats.todayUsers}</p>
                     </div>
                 </div>
 
@@ -309,6 +438,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                 <div className="mb-8 p-6 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold">Usuarios Registrados ({users.length})</h2>
+                        <button
+                            onClick={() => setShowCreateModal(true)}
+                            className="px-4 py-2 rounded-lg text-white font-medium"
+                            style={{ backgroundColor: '#3b82f6' }}
+                        >
+                            + Añadir Usuario
+                        </button>
                     </div>
 
                     {usersError && (
@@ -329,14 +465,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                             {users.map(u => {
                                 const roleColor = getRoleColor(u.role);
+                                const isCurrentUser = u.id === user?.id;
+                                const isLoading = actionLoading === u.id;
+
                                 return (
                                     <div
                                         key={u.id}
-                                        className="p-3 rounded border"
-                                        style={{ backgroundColor: bgColor, borderColor }}
+                                        className="p-4 rounded border"
+                                        style={{ backgroundColor: bgColor, borderColor, opacity: isLoading ? 0.5 : 1 }}
                                     >
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ backgroundColor: accentColor, color: '#ffffff' }}>
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold flex-shrink-0" style={{ backgroundColor: accentColor, color: '#ffffff' }}>
                                                 {(u.name || u.email).charAt(0).toUpperCase()}
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -344,16 +483,44 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                                                 <p className="text-xs truncate" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
                                                     {u.email}
                                                 </p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <span
-                                                        className="px-2 py-0.5 rounded text-xs font-medium"
-                                                        style={{ backgroundColor: roleColor.bg, color: roleColor.text }}
+                                                <p className="text-xs mt-1" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
+                                                    Creado: {new Date(u.created_at).toLocaleDateString('es-ES')}
+                                                </p>
+
+                                                {/* Selector de rol */}
+                                                <div className="mt-2 flex items-center gap-2">
+                                                    <select
+                                                        value={u.role}
+                                                        onChange={(e) => handleChangeRole(u.id, e.target.value)}
+                                                        disabled={isLoading || isCurrentUser}
+                                                        className="text-xs px-2 py-1 rounded border"
+                                                        style={{
+                                                            backgroundColor: roleColor.bg,
+                                                            color: roleColor.text,
+                                                            borderColor: roleColor.bg
+                                                        }}
                                                     >
-                                                        {u.role}
-                                                    </span>
-                                                    <span className="text-xs" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
-                                                        {new Date(u.created_at).toLocaleDateString('es-ES')}
-                                                    </span>
+                                                        <option value="user">user</option>
+                                                        <option value="reviewer">reviewer</option>
+                                                        <option value="admin">admin</option>
+                                                    </select>
+
+                                                    {!isCurrentUser && (
+                                                        <button
+                                                            onClick={() => handleDeleteUser(u.id, u.email)}
+                                                            disabled={isLoading}
+                                                            className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                                                            title="Eliminar usuario"
+                                                        >
+                                                            Eliminar
+                                                        </button>
+                                                    )}
+
+                                                    {isCurrentUser && (
+                                                        <span className="text-xs px-2 py-1 rounded bg-blue-100 text-blue-700">
+                                                            Tú
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -367,46 +534,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                 {/* Filtros de Logs */}
                 <div className="mb-4 p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
                     <div className="flex flex-wrap gap-4 items-center">
-                        <div>
-                            <label className="text-sm font-medium mr-2">Filtrar:</label>
+                        <select
+                            value={filter}
+                            onChange={(e) => setFilter(e.target.value as any)}
+                            className="px-3 py-1.5 rounded border"
+                            style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                        >
+                            <option value="all">Todas las actividades</option>
+                            <option value="today">Solo hoy</option>
+                            <option value="user">Por usuario</option>
+                        </select>
+
+                        {filter === 'user' && (
                             <select
-                                value={filter}
-                                onChange={(e) => setFilter(e.target.value as any)}
+                                value={selectedUserId}
+                                onChange={(e) => setSelectedUserId(e.target.value)}
                                 className="px-3 py-1.5 rounded border"
                                 style={{ backgroundColor: bgColor, borderColor, color: textColor }}
                             >
-                                <option value="all">Todas las actividades</option>
-                                <option value="today">Solo hoy</option>
-                                <option value="user">Por usuario</option>
+                                <option value="">Seleccionar usuario</option>
+                                {users.map(u => (
+                                    <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                                ))}
                             </select>
-                        </div>
-
-                        {filter === 'user' && (
-                            <div>
-                                <select
-                                    value={selectedUserId}
-                                    onChange={(e) => setSelectedUserId(e.target.value)}
-                                    className="px-3 py-1.5 rounded border"
-                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
-                                >
-                                    <option value="">Seleccionar usuario</option>
-                                    {users.map(u => (
-                                        <option key={u.id} value={u.id}>{u.name || u.email} ({u.email})</option>
-                                    ))}
-                                </select>
-                            </div>
                         )}
 
-                        <div className="flex-1">
-                            <input
-                                type="text"
-                                placeholder="Buscar en actividades..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full px-3 py-1.5 rounded border"
-                                style={{ backgroundColor: bgColor, borderColor, color: textColor }}
-                            />
-                        </div>
+                        <input
+                            type="text"
+                            placeholder="Buscar..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="flex-1 px-3 py-1.5 rounded border"
+                            style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                        />
                     </div>
                 </div>
 
@@ -420,41 +580,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                         </div>
                     )}
 
-                    <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[400px] overflow-y-auto">
                         {loadingLogs ? (
                             <p className="text-center py-8" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
-                                Cargando actividades...
+                                Cargando...
                             </p>
                         ) : filteredLogs.length === 0 ? (
                             <p className="text-center py-8" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
-                                No hay actividades registradas
+                                No hay actividades
                             </p>
                         ) : (
                             filteredLogs.map(log => (
-                                <div
-                                    key={log.id}
-                                    className="p-3 rounded border"
-                                    style={{ backgroundColor: bgColor, borderColor }}
-                                >
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-semibold text-sm">{log.user_email}</span>
-                                                <span
-                                                    className="text-xs px-2 py-0.5 rounded"
-                                                    style={{
-                                                        backgroundColor: log.success ? '#10b981' : '#ef4444',
-                                                        color: '#ffffff'
-                                                    }}
-                                                >
-                                                    {ACTION_LABELS[log.action] || log.action}
-                                                </span>
-                                            </div>
-                                            <p className="text-xs" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
-                                                {log.ip_address && `IP: ${log.ip_address} • `}
-                                                {new Date(log.created_at).toLocaleString('es-ES')}
-                                            </p>
-                                        </div>
+                                <div key={log.id} className="p-3 rounded border" style={{ backgroundColor: bgColor, borderColor }}>
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm">{log.user_email}</span>
+                                        <span
+                                            className="text-xs px-2 py-0.5 rounded"
+                                            style={{ backgroundColor: log.success ? '#10b981' : '#ef4444', color: '#fff' }}
+                                        >
+                                            {ACTION_LABELS[log.action] || log.action}
+                                        </span>
+                                        <span className="text-xs ml-auto" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
+                                            {new Date(log.created_at).toLocaleString('es-ES')}
+                                        </span>
                                     </div>
                                 </div>
                             ))

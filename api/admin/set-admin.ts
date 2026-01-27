@@ -21,8 +21,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'userId y role son requeridos' });
     }
     
-    if (role !== 'user' && role !== 'admin') {
-      return res.status(400).json({ error: 'Rol inválido' });
+    const validRoles = ['user', 'admin', 'reviewer'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'Rol inválido. Roles válidos: user, admin, reviewer' });
     }
 
     // Update user role in the database

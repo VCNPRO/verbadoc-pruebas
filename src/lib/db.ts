@@ -5,7 +5,7 @@ export interface User {
   email: string;
   password: string;
   name?: string | null;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'reviewer';
   client_id?: number; // ID corto de 4 cifras
   created_at: Date;
   updated_at: Date;
@@ -51,7 +51,7 @@ export interface TranscriptionJob {
 
 export const UserDB = {
   // Create new user
-  create: async (email: string, hashedPassword: string, name?: string, role: 'user' | 'admin' = 'user'): Promise<User> => {
+  create: async (email: string, hashedPassword: string, name?: string, role: 'user' | 'admin' | 'reviewer' = 'user'): Promise<User> => {
     const result = await sql<User>`
       INSERT INTO users (email, password, name, role)
       VALUES (${email.toLowerCase()}, ${hashedPassword}, ${name || null}, ${role})
@@ -136,7 +136,7 @@ export const UserDB = {
   },
 
   // Update user role
-  updateRole: async (id: string, role: 'user' | 'admin'): Promise<User | null> => {
+  updateRole: async (id: string, role: 'user' | 'admin' | 'reviewer'): Promise<User | null> => {
     const result = await sql<User>`
       UPDATE users
       SET role = ${role}, updated_at = CURRENT_TIMESTAMP
