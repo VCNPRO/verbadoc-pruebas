@@ -97,7 +97,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                     </div>
                     <div className="flex gap-3">
                         <a
-                            href={window.location.pathname}
+                            href="/"
                             className="px-4 py-2 rounded-lg transition-colors"
                             style={{
                                 backgroundColor: cardBg,
