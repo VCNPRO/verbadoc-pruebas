@@ -326,7 +326,11 @@ VALORACIÓN GENERAL (valoracion_9_X):
 
 SATISFACCIÓN FINAL:
 - valoracion_10: Grado de satisfacción general (1-4)
-- recomendaria_curso: "Sí" o "No" (o número 1-4 si es escala)
+- recomendaria_curso: ⚠️ CAMPO CRÍTICO - Pregunta "¿Recomendaría este curso?"
+  • Si la pregunta EXISTE y hay marca en Sí → devolver "Sí"
+  • Si la pregunta EXISTE y hay marca en No → devolver "No"
+  • Si la pregunta EXISTE pero sin marca → devolver "NC"
+  • Si la pregunta NO EXISTE físicamente en el PDF → NO INCLUIR este campo en el JSON (omitirlo completamente)
 
 ═══════════════════════════════════════════════════════════════════════════════
 CAMPOS ADICIONALES
