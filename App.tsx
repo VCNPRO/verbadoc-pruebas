@@ -105,6 +105,34 @@ function AppContent() {
     // Archivos duplicados detectados
     const [duplicateFiles, setDuplicateFiles] = useState<Set<string>>(new Set());
 
+    // ✅ NUEVO: Detectar duplicados automáticamente al cargar archivos
+    useEffect(() => {
+        if (files.length === 0 || history.length === 0) {
+            setDuplicateFiles(new Set());
+            return;
+        }
+
+        // Crear set de nombres de archivos ya procesados
+        const processedFileNames = new Set(history.map(h => h.fileName));
+
+        // Verificar cuáles de los archivos cargados ya están procesados
+        const duplicates = new Set<string>();
+        files.forEach(f => {
+            if (processedFileNames.has(f.file.name)) {
+                duplicates.add(f.file.name);
+            }
+        });
+
+        // Actualizar solo si hay cambios
+        if (duplicates.size !== duplicateFiles.size ||
+            [...duplicates].some(d => !duplicateFiles.has(d))) {
+            setDuplicateFiles(duplicates);
+            if (duplicates.size > 0) {
+                console.log(`⚠️ Detectados ${duplicates.size} archivos duplicados (ya procesados)`);
+            }
+        }
+    }, [files, history]);
+
     // State for the editor, which can be reused across different files
     const [prompt, setPrompt] = useState<string>(FUNDAE_EXTRACTION_PROMPT);
     const [schema, setSchema] = useState<SchemaField[]>(FUNDAE_SCHEMA);
@@ -127,7 +155,7 @@ function AppContent() {
 
         async function loadHistory() {
             try {
-                const { extractions } = await getExtractions({ limit: 100 });
+                const { extractions } = await getExtractions({ limit: 500 });
 
                 // Convertir extracciones de la API al formato de historial
                 const historyEntries: ExtractionResult[] = extractions.map(ex => ({
