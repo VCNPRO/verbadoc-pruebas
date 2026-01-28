@@ -142,55 +142,108 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               `;
           extractions = errorsQuery.rows;
         } else if (status === 'rejected') {
-          console.log('🔍 Buscando RECHAZADOS (documentos no procesables)...');
-          // 🔥 FILTRO "Rechazados": Traer de unprocessable_documents
+          console.log('🔍 Buscando RECHAZADOS (unprocessable + extraction_results rejected)...');
+          // 🔥 FILTRO "Rechazados": UNION de unprocessable_documents + extraction_results con status rejected
           const rejectedQuery = useClientSharing
             ? await sql`
-                SELECT
-                  d.id,
-                  d.user_id,
-                  d.filename,
-                  d.extracted_data,
-                  NULL::text as model_used,
-                  d.pdf_blob_url,
-                  d.file_type,
-                  d.file_size_bytes,
-                  0::integer as page_count,
-                  NULL::integer as processing_time_ms,
-                  NULL::numeric as confidence_score,
-                  'rejected'::text as status,
-                  0::integer as validation_errors_count,
-                  d.rejection_reason,
-                  d.created_at,
-                  d.updated_at,
-                  'unprocessable'::text as source
-                FROM unprocessable_documents d
-                JOIN users u ON d.user_id = u.id
-                WHERE u.client_id = ${user.clientId}
-                ORDER BY d.created_at DESC
+                (
+                  SELECT
+                    d.id,
+                    d.user_id,
+                    d.filename,
+                    d.extracted_data,
+                    NULL::text as model_used,
+                    d.pdf_blob_url,
+                    d.file_type,
+                    d.file_size_bytes,
+                    0::integer as page_count,
+                    NULL::integer as processing_time_ms,
+                    NULL::numeric as confidence_score,
+                    'rejected'::text as status,
+                    0::integer as validation_errors_count,
+                    d.rejection_reason,
+                    d.created_at,
+                    d.updated_at,
+                    'unprocessable'::text as source
+                  FROM unprocessable_documents d
+                  JOIN users u ON d.user_id = u.id
+                  WHERE u.client_id = ${user.clientId}
+                )
+                UNION ALL
+                (
+                  SELECT
+                    e.id,
+                    e.user_id,
+                    e.filename,
+                    e.extracted_data,
+                    e.model_used,
+                    e.pdf_blob_url,
+                    e.file_type,
+                    e.file_size_bytes,
+                    e.page_count,
+                    e.processing_time_ms,
+                    e.confidence_score,
+                    e.validation_status as status,
+                    e.validation_errors_count,
+                    e.rejection_reason,
+                    e.created_at,
+                    e.updated_at,
+                    'extraction'::text as source
+                  FROM extraction_results e
+                  JOIN users u ON e.user_id = u.id
+                  WHERE u.client_id = ${user.clientId}
+                    AND e.validation_status = 'rejected'
+                )
+                ORDER BY created_at DESC
                 LIMIT ${parseInt(limit as string)}
               `
             : await sql`
-                SELECT
-                  id,
-                  user_id,
-                  filename,
-                  extracted_data,
-                  NULL::text as model_used,
-                  pdf_blob_url,
-                  file_type,
-                  file_size_bytes,
-                  0::integer as page_count,
-                  NULL::integer as processing_time_ms,
-                  NULL::numeric as confidence_score,
-                  'rejected'::text as status,
-                  0::integer as validation_errors_count,
-                  rejection_reason,
-                  created_at,
-                  updated_at,
-                  'unprocessable'::text as source
-                FROM unprocessable_documents
-                WHERE user_id = ${user.userId}
+                (
+                  SELECT
+                    id,
+                    user_id,
+                    filename,
+                    extracted_data,
+                    NULL::text as model_used,
+                    pdf_blob_url,
+                    file_type,
+                    file_size_bytes,
+                    0::integer as page_count,
+                    NULL::integer as processing_time_ms,
+                    NULL::numeric as confidence_score,
+                    'rejected'::text as status,
+                    0::integer as validation_errors_count,
+                    rejection_reason,
+                    created_at,
+                    updated_at,
+                    'unprocessable'::text as source
+                  FROM unprocessable_documents
+                  WHERE user_id = ${user.userId}
+                )
+                UNION ALL
+                (
+                  SELECT
+                    id,
+                    user_id,
+                    filename,
+                    extracted_data,
+                    model_used,
+                    pdf_blob_url,
+                    file_type,
+                    file_size_bytes,
+                    page_count,
+                    processing_time_ms,
+                    confidence_score,
+                    validation_status as status,
+                    validation_errors_count,
+                    rejection_reason,
+                    created_at,
+                    updated_at,
+                    'extraction'::text as source
+                  FROM extraction_results
+                  WHERE user_id = ${user.userId}
+                    AND validation_status = 'rejected'
+                )
                 ORDER BY created_at DESC
                 LIMIT ${parseInt(limit as string)}
               `;
