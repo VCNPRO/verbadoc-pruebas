@@ -350,6 +350,12 @@ function AppContent() {
             );
 
             try {
+                // 🔥 FIX: Cachear archivo en memoria ANTES del procesamiento IA
+                // El objeto File puede perder la referencia al archivo original durante procesamiento concurrente
+                const fileBuffer = await file.file.arrayBuffer();
+                const fileBlob = new Blob([fileBuffer], { type: file.file.type });
+                console.log(`💾 Archivo cacheado en memoria: ${file.file.name} (${(fileBuffer.byteLength / 1024).toFixed(0)} KB)`);
+
                 let extractedData: object;
 
                 // Check if file is JSON
@@ -389,12 +395,12 @@ function AppContent() {
                     };
                     setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
 
-                    // 🔥 CORREGIDO: Subir permanentemente a Vercel Blob con mejor manejo
+                    // 🔥 CORREGIDO: Subir usando fileBlob cacheado (no file.file que puede perder referencia)
                     console.log(`📤 Subiendo documento ${file.file.name} permanentemente...`);
                     try {
                         const uploadResponse = await fetch(`/api/extractions/upload?extractionId=${apiExtraction.id}&filename=${encodeURIComponent(file.file.name)}&contentType=${encodeURIComponent(file.file.type)}`, {
                             method: 'POST',
-                            body: file.file,
+                            body: fileBlob,
                             credentials: 'include',
                         });
                         if (!uploadResponse.ok) {
@@ -410,7 +416,7 @@ function AppContent() {
                         try {
                             const uploadResponse = await fetch(`/api/unprocessable/upload?unprocessableId=${dbError.unprocessableId}&filename=${encodeURIComponent(file.file.name)}&contentType=${encodeURIComponent(file.file.type)}`, {
                                 method: 'POST',
-                                body: file.file,
+                                body: fileBlob,
                                 credentials: 'include',
                             });
                             if (uploadResponse.ok) {
@@ -507,6 +513,12 @@ function AppContent() {
             );
 
             try {
+                // 🔥 FIX: Cachear archivo en memoria ANTES del procesamiento IA
+                // El objeto File puede perder la referencia al archivo original durante procesamiento concurrente
+                const fileBuffer = await file.file.arrayBuffer();
+                const fileBlob = new Blob([fileBuffer], { type: file.file.type });
+                console.log(`💾 Archivo cacheado en memoria: ${file.file.name} (${(fileBuffer.byteLength / 1024).toFixed(0)} KB)`);
+
                 let extractedData: object;
 
                 // Check if file is JSON
@@ -546,12 +558,12 @@ function AppContent() {
                     };
                     setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
 
-                    // 🔥 CORREGIDO: Subir permanentemente a Vercel Blob con mejor manejo
+                    // 🔥 CORREGIDO: Subir usando fileBlob cacheado (no file.file que puede perder referencia)
                     console.log(`📤 Subiendo documento ${file.file.name} permanentemente...`);
                     try {
                         const uploadResponse = await fetch(`/api/extractions/upload?extractionId=${apiExtraction.id}&filename=${encodeURIComponent(file.file.name)}&contentType=${encodeURIComponent(file.file.type)}`, {
                             method: 'POST',
-                            body: file.file,
+                            body: fileBlob,
                             credentials: 'include',
                         });
                         if (!uploadResponse.ok) {
@@ -567,7 +579,7 @@ function AppContent() {
                         try {
                             const uploadResponse = await fetch(`/api/unprocessable/upload?unprocessableId=${dbError.unprocessableId}&filename=${encodeURIComponent(file.file.name)}&contentType=${encodeURIComponent(file.file.type)}`, {
                                 method: 'POST',
-                                body: file.file,
+                                body: fileBlob,
                                 credentials: 'include',
                             });
                             if (uploadResponse.ok) {
