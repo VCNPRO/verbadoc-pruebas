@@ -77,7 +77,7 @@ export default function ReviewListPage() {
         setLoading(true);
 
         // Cargar formularios según filtro
-        const options: any = { limit: 100 };
+        const options: any = {};
         if (statusFilter === 'needs_review') {
           options.needsReview = true;
         } else if (statusFilter === 'pending') {
@@ -247,7 +247,7 @@ export default function ReviewListPage() {
       }
 
       setSelectedIds(new Set());
-      const options: any = { limit: 100 };
+      const options: any = {};
       if (statusFilter !== 'all') options.status = statusFilter === 'needs_review' ? undefined : statusFilter;
       if (statusFilter === 'needs_review') options.needsReview = true;
 
@@ -363,7 +363,7 @@ export default function ReviewListPage() {
 
       // Recargar datos
       setSelectedIds(new Set());
-      const options: any = { limit: 100 };
+      const options: any = {};
       if (statusFilter !== 'all') options.status = statusFilter === 'needs_review' ? undefined : statusFilter;
       if (statusFilter === 'needs_review') options.needsReview = true;
 

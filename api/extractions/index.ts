@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       console.log('📊 GET /api/extractions - userId:', user.userId, '| clientId:', user.clientId);
-      const { limit = '50', status, needsReview } = req.query;
+      const { limit = '10000', status, needsReview } = req.query;
 
       let extractions;
 
