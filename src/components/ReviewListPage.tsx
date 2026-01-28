@@ -30,10 +30,16 @@ export default function ReviewListPage() {
     rejected: 0
   });
 
+  // NUEVO: Contador total fijo (editable por admin)
+  const [fixedTotal, setFixedTotal] = useState<number | null>(null);
+  const [showEditTotalModal, setShowEditTotalModal] = useState(false);
+  const [newTotalValue, setNewTotalValue] = useState('');
+  const [savingTotal, setSavingTotal] = useState(false);
+
   // Filtros
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'needs_review' | 'valid' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Selección múltiple y acciones en bloque
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
@@ -41,6 +47,24 @@ export default function ReviewListPage() {
   // PIN Modal para eliminar
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingDeleteAction, setPendingDeleteAction] = useState<(() => void) | null>(null);
+
+  // NUEVO: Cargar contador fijo desde BD
+  useEffect(() => {
+    async function loadFixedTotal() {
+      try {
+        const response = await fetch('/api/settings/total-counter', {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setFixedTotal(data.value);
+        }
+      } catch (error) {
+        console.error('Error cargando contador total:', error);
+      }
+    }
+    loadFixedTotal();
+  }, []);
 
   // Cargar formularios
   useEffect(() => {
@@ -112,6 +136,38 @@ export default function ReviewListPage() {
     }
   };
 
+  // NUEVO: Guardar contador fijo (solo admin)
+  const handleSaveTotal = async () => {
+    const value = parseInt(newTotalValue, 10);
+    if (isNaN(value) || value < 0) {
+      alert('Introduce un número válido');
+      return;
+    }
+
+    try {
+      setSavingTotal(true);
+      const response = await fetch('/api/settings/total-counter', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ value })
+      });
+
+      if (response.ok) {
+        setFixedTotal(value);
+        setShowEditTotalModal(false);
+        setNewTotalValue('');
+      } else {
+        const data = await response.json();
+        alert(data.error || 'Error al guardar');
+      }
+    } catch (error) {
+      alert('Error de conexión');
+    } finally {
+      setSavingTotal(false);
+    }
+  };
+
   // Acción masiva: Eliminar documentos definitivamente
   const handleBulkDelete = () => {
     if (selectedIds.size === 0) return;
@@ -146,7 +202,7 @@ export default function ReviewListPage() {
             method: 'DELETE',
             credentials: 'include'
           });
-          
+
           if (!response.ok) throw new Error('Falló eliminación');
           return true;
         } catch (error) {
@@ -172,7 +228,7 @@ export default function ReviewListPage() {
       const options: any = { limit: 100 };
       if (statusFilter !== 'all') options.status = statusFilter === 'needs_review' ? undefined : statusFilter;
       if (statusFilter === 'needs_review') options.needsReview = true;
-      
+
       const data = await getExtractions(options);
       setExtractions(data.extractions);
       setStats(data.stats);
@@ -343,6 +399,7 @@ export default function ReviewListPage() {
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {/* Card Total - MODIFICADA para mostrar contador fijo */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 rounded-full">
@@ -350,10 +407,26 @@ export default function ReviewListPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <div className="ml-4">
+              <div className="ml-4 flex-1">
                 <p className="text-sm text-gray-600">Total</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.total}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {fixedTotal !== null ? fixedTotal : stats.total}
+                </p>
               </div>
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    setNewTotalValue(String(fixedTotal ?? stats.total));
+                    setShowEditTotalModal(true);
+                  }}
+                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                  title="Editar contador total"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
 
@@ -660,6 +733,38 @@ export default function ReviewListPage() {
         }}
         action="eliminar documentos"
       />
+
+      {/* Modal editar contador total */}
+      {showEditTotalModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+            <h3 className="text-lg font-semibold mb-4">Editar contador Total</h3>
+            <input
+              type="number"
+              value={newTotalValue}
+              onChange={(e) => setNewTotalValue(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4"
+              placeholder="Nuevo valor"
+              min="0"
+            />
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowEditTotalModal(false)}
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveTotal}
+                disabled={savingTotal}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {savingTotal ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
