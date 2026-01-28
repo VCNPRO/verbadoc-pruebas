@@ -138,25 +138,14 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                 });
             } else if (entry.isDirectory) {
                 const dirReader = entry.createReader();
-                // readEntries() devuelve máximo 100 archivos por llamada (limitación del navegador)
-                // Hay que llamarlo en bucle hasta que devuelva un array vacío
-                let allEntries: any[] = [];
-                const readAllEntries = (): Promise<void> => new Promise((resolve) => {
+                return new Promise((resolve) => {
                     dirReader.readEntries(async (entries: any[]) => {
-                        if (entries.length === 0) {
-                            // Ya no hay más archivos
-                            for (const entry of allEntries) {
-                                await readEntry(entry);
-                            }
-                            resolve();
-                        } else {
-                            allEntries = allEntries.concat(entries);
-                            console.log(`📂 Leyendo carpeta... ${allEntries.length} archivos encontrados`);
-                            readAllEntries().then(resolve);
+                        for (const entry of entries) {
+                            await readEntry(entry);
                         }
+                        resolve();
                     });
                 });
-                return readAllEntries();
             }
         };
 
