@@ -105,30 +105,42 @@ function AppContent() {
     // Archivos duplicados detectados
     const [duplicateFiles, setDuplicateFiles] = useState<Set<string>>(new Set());
 
-    // ✅ NUEVO: Detectar duplicados automáticamente al cargar archivos
+    // ✅ Detectar duplicados: solo archivos cargados MÁS DE UNA VEZ en el lote actual
+    // La comparación contra historial BD se muestra como info en consola, no como marca roja
     useEffect(() => {
-        if (files.length === 0 || history.length === 0) {
+        if (files.length === 0) {
             setDuplicateFiles(new Set());
             return;
         }
 
-        // Crear set de nombres de archivos ya procesados
-        const processedFileNames = new Set(history.map(h => h.fileName));
-
-        // Verificar cuáles de los archivos cargados ya están procesados
-        const duplicates = new Set<string>();
+        // Detectar archivos con el mismo nombre dentro del lote cargado
+        const nameCount: Record<string, number> = {};
         files.forEach(f => {
-            if (processedFileNames.has(f.file.name)) {
-                duplicates.add(f.file.name);
+            nameCount[f.file.name] = (nameCount[f.file.name] || 0) + 1;
+        });
+
+        const duplicates = new Set<string>();
+        Object.entries(nameCount).forEach(([name, count]) => {
+            if (count > 1) {
+                duplicates.add(name);
             }
         });
+
+        // Info en consola sobre archivos ya procesados (no marca roja)
+        if (history.length > 0) {
+            const processedFileNames = new Set(history.map(h => h.fileName));
+            const alreadyProcessed = files.filter(f => processedFileNames.has(f.file.name));
+            if (alreadyProcessed.length > 0) {
+                console.log(`ℹ️ ${alreadyProcessed.length} de ${files.length} archivos ya fueron procesados anteriormente`);
+            }
+        }
 
         // Actualizar solo si hay cambios
         if (duplicates.size !== duplicateFiles.size ||
             [...duplicates].some(d => !duplicateFiles.has(d))) {
             setDuplicateFiles(duplicates);
             if (duplicates.size > 0) {
-                console.log(`⚠️ Detectados ${duplicates.size} archivos duplicados (ya procesados)`);
+                console.log(`⚠️ ${duplicates.size} archivos cargados más de una vez en este lote`);
             }
         }
     }, [files, history]);
