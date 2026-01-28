@@ -367,6 +367,7 @@ function AppContent() {
                         const uploadResponse = await fetch(`/api/extractions/upload?extractionId=${apiExtraction.id}&filename=${encodeURIComponent(file.file.name)}&contentType=${encodeURIComponent(file.file.type)}`, {
                             method: 'POST',
                             body: file.file,
+                            credentials: 'include',
                         });
                         if (!uploadResponse.ok) {
                             console.error(`❌ Error subiendo ${file.file.name}:`, await uploadResponse.text());
@@ -502,6 +503,7 @@ function AppContent() {
                         const uploadResponse = await fetch(`/api/extractions/upload?extractionId=${apiExtraction.id}&filename=${encodeURIComponent(file.file.name)}&contentType=${encodeURIComponent(file.file.type)}`, {
                             method: 'POST',
                             body: file.file,
+                            credentials: 'include',
                         });
                         if (!uploadResponse.ok) {
                             console.error(`❌ Error subiendo ${file.file.name}:`, await uploadResponse.text());
