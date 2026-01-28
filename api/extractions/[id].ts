@@ -84,7 +84,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             file_type,
             file_size_bytes,
             pdf_blob_url,
-            file_url,
             created_at,
             updated_at,
             'rejected' as validation_status
