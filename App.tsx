@@ -332,10 +332,32 @@ function AppContent() {
         const filesToProcess = files.filter(f => selectedIds.includes(f.id));
         if (filesToProcess.length === 0) return;
 
+        // 🔍 Verificar duplicados contra BD antes de procesar
+        const processedFileNames = new Set(history.map(h => h.fileName));
+        const duplicates = filesToProcess.filter(f => processedFileNames.has(f.file.name));
+        let finalFiles = filesToProcess;
+
+        if (duplicates.length > 0) {
+            const proceed = window.confirm(
+                `⚠️ ${duplicates.length} de ${filesToProcess.length} archivos ya fueron procesados anteriormente.\n\n` +
+                `¿Quieres procesarlos igualmente?\n\n` +
+                `• SÍ (Aceptar) → Procesa todos (${filesToProcess.length} archivos)\n` +
+                `• NO (Cancelar) → Solo procesa los ${filesToProcess.length - duplicates.length} nuevos`
+            );
+            if (!proceed) {
+                finalFiles = filesToProcess.filter(f => !processedFileNames.has(f.file.name));
+                if (finalFiles.length === 0) {
+                    console.log('ℹ️ Todos los archivos seleccionados ya fueron procesados');
+                    return;
+                }
+                console.log(`ℹ️ Procesando solo ${finalFiles.length} archivos nuevos, saltando ${duplicates.length} duplicados`);
+            }
+        }
+
         setIsLoading(true);
 
         // Lazy import the service (only if needed for non-JSON files)
-        const nonJsonFiles = filesToProcess.filter(f => !f.file.name.toLowerCase().endsWith('.json'));
+        const nonJsonFiles = finalFiles.filter(f => !f.file.name.toLowerCase().endsWith('.json'));
         // Cargar servicio híbrido para archivos no-JSON
         let extractWithHybridSystem: any = null;
         if (nonJsonFiles.length > 0) {
@@ -345,7 +367,7 @@ function AppContent() {
 
         // --- PROCESAMIENTO CON CONCURRENCIA (10 a la vez - Vercel Pro) ---
         const CONCURRENCY = 10;
-        const queue = [...filesToProcess];
+        const queue = [...finalFiles];
         const results: any[] = [];
 
         const processFile = async (file: UploadedFile) => {
@@ -497,10 +519,32 @@ function AppContent() {
         const pendingFiles = files.filter(f => f.status === 'pendiente' || f.status === 'error');
         if (pendingFiles.length === 0) return;
 
+        // 🔍 Verificar duplicados contra BD antes de procesar
+        const processedFileNames = new Set(history.map(h => h.fileName));
+        const duplicates = pendingFiles.filter(f => processedFileNames.has(f.file.name));
+        let finalFiles = pendingFiles;
+
+        if (duplicates.length > 0) {
+            const proceed = window.confirm(
+                `⚠️ ${duplicates.length} de ${pendingFiles.length} archivos ya fueron procesados anteriormente.\n\n` +
+                `¿Quieres procesarlos igualmente?\n\n` +
+                `• SÍ (Aceptar) → Procesa todos (${pendingFiles.length} archivos)\n` +
+                `• NO (Cancelar) → Solo procesa los ${pendingFiles.length - duplicates.length} nuevos`
+            );
+            if (!proceed) {
+                finalFiles = pendingFiles.filter(f => !processedFileNames.has(f.file.name));
+                if (finalFiles.length === 0) {
+                    console.log('ℹ️ Todos los archivos ya fueron procesados');
+                    return;
+                }
+                console.log(`ℹ️ Procesando solo ${finalFiles.length} archivos nuevos, saltando ${duplicates.length} duplicados`);
+            }
+        }
+
         setIsLoading(true);
 
         // Lazy import the service (only if needed for non-JSON files)
-        const nonJsonFiles = pendingFiles.filter(f => !f.file.name.toLowerCase().endsWith('.json'));
+        const nonJsonFiles = finalFiles.filter(f => !f.file.name.toLowerCase().endsWith('.json'));
         let extractWithHybridSystem: any = null;
         if (nonJsonFiles.length > 0) {
             const service = await import('./services/geminiService.ts');
@@ -509,7 +553,7 @@ function AppContent() {
 
         // --- PROCESAMIENTO CON CONCURRENCIA (10 a la vez - Vercel Pro) ---
         const CONCURRENCY = 10;
-        const queue = [...pendingFiles];
+        const queue = [...finalFiles];
 
         const processFile = async (file: UploadedFile) => {
             // Verificar si el archivo ya fue procesado antes (duplicado)
