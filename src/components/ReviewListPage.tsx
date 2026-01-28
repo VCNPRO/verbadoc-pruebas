@@ -462,6 +462,7 @@ export default function ReviewListPage() {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Requieren Revisión</p>
                 <p className="text-2xl font-semibold text-red-600">{stats.needsReview}</p>
+                <p className="text-xs text-red-400 mt-1">{stats.total > 0 ? ((stats.needsReview / stats.total) * 100).toFixed(1) : 0}%</p>
               </div>
             </div>
           </div>
@@ -476,6 +477,7 @@ export default function ReviewListPage() {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Válidos</p>
                 <p className="text-2xl font-semibold text-green-600">{stats.valid}</p>
+                <p className="text-xs text-green-400 mt-1">{stats.total > 0 ? ((stats.valid / stats.total) * 100).toFixed(1) : 0}%</p>
               </div>
             </div>
           </div>
@@ -490,6 +492,7 @@ export default function ReviewListPage() {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">Rechazados</p>
                 <p className="text-2xl font-semibold text-gray-600">{stats.rejected}</p>
+                <p className="text-xs text-gray-400 mt-1">{stats.total > 0 ? ((stats.rejected / stats.total) * 100).toFixed(1) : 0}%</p>
               </div>
             </div>
           </div>

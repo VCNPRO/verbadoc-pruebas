@@ -378,7 +378,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               COUNT(*) as total,
               COUNT(*) FILTER (WHERE e.validation_status = 'pending') as pending,
               COUNT(*) FILTER (WHERE e.validation_status = 'valid' OR e.validation_status = 'approved') as valid,
-              COUNT(*) FILTER (WHERE e.validation_errors_count > 0) as needs_review
+              COUNT(*) FILTER (WHERE e.validation_errors_count > 0 OR e.validation_status = 'needs_review') as needs_review,
+              COUNT(*) FILTER (WHERE e.validation_status = 'rejected') as rejected_extractions
             FROM extraction_results e
             JOIN users u ON e.user_id = u.id
             WHERE u.client_id = ${user.clientId}
@@ -391,12 +392,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `;
           const extractionStats = extractionsResult.rows[0];
           const rejectedStats = rejectedResult.rows[0];
+          const totalRejected = parseInt(extractionStats.rejected_extractions) + parseInt(rejectedStats.rejected);
           stats = {
             total: parseInt(extractionStats.total) + parseInt(rejectedStats.rejected),
             pending: parseInt(extractionStats.pending),
             valid: parseInt(extractionStats.valid),
             needsReview: parseInt(extractionStats.needs_review),
-            rejected: parseInt(rejectedStats.rejected)
+            rejected: totalRejected
           };
         } else {
           stats = await ExtractionResultDB.getStats(user.userId);
