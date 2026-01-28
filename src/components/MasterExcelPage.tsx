@@ -51,6 +51,30 @@ export default function MasterExcelPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Ordenación
+  const [sortField, setSortField] = useState<'filename' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Función para cambiar ordenación
+  const handleSort = (field: 'filename' | 'created_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Filas ordenadas
+  const sortedRows = [...rows].sort((a, b) => {
+    const aValue = sortField === 'filename' ? a.filename.toLowerCase() : new Date(a.created_at).getTime();
+    const bValue = sortField === 'filename' ? b.filename.toLowerCase() : new Date(b.created_at).getTime();
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   const [viewingRow, setViewingRow] = useState<MasterExcelRow | null>(null);
   const [sendingToReview, setSendingToReview] = useState(false);
 
@@ -482,15 +506,25 @@ export default function MasterExcelPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expediente</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CIF</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Archivo</th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('filename')}
+                    >
+                      Archivo {sortField === 'filename' && (sortDirection === 'asc' ? '▲' : '▼')}
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Validación</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      Fecha {sortField === 'created_at' && (sortDirection === 'asc' ? '▲' : '▼')}
+                    </th>
                     <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row, idx) => {
+                  {sortedRows.map((row, idx) => {
                     const badge = getStatusBadge(row.validation_status);
                     const isSelected = selectedIds.has(row.id);
                     return (

@@ -92,6 +92,30 @@ export default function UnprocessablePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
+
+  // Ordenación
+  const [sortField, setSortField] = useState<'filename' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Función para cambiar ordenación
+  const handleSort = (field: 'filename' | 'created_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Documentos ordenados
+  const sortedDocuments = [...documents].sort((a, b) => {
+    const aValue = sortField === 'filename' ? a.filename.toLowerCase() : new Date(a.created_at).getTime();
+    const bValue = sortField === 'filename' ? b.filename.toLowerCase() : new Date(b.created_at).getTime();
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
   const [selectedDoc, setSelectedDoc] = useState<UnprocessableDocument | null>(null);
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
 
@@ -555,17 +579,27 @@ export default function UnprocessablePage() {
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                       />
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Archivo</th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('filename')}
+                    >
+                      Archivo {sortField === 'filename' && (sortDirection === 'asc' ? '▲' : '▼')}
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expediente</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grupo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                    <th
+                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      Fecha {sortField === 'created_at' && (sortDirection === 'asc' ? '▲' : '▼')}
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {documents.map((doc) => {
+                  {sortedDocuments.map((doc) => {
                     const isSelected = selectedIds.has(doc.id);
                     const isDownloaded = downloadedIds.has(doc.id);
                     return (

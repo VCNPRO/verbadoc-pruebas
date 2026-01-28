@@ -40,6 +40,10 @@ export default function ReviewListPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'needs_review' | 'valid' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Ordenación
+  const [sortField, setSortField] = useState<'filename' | 'created_at'>('created_at');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
   // Selección múltiple y acciones en bloque
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
@@ -98,14 +102,32 @@ export default function ReviewListPage() {
   }, [statusFilter]);
 
   // Filtrar por búsqueda local
-  const filteredExtractions = extractions.filter(ex => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      ex.filename.toLowerCase().includes(query) ||
-      ex.id.toLowerCase().includes(query)
-    );
-  });
+  const filteredExtractions = extractions
+    .filter(ex => {
+      if (!searchQuery) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        ex.filename.toLowerCase().includes(query) ||
+        ex.id.toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      const aValue = sortField === 'filename' ? a.filename.toLowerCase() : new Date(a.created_at).getTime();
+      const bValue = sortField === 'filename' ? b.filename.toLowerCase() : new Date(b.created_at).getTime();
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  // Función para cambiar ordenación
+  const handleSort = (field: 'filename' | 'created_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   // Función auxiliar para obtener badge de status
   const getStatusBadge = (status: string) => {
@@ -595,11 +617,17 @@ export default function ReviewListPage() {
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Archivo
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleSort('filename')}
+                  >
+                    Archivo {sortField === 'filename' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Fecha
+                  <th
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 select-none"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    Fecha {sortField === 'created_at' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Estado
