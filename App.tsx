@@ -105,15 +105,44 @@ function AppContent() {
     // Archivos duplicados detectados
     const [duplicateFiles, setDuplicateFiles] = useState<Set<string>>(new Set());
 
-    // ✅ NUEVO: Detectar duplicados automáticamente al cargar archivos
+    // ✅ Cache de filenames de unprocessable_documents para detección de duplicados
+    const [unprocessableFileNames, setUnprocessableFileNames] = useState<Set<string>>(new Set());
+
+    // Cargar filenames de unprocessable al iniciar
     useEffect(() => {
-        if (files.length === 0 || history.length === 0) {
+        if (!user) return;
+        async function loadUnprocessableNames() {
+            try {
+                const response = await fetch('/api/unprocessable?limit=500', { credentials: 'include' });
+                if (response.ok) {
+                    const data = await response.json();
+                    const names = new Set<string>((data.documents || []).map((d: any) => d.filename));
+                    setUnprocessableFileNames(names);
+                    console.log(`✅ Filenames no procesables cargados: ${names.size}`);
+                }
+            } catch (e) {
+                console.error('Error cargando filenames no procesables:', e);
+            }
+        }
+        loadUnprocessableNames();
+    }, [user]);
+
+    // ✅ Detectar duplicados automáticamente al cargar archivos
+    // Compara contra extraction_results (history) Y unprocessable_documents
+    useEffect(() => {
+        if (files.length === 0) {
             setDuplicateFiles(new Set());
             return;
         }
 
-        // Crear set de nombres de archivos ya procesados
+        if (history.length === 0 && unprocessableFileNames.size === 0) {
+            setDuplicateFiles(new Set());
+            return;
+        }
+
+        // Crear set combinado de nombres ya procesados (ambas tablas)
         const processedFileNames = new Set(history.map(h => h.fileName));
+        unprocessableFileNames.forEach(name => processedFileNames.add(name));
 
         // Verificar cuáles de los archivos cargados ya están procesados
         const duplicates = new Set<string>();
@@ -131,7 +160,7 @@ function AppContent() {
                 console.log(`⚠️ Detectados ${duplicates.size} archivos duplicados (ya procesados)`);
             }
         }
-    }, [files, history]);
+    }, [files, history, unprocessableFileNames]);
 
     // State for the editor, which can be reused across different files
     const [prompt, setPrompt] = useState<string>(FUNDAE_EXTRACTION_PROMPT);
