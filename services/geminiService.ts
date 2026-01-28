@@ -1,9 +1,75 @@
 // Vertex AI Service - 🇪🇺 Procesamiento en Europa (Bélgica)
 // Fix: Use explicit file extension in import.
 import type { SchemaField, SchemaFieldType } from '../types.ts';
+import * as pdfjs from 'pdfjs-dist';
 
-// Helper para convertir File a base64
+// Configurar worker de pdfjs si no está ya configurado
+if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+}
+
+// Límite seguro: archivos > 2.5 MB se comprimen (base64 añade ~33%)
+const MAX_FILE_SIZE_FOR_DIRECT = 2.5 * 1024 * 1024;
+
+// Helper: Comprimir PDF renderizando páginas a JPEG
+const compressPdfToJpeg = async (file: File): Promise<{ data: string; mimeType: string }> => {
+  console.log(`🗜️ Comprimiendo PDF: ${file.name} (${(file.size / 1024).toFixed(0)} KB)...`);
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+  const numPages = pdf.numPages;
+
+  // Renderizar cada página a canvas
+  const pageCanvases: HTMLCanvasElement[] = [];
+  const scale = 1.5; // Buena calidad sin exceso de tamaño
+  let totalHeight = 0;
+  let maxWidth = 0;
+
+  for (let i = 1; i <= numPages; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d')!;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    pageCanvases.push(canvas);
+    totalHeight += viewport.height;
+    maxWidth = Math.max(maxWidth, viewport.width);
+  }
+
+  // Combinar todas las páginas en una sola imagen vertical
+  const combinedCanvas = document.createElement('canvas');
+  combinedCanvas.width = maxWidth;
+  combinedCanvas.height = totalHeight;
+  const combinedCtx = combinedCanvas.getContext('2d')!;
+  combinedCtx.fillStyle = '#FFFFFF';
+  combinedCtx.fillRect(0, 0, maxWidth, totalHeight);
+
+  let yOffset = 0;
+  for (const pageCanvas of pageCanvases) {
+    combinedCtx.drawImage(pageCanvas, 0, yOffset);
+    yOffset += pageCanvas.height;
+  }
+
+  // Exportar como JPEG con calidad ajustada
+  const jpegData = combinedCanvas.toDataURL('image/jpeg', 0.75).split(',')[1];
+  const compressedSize = (jpegData.length * 3 / 4) / 1024;
+  console.log(`✅ PDF comprimido: ${numPages} páginas → ${compressedSize.toFixed(0)} KB JPEG (escala ${scale}, calidad 75%)`);
+
+  return { data: jpegData, mimeType: 'image/jpeg' };
+};
+
+// Helper para convertir File a base64 (con compresión automática de PDFs grandes)
 const fileToGenerativePart = async (file: File) => {
+  // Si es un PDF grande, comprimir renderizando a JPEG
+  if (file.type === 'application/pdf' && file.size > MAX_FILE_SIZE_FOR_DIRECT) {
+    const compressed = await compressPdfToJpeg(file);
+    return {
+      inlineData: compressed,
+    };
+  }
+
+  // Archivo pequeño o no-PDF: enviar directamente
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => {

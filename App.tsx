@@ -436,6 +436,27 @@ function AppContent() {
                 setFiles(currentFiles =>
                     currentFiles.map(f => f.id === file.id ? { ...f, status: 'error', error: errorMessage, extractedData: undefined } : f)
                 );
+
+                // 🔥 Registrar como no procesable para que no desaparezca
+                try {
+                    const category = errorMessage.includes('413') ? 'formato_invalido' : 'error_critico';
+                    const reason = errorMessage.includes('413')
+                        ? 'Archivo demasiado grande para procesar (supera el límite de 4.5 MB en base64)'
+                        : errorMessage;
+                    await fetch('/api/unprocessable', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            filename: file.file.name,
+                            category,
+                            reason,
+                        }),
+                    });
+                    console.log(`📋 Registrado como no procesable: ${file.file.name} (${category})`);
+                } catch (regError) {
+                    console.error('❌ Error registrando no procesable:', regError);
+                }
             }
         };
 
@@ -572,6 +593,27 @@ function AppContent() {
                 setFiles(currentFiles =>
                     currentFiles.map(f => f.id === file.id ? { ...f, status: 'error', error: errorMessage, extractedData: undefined } : f)
                 );
+
+                // 🔥 Registrar como no procesable para que no desaparezca
+                try {
+                    const category = errorMessage.includes('413') ? 'formato_invalido' : 'error_critico';
+                    const reason = errorMessage.includes('413')
+                        ? 'Archivo demasiado grande para procesar (supera el límite de 4.5 MB en base64)'
+                        : errorMessage;
+                    await fetch('/api/unprocessable', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify({
+                            filename: file.file.name,
+                            category,
+                            reason,
+                        }),
+                    });
+                    console.log(`📋 Registrado como no procesable: ${file.file.name} (${category})`);
+                } catch (regError) {
+                    console.error('❌ Error registrando no procesable:', regError);
+                }
             }
         };
 
