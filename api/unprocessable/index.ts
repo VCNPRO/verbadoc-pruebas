@@ -62,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // GET /api/unprocessable - Listar documentos no procesables
   if (req.method === 'GET') {
     try {
-      const { limit = '100', category, search } = req.query;
+      const { category, search } = req.query;
 
       // COMPARTIR DATOS: Si tiene client_id, mostrar datos de todos los usuarios del mismo cliente
       const useClientSharing = user.clientId !== null;
@@ -143,8 +143,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         paramIndex++;
       }
 
-      query += ` ORDER BY created_at DESC LIMIT $${paramIndex}`;
-      params.push(parseInt(limit as string));
+      query += ` ORDER BY created_at DESC`;
 
       const result = await sql.query(query, params);
 
@@ -186,10 +185,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         },
       });
 
+      // Total real = suma de todas las categorías (sin límite)
+      const totalReal = stats.rows.reduce((sum: number, s: any) => sum + parseInt(s.count), 0);
+
       return res.status(200).json({
         documents: result.rows,
         stats: stats.rows,
-        total: result.rows.length
+        total: totalReal
       });
 
     } catch (error: any) {

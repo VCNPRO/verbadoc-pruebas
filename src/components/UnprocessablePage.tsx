@@ -373,8 +373,10 @@ export default function UnprocessablePage() {
     );
   };
 
-  // El total debe ser la suma de los documentos filtrados, no el total histórico si los datos no coinciden
-  const totalDocs = documents.length; 
+  // Total real = suma de todas las categorías (stats viene sin límite del servidor)
+  const totalDocs = stats.length > 0
+    ? stats.reduce((sum, s) => sum + parseInt(String(s.count)), 0)
+    : documents.length;
 
   return (
     <div className="min-h-screen bg-gray-50">
