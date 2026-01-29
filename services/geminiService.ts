@@ -736,6 +736,22 @@ export const extractWithHybridSystem = async (
   const threshold = options?.confidenceThreshold ?? 0.8;
   const enableEscalation = options?.enableModelEscalation ?? true;
 
+  // 🧠 PASO 0: Intentar extracción híbrida CV Judge si no se fuerza IA pura
+  if (!options?.forceAI && !options?.forceCoordinates) {
+    try {
+      console.log('🧠 Intentando extracción híbrida CV Judge + Gemini...');
+      const hybridResult = await extractWithHybridCVJudge(file, schema, prompt, modelId);
+      if (!hybridResult.usedFallback) {
+        console.log(`✅ Híbrido exitoso: ${hybridResult.confidencePercentage}% confianza`);
+        return hybridResult;
+      }
+      console.log(`⚠️ Híbrido usó fallback: ${hybridResult.fallbackReason}`);
+      // Si el fallback fue por error del endpoint (flag desactivado), continuar con IA directa
+    } catch (hybridError: any) {
+      console.log(`⚠️ Híbrido no disponible: ${hybridError.message}. Usando IA directa.`);
+    }
+  }
+
   // 🔧 MODO PROCESAMIENTO MASIVO: Saltar coordenadas, ir directo a IA
   if (SKIP_COORDINATES_SYSTEM || options?.forceAI) {
     console.log('🚀 MODO IA DIRECTA (coordenadas desactivadas para procesamiento masivo)');
