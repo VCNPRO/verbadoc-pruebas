@@ -12,10 +12,11 @@
 
 import { createCanvas } from '@napi-rs/canvas';
 
-// pdfjs-dist es ESM-only en v5. Usamos dynamic import para compatibilidad
-// con el bundler CJS de Vercel serverless.
+// pdfjs-dist v5 es ESM-only. Vercel (esbuild) convierte import() en require().
+// Usamos new Function para evitar que esbuild transforme el dynamic import.
 async function getPdfjs() {
-  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const importModule = new Function('specifier', 'return import(specifier)');
+  const pdfjs = await importModule('pdfjs-dist/legacy/build/pdf.mjs');
   return pdfjs;
 }
 
