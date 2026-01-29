@@ -117,11 +117,32 @@ export default function UnprocessablePage() {
   });
 
   const [selectedDoc, setSelectedDoc] = useState<UnprocessableDocument | null>(null);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
 
   // PIN Modal para eliminar
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingDeleteAction, setPendingDeleteAction] = useState<(() => void) | null>(null);
+
+  // Cargar PDF como blob local para evitar bloqueo de iframe por CSP/X-Frame-Options
+  useEffect(() => {
+    if (!selectedDoc?.pdf_blob_url) {
+      setPdfBlobUrl(null);
+      return;
+    }
+    let revoked = false;
+    fetch(selectedDoc.pdf_blob_url)
+      .then(res => res.blob())
+      .then(blob => {
+        if (!revoked) {
+          setPdfBlobUrl(URL.createObjectURL(blob));
+        }
+      })
+      .catch(() => setPdfBlobUrl(null));
+    return () => {
+      revoked = true;
+    };
+  }, [selectedDoc]);
 
   useEffect(() => {
     loadData();
@@ -692,11 +713,17 @@ export default function UnprocessablePage() {
                 </div>
                 <div className="flex-1 overflow-hidden">
                   {selectedDoc.pdf_blob_url ? (
-                    <iframe
-                      src={selectedDoc.pdf_blob_url}
-                      className="w-full h-full border-0"
-                      title={`Vista previa: ${selectedDoc.filename}`}
-                    />
+                    pdfBlobUrl ? (
+                      <iframe
+                        src={pdfBlobUrl}
+                        className="w-full h-full border-0"
+                        title={`Vista previa: ${selectedDoc.filename}`}
+                      />
+                    ) : (
+                      <div className="h-full flex items-center justify-center text-gray-400">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                      </div>
+                    )
                   ) : (
                     <div className="h-full flex items-center justify-center text-gray-400 flex-col gap-2">
                       <span className="text-4xl">📄</span>
