@@ -143,6 +143,10 @@ export async function extractHybrid(
       needsHumanReview: result.needsHumanReview,
     };
 
+    // Logging detallado para diagnóstico de coordenadas
+    const densities = result.details.map(d => `${d.code}:${d.result.pixelDensity.toFixed(3)}(${d.result.state})`).join(', ');
+    console.log(`[CV Judge] ${fieldName}: selected=${result.selectedCode || 'NC'}, conf=${result.confidence.toFixed(2)} | ${densities}`);
+
     if (result.needsHumanReview) {
       fieldsNeedingReview.push(fieldName);
     }
@@ -177,6 +181,8 @@ export async function extractHybrid(
       confidence: result.confidence,
       needsHumanReview: result.needsHumanReview,
     };
+
+    console.log(`[CV Judge] ${pair.name}: ${result.value}, conf=${result.confidence.toFixed(2)}`);
 
     if (result.needsHumanReview) {
       fieldsNeedingReview.push(pair.name);
@@ -226,6 +232,9 @@ export async function extractHybrid(
       confidence: result.confidence,
       needsHumanReview: result.needsHumanReview,
     };
+
+    const densities = result.details.map(d => `${d.code}:${d.result.pixelDensity.toFixed(3)}(${d.result.state})`).join(', ');
+    console.log(`[CV Judge] ${prefix}: selected=${result.selectedCode}, conf=${result.confidence.toFixed(2)} | ${densities}`);
 
     if (result.needsHumanReview) {
       fieldsNeedingReview.push(prefix);
