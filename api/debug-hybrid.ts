@@ -25,20 +25,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     diagnostics.napiCanvas = { status: 'FAIL', error: e.message };
   }
 
-  // Test 2: pdfjs-serverless (dynamic import for ESM)
+  // Test 2: pdfjs-dist v3 CJS legacy
   try {
-    const pdfjsMod = await import('pdfjs-serverless');
-    diagnostics.pdfjsServerless = { status: 'OK', getDocument: typeof pdfjsMod.getDocument };
-  } catch (e: any) {
-    diagnostics.pdfjsServerless = { status: 'FAIL_DYNAMIC', error: e.message };
-  }
-
-  // Test 2b: pdfjs-dist legacy (dynamic import)
-  try {
-    const pdfjsLegacy = await import('pdfjs-dist/legacy/build/pdf.mjs');
-    diagnostics.pdfjsDist = { status: 'OK', getDocument: typeof pdfjsLegacy.getDocument };
+    const pdfjs = require('pdfjs-dist-legacy/legacy/build/pdf.js');
+    diagnostics.pdfjsDistLegacy = { status: 'OK', version: '3.11.174', getDocument: typeof pdfjs.getDocument };
   } catch (e: any) {
     diagnostics.pdfjsDist = { status: 'FAIL', error: e.message };
+  }
+
+  // Test 3b: @napi-rs/canvas DOMMatrix & Path2D polyfills
+  try {
+    const { DOMMatrix, Path2D } = require('@napi-rs/canvas');
+    diagnostics.canvasPolyfills = { DOMMatrix: typeof DOMMatrix, Path2D: typeof Path2D };
+  } catch (e: any) {
+    diagnostics.canvasPolyfills = { status: 'FAIL', error: e.message };
   }
 
   // Test 3: sharp

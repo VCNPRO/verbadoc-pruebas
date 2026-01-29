@@ -2,17 +2,27 @@
  * FASE 2: Renderizado de PDF a PNG de alta resolución (Server-side)
  * api/_lib/pdfRenderer.ts
  *
- * Usa pdfjs-serverless + @napi-rs/canvas para renderizar PDFs a PNG en Node.js.
- * Procesamiento 100% server-side en Vercel serverless.
+ * Stack de renderizado:
+ * - pdfjs-dist v3.11.174 (última versión con CJS nativo — build/pdf.js)
+ * - @napi-rs/canvas (Canvas API en Rust, binarios nativos por plataforma)
  *
- * - pdfjs-serverless: PDF.js v5 pre-empaquetado para serverless (CJS nativo)
- * - @napi-rs/canvas: Canvas API en Rust para Node.js (Vercel compatible)
- * - PNG sin pérdida para máxima fidelidad en análisis de píxeles
- * - 300 DPI para resolución adecuada en formularios A4
+ * Procesamiento 100% server-side en Vercel serverless.
+ * PNG sin pérdida, 300 DPI, para análisis determinista de píxeles.
  */
 
-import { createCanvas } from '@napi-rs/canvas';
-import { getDocument } from 'pdfjs-serverless';
+import { createCanvas, DOMMatrix, Path2D } from '@napi-rs/canvas';
+
+// Registrar polyfills que pdfjs-dist v3 legacy espera de 'canvas' npm
+// @napi-rs/canvas los provee nativamente
+if (typeof globalThis.DOMMatrix === 'undefined') {
+  (globalThis as any).DOMMatrix = DOMMatrix;
+}
+if (typeof globalThis.Path2D === 'undefined') {
+  (globalThis as any).Path2D = Path2D;
+}
+
+// pdfjs-dist v3.11.174 — CJS nativo, compatible con Vercel serverless
+import * as pdfjs from 'pdfjs-dist-legacy/legacy/build/pdf.js';
 
 export interface RenderedPage {
   buffer: Buffer;
@@ -52,21 +62,19 @@ export async function renderPdfToImages(
   targetDPI: number = 300
 ): Promise<RenderedPage[]> {
   const pages: RenderedPage[] = [];
-
-  // PDF estándar es 72 DPI, scale = targetDPI / 72
-  const scale = targetDPI / 72;
+  const scale = targetDPI / 72; // PDF estándar es 72 DPI
 
   try {
     const uint8Array = new Uint8Array(pdfBuffer);
-    const pdf = await getDocument({
+    const pdf = await pdfjs.getDocument({
       data: uint8Array,
       useSystemFonts: true,
-      // @ts-ignore - pdfjs accepts CanvasFactory
+      // @ts-ignore — pdfjs v3 acepta canvasFactory
       canvasFactory: new NodeCanvasFactory(),
+      disableFontFace: true,
     }).promise;
 
     const numPages = pdf.numPages;
-
     console.log(`[pdfRenderer] PDF: ${numPages} página(s), renderizando a ${targetDPI} DPI (scale ${scale.toFixed(2)})...`);
 
     for (let i = 1; i <= numPages; i++) {
@@ -79,7 +87,7 @@ export async function renderPdfToImages(
         Math.floor(viewport.height)
       );
 
-      // Fondo blanco (importante para análisis de píxeles)
+      // Fondo blanco (crítico para análisis de píxeles del CV Judge)
       context.fillStyle = '#FFFFFF';
       context.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -88,7 +96,7 @@ export async function renderPdfToImages(
         viewport,
       }).promise;
 
-      // Exportar como PNG (sin pérdida — crítico para CV Judge)
+      // PNG sin pérdida — obligatorio para análisis determinista
       const pngBuffer = canvas.toBuffer('image/png');
 
       pages.push({
@@ -100,7 +108,6 @@ export async function renderPdfToImages(
 
       console.log(`[pdfRenderer] Página ${i}/${numPages}: ${canvas.width}x${canvas.height}px (${(pngBuffer.byteLength / 1024).toFixed(0)} KB)`);
 
-      // Liberar memoria
       canvasFactory.destroy({ canvas, context });
       page.cleanup();
     }
@@ -125,11 +132,12 @@ export async function renderSinglePage(
 
   try {
     const uint8Array = new Uint8Array(pdfBuffer);
-    const pdf = await getDocument({
+    const pdf = await pdfjs.getDocument({
       data: uint8Array,
       useSystemFonts: true,
       // @ts-ignore
       canvasFactory: new NodeCanvasFactory(),
+      disableFontFace: true,
     }).promise;
 
     if (pageNumber < 1 || pageNumber > pdf.numPages) {
