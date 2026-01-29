@@ -22,10 +22,7 @@ import {
 } from './checkboxJudge.js';
 import { GoogleGenAI } from '@google/genai';
 
-import {
-  FIELD_COORDINATES,
-  VALUATION_COORDINATES,
-} from './fundaeCoordinates.js';
+import { locateAllCheckboxes, type LocatorResult } from './geminiLocator.js';
 
 // --- Types ---
 
@@ -41,6 +38,7 @@ export interface HybridExtractionResult {
   overallConfidence: number;
   fieldsNeedingReview: string[];
   method: 'hybrid_cv_gemini';
+  localizationMethod: 'gemini' | 'fallback';
   processingTimeMs: number;
 }
 
@@ -106,6 +104,26 @@ export async function extractHybrid(
   // Helper: obtener página por número (1-indexed)
   const getPage = (pageNum: number): RenderedPage | undefined =>
     pages.find(p => p.pageNumber === pageNum);
+
+  // ========================================
+  // PASO 1.5: Gemini localiza checkboxes dinámicamente
+  // ========================================
+  const apiKey = options?.geminiApiKey || process.env.GOOGLE_API_KEY || '';
+  const modelId = options?.geminiModel || 'gemini-2.5-flash';
+  let locatorResult: LocatorResult;
+
+  if (apiKey) {
+    console.log('[hybridExtractor] Localizando checkboxes con Gemini...');
+    locatorResult = await locateAllCheckboxes(pages, apiKey, modelId);
+    console.log(`[hybridExtractor] Localización: método=${locatorResult.method}`);
+  } else {
+    console.warn('[hybridExtractor] No hay API key, usando coordenadas fallback');
+    const { FIELD_COORDINATES: FB_FIELD, VALUATION_COORDINATES: FB_VAL } = await import('./fundaeCoordinatesFallback.js');
+    locatorResult = { fieldCoordinates: FB_FIELD, valuationCoordinates: FB_VAL, method: 'fallback' };
+  }
+
+  const FIELD_COORDINATES = locatorResult.fieldCoordinates;
+  const VALUATION_COORDINATES = locatorResult.valuationCoordinates;
 
   // ========================================
   // PASO 2: CV Judge para checkboxes
@@ -249,12 +267,10 @@ export async function extractHybrid(
   // ========================================
   let textResults: Record<string, any> = {};
 
-  const apiKey = options?.geminiApiKey || process.env.GOOGLE_API_KEY || '';
   if (apiKey) {
     console.log('[hybridExtractor] Extrayendo texto con Gemini (temperature 0.1)...');
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const modelId = options?.geminiModel || 'gemini-2.5-flash';
 
       // Enviar las páginas renderizadas como PNG base64
       const parts: any[] = [{ text: TEXT_ONLY_PROMPT }];
@@ -349,6 +365,7 @@ export async function extractHybrid(
     overallConfidence,
     fieldsNeedingReview,
     method: 'hybrid_cv_gemini',
+    localizationMethod: locatorResult.method,
     processingTimeMs: Date.now() - startTime,
   };
 }

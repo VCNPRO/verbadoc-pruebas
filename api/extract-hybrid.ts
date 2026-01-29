@@ -84,6 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       confidenceReport,
       fieldsNeedingReview: result.fieldsNeedingReview,
       checkboxResults: result.checkboxResults,
+      localizationMethod: result.localizationMethod,
       processingTimeMs: result.processingTimeMs,
       timestamp: new Date().toISOString(),
     });

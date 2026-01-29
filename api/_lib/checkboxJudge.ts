@@ -39,11 +39,11 @@ export type FieldConfidenceState =
   | 'GEMINI_FALLBACK';
 
 // --- Umbrales ---
-const THRESHOLD_EMPTY = 0.03;     // <3% = EMPTY
-const THRESHOLD_CHECKED = 0.12;   // >12% = CHECKED
-// 3-12% = AMBIGUOUS
+const THRESHOLD_EMPTY = 0.02;     // <2% = EMPTY
+const THRESHOLD_CHECKED = 0.08;   // >8% = CHECKED
+// 2-8% = AMBIGUOUS
 
-const INNER_MARGIN = 0.20;        // 20% margen interior para excluir bordes
+const INNER_MARGIN = 0.25;        // 25% margen interior para excluir bordes
 
 /**
  * Analiza un checkbox individual en una imagen PNG de página completa.
@@ -93,7 +93,7 @@ export async function analyzeCheckbox(
     const rawPixels = await sharp(pageBuffer)
       .extract({ left: clampedLeft, top: clampedTop, width: clampedWidth, height: clampedHeight })
       .greyscale()
-      .threshold(128)
+      .threshold(90)
       .raw()
       .toBuffer();
 
@@ -157,31 +157,52 @@ export async function analyzeValuationGroup(
     }))
   );
 
-  const checked = results.filter(r => r.result.state === 'CHECKED');
-  const ambiguous = results.filter(r => r.result.state === 'AMBIGUOUS');
+  // --- Relative density comparison ---
+  // Sort by density descending to find the standout
+  const sorted = [...results].sort((a, b) => b.result.pixelDensity - a.result.pixelDensity);
+  const topDensity = sorted[0].result.pixelDensity;
+  // Median of all others (excluding top)
+  const others = sorted.slice(1).map(r => r.result.pixelDensity);
+  const otherMedian = others.length > 0 ? others[Math.floor(others.length / 2)] : 0;
 
   let selectedCode: string;
   let confidence: number;
   let needsHumanReview = false;
 
-  if (checked.length === 1) {
-    // Exactamente 1 marcado → retornar ese valor
-    selectedCode = checked[0].code;
-    confidence = checked[0].result.confidence;
-  } else if (checked.length > 1) {
-    // Múltiples marcados → NC (marcas múltiples)
+  // A truly checked box should have density well above the table-line baseline
+  // Use relative comparison: top must be at least 2x the median of others AND above a minimum
+  const RELATIVE_RATIO = 2.0;
+  const MIN_CHECKED_DENSITY = 0.05; // minimum absolute density to be considered checked
+
+  if (topDensity >= MIN_CHECKED_DENSITY && (otherMedian < 0.01 || topDensity / otherMedian >= RELATIVE_RATIO)) {
+    // Clear winner by relative density
+    selectedCode = sorted[0].code;
+    const ratio = otherMedian > 0 ? topDensity / otherMedian : 10;
+    confidence = Math.min(1, ratio / 5); // ratio of 5+ → confidence 1.0
+
+    // Check if second highest is also clearly marked (genuine multiple marks)
+    const secondDensity = sorted.length > 1 ? sorted[1].result.pixelDensity : 0;
+    if (secondDensity >= MIN_CHECKED_DENSITY && secondDensity / otherMedian >= RELATIVE_RATIO * 0.8) {
+      // Two boxes are both clearly above baseline → genuine multiple marks
+      selectedCode = 'NC';
+      confidence = 0.7;
+      needsHumanReview = true;
+    }
+  } else if (topDensity < THRESHOLD_EMPTY) {
+    // All boxes are essentially empty
     selectedCode = 'NC';
-    confidence = 0.8; // Confianza razonable de que hay marcas múltiples
-    needsHumanReview = true;
-  } else if (ambiguous.length > 0) {
-    // 0 CHECKED pero alguno AMBIGUOUS → revisión humana
-    selectedCode = 'NC';
-    confidence = 0.3;
-    needsHumanReview = true;
+    confidence = 0.9;
   } else {
-    // 0 CHECKED y 0 AMBIGUOUS → NC (ninguna marca)
-    selectedCode = 'NC';
-    confidence = 0.9; // Alta confianza de que está vacío
+    // No clear winner — all similar density (likely all table lines, no mark)
+    // Check if everything is below CHECKED threshold (just table noise)
+    if (topDensity < THRESHOLD_CHECKED) {
+      selectedCode = 'NC';
+      confidence = 0.7;
+    } else {
+      selectedCode = 'NC';
+      confidence = 0.3;
+      needsHumanReview = true;
+    }
   }
 
   return {
@@ -216,46 +237,71 @@ export async function analyzeCheckboxField(
     }))
   );
 
-  const checked = results.filter(r => r.result.state === 'CHECKED');
-  const ambiguous = results.filter(r => r.result.state === 'AMBIGUOUS');
+  // --- Relative density comparison (same logic as analyzeValuationGroup) ---
+  const sorted = [...results].sort((a, b) => b.result.pixelDensity - a.result.pixelDensity);
+  const topDensity = sorted[0].result.pixelDensity;
+  const others = sorted.slice(1).map(r => r.result.pixelDensity);
+  const otherMedian = others.length > 0 ? others[Math.floor(others.length / 2)] : 0;
 
-  if (checked.length === 1) {
+  const RELATIVE_RATIO = 2.0;
+  const MIN_CHECKED_DENSITY = 0.05;
+
+  if (topDensity >= MIN_CHECKED_DENSITY && (otherMedian < 0.01 || topDensity / otherMedian >= RELATIVE_RATIO)) {
+    // Clear winner
+    const winner = sorted[0];
+    const ratio = otherMedian > 0 ? topDensity / otherMedian : 10;
+    const confidence = Math.min(1, ratio / 5);
+
+    // Check for genuine multiple marks
+    const secondDensity = sorted.length > 1 ? sorted[1].result.pixelDensity : 0;
+    if (secondDensity >= MIN_CHECKED_DENSITY && otherMedian > 0.01 && secondDensity / otherMedian >= RELATIVE_RATIO * 0.8) {
+      return {
+        selectedValue: 'NC',
+        selectedCode: '9',
+        confidence: 0.7,
+        needsHumanReview: true,
+        details: results,
+      };
+    }
+
     return {
-      selectedValue: checked[0].value,
-      selectedCode: checked[0].code,
-      confidence: checked[0].result.confidence,
+      selectedValue: winner.value,
+      selectedCode: winner.code,
+      confidence,
       needsHumanReview: false,
       details: results,
     };
   }
 
-  if (checked.length > 1) {
-    // Múltiples marcas → NC
-    return {
-      selectedValue: 'NC',
-      selectedCode: '9',
-      confidence: 0.8,
-      needsHumanReview: true,
-      details: results,
-    };
-  }
-
-  if (ambiguous.length > 0) {
+  if (topDensity < THRESHOLD_EMPTY) {
+    // All empty
     return {
       selectedValue: null,
       selectedCode: null,
-      confidence: 0.3,
-      needsHumanReview: true,
+      confidence: 0.9,
+      needsHumanReview: false,
       details: results,
     };
   }
 
-  // Nada marcado
+  // No clear winner — all similar density (ambient noise)
+  if (topDensity < THRESHOLD_CHECKED) {
+    // All below CHECKED threshold — just noise, treat as nothing marked
+    return {
+      selectedValue: null,
+      selectedCode: null,
+      confidence: 0.7,
+      needsHumanReview: false,
+      details: results,
+    };
+  }
+
+  // High density but no standout — ambiguous
   return {
     selectedValue: null,
     selectedCode: null,
-    confidence: 0.9,
-    needsHumanReview: false,
+    confidence: 0.3,
+    needsHumanReview: true,
     details: results,
   };
 }
@@ -279,26 +325,35 @@ export async function analyzeBinaryCheckbox(
     analyzeCheckbox(pageBuffer, pageWidth, pageHeight, noBox),
   ]);
 
-  const siChecked = siResult.state === 'CHECKED';
-  const noChecked = noResult.state === 'CHECKED';
+  const siDensity = siResult.pixelDensity;
+  const noDensity = noResult.pixelDensity;
+  const MIN_CHECKED_DENSITY = 0.05;
+  const RELATIVE_RATIO = 2.0;
 
-  if (siChecked && !noChecked) {
-    return { value: 'Sí', confidence: siResult.confidence, needsHumanReview: false };
+  // Use relative comparison: the marked one should stand out from the other
+  const maxDensity = Math.max(siDensity, noDensity);
+  const minDensity = Math.min(siDensity, noDensity);
+
+  if (maxDensity >= MIN_CHECKED_DENSITY && (minDensity < 0.01 || maxDensity / minDensity >= RELATIVE_RATIO)) {
+    // Clear winner
+    const ratio = minDensity > 0 ? maxDensity / minDensity : 10;
+    const confidence = Math.min(1, ratio / 5);
+    if (siDensity > noDensity) {
+      return { value: 'Sí', confidence, needsHumanReview: false };
+    } else {
+      return { value: 'No', confidence, needsHumanReview: false };
+    }
   }
-  if (noChecked && !siChecked) {
-    return { value: 'No', confidence: noResult.confidence, needsHumanReview: false };
-  }
-  if (siChecked && noChecked) {
+
+  // Both high and similar — both marked
+  if (maxDensity >= MIN_CHECKED_DENSITY && minDensity >= MIN_CHECKED_DENSITY) {
     return { value: 'NC', confidence: 0.7, needsHumanReview: true };
   }
 
-  // Ninguno marcado - revisar ambiguos
-  const siAmbiguous = siResult.state === 'AMBIGUOUS';
-  const noAmbiguous = noResult.state === 'AMBIGUOUS';
-
-  if (siAmbiguous || noAmbiguous) {
-    return { value: 'NC', confidence: 0.3, needsHumanReview: true };
+  // Both low — nothing marked (ambient noise)
+  if (maxDensity < THRESHOLD_CHECKED) {
+    return { value: 'NC', confidence: 0.7, needsHumanReview: false };
   }
 
-  return { value: 'NC', confidence: 0.9, needsHumanReview: false };
+  return { value: 'NC', confidence: 0.3, needsHumanReview: true };
 }
