@@ -159,11 +159,11 @@ export function validateSeccionII(
 ): ValidationResult {
   const errors: string[] = [];
 
-  // 1. Edad (16-67 años)
+  // 1. Edad (16-99 años)
   if (datos.edad === null || datos.edad === undefined) {
     errors.push('Edad es obligatoria');
   } else {
-    const edadValidation = validateAge(String(datos.edad), 16, 67);
+    const edadValidation = validateAge(String(datos.edad), 16, 99);
     if (!edadValidation.isValid) {
       errors.push(`Edad: ${edadValidation.errorMessage}`);
     }
