@@ -967,7 +967,8 @@ export const extractWithHybridCVJudge = async (
   console.log('🧠 MODO HÍBRIDO: CV Judge (checkboxes) + Gemini (texto)');
 
   try {
-    // Convertir File a base64 para enviar al backend
+    // Enviar PDF base64 al backend — renderizado 100% server-side
+    // (pdfjs-dist + @napi-rs/canvas en Vercel serverless)
     const base64Data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => {

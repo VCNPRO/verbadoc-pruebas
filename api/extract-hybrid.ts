@@ -2,7 +2,12 @@
 /**
  * API ENDPOINT: /api/extract-hybrid
  *
- * Extracción híbrida: CV Judge para checkboxes + Gemini para texto.
+ * Extracción híbrida 100% server-side:
+ * - Recibe PDF base64 del frontend
+ * - Renderiza a PNG con pdfjs-dist + @napi-rs/canvas (300 DPI)
+ * - CV Judge para checkboxes (análisis determinista de píxeles)
+ * - Gemini para campos de texto (prompt simplificado, temperature 0.1)
+ *
  * Activado por feature flag USE_HYBRID_EXTRACTION=true
  */
 
@@ -48,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'No se proporcionó PDF (pdfBase64)' });
     }
 
-    console.log(`🧠 /api/extract-hybrid - Extracción híbrida CV Judge + Gemini`);
+    console.log(`🧠 /api/extract-hybrid - Extracción híbrida server-side`);
     console.log(`📄 Archivo: ${filename || 'unknown'}, ${(pdfBase64.length * 0.75 / 1024).toFixed(0)} KB`);
 
     const pdfBuffer = Buffer.from(pdfBase64, 'base64');

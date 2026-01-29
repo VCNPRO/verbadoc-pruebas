@@ -1,13 +1,17 @@
 /**
- * FASE 2: Renderizado de PDF a PNG de alta resolución
+ * FASE 2: Renderizado de PDF a PNG de alta resolución (Server-side)
  * api/_lib/pdfRenderer.ts
  *
- * Usa Sharp para convertir páginas de PDF a PNG individuales.
- * Sharp soporta PDF via libvips en la mayoría de entornos.
- * Si no funciona, se usa fallback con el PDF en crudo.
+ * Usa pdfjs-dist + @napi-rs/canvas para renderizar PDFs a PNG en Node.js.
+ * Esto permite procesamiento 100% server-side en Vercel serverless.
+ *
+ * - PNG sin pérdida para máxima fidelidad en análisis de píxeles
+ * - 300 DPI para resolución adecuada en formularios A4
+ * - Compatible con Vercel serverless (no requiere poppler/ghostscript)
  */
 
-import sharp from 'sharp';
+import { createCanvas } from '@napi-rs/canvas';
+import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 
 export interface RenderedPage {
   buffer: Buffer;
@@ -16,114 +20,158 @@ export interface RenderedPage {
   pageNumber: number;
 }
 
+// Custom CanvasFactory para pdfjs-dist usando @napi-rs/canvas
+class NodeCanvasFactory {
+  create(width: number, height: number) {
+    const canvas = createCanvas(width, height);
+    const context = canvas.getContext('2d');
+    return { canvas, context };
+  }
+
+  reset(canvasAndContext: any, width: number, height: number) {
+    canvasAndContext.canvas.width = width;
+    canvasAndContext.canvas.height = height;
+  }
+
+  destroy(canvasAndContext: any) {
+    canvasAndContext.canvas = null;
+    canvasAndContext.context = null;
+  }
+}
+
 /**
  * Renderiza un PDF a imágenes PNG individuales por página.
- * Usa Sharp (libvips) para la conversión.
+ * Usa pdfjs-dist con @napi-rs/canvas para renderizado server-side.
  *
  * @param pdfBuffer - Buffer del archivo PDF
- * @param dpi - Resolución de renderizado (default: 300)
- * @returns Array de páginas renderizadas
+ * @param targetDPI - Resolución de renderizado (default: 300)
+ * @returns Array de páginas renderizadas como PNG buffers
  */
 export async function renderPdfToImages(
   pdfBuffer: Buffer,
-  dpi: number = 300
+  targetDPI: number = 300
 ): Promise<RenderedPage[]> {
   const pages: RenderedPage[] = [];
 
+  // PDF estándar es 72 DPI, scale = targetDPI / 72
+  const scale = targetDPI / 72;
+
   try {
-    // Sharp puede leer PDFs página por página usando la opción { page: N }
-    // Primero, detectar cuántas páginas tiene
-    const metadata = await sharp(pdfBuffer, { page: 0, density: dpi }).metadata();
-    const totalPages = metadata.pages || 1;
+    const uint8Array = new Uint8Array(pdfBuffer);
+    const loadingTask = pdfjs.getDocument({
+      data: uint8Array,
+      useSystemFonts: true,
+      // @ts-ignore - pdfjs accepts CanvasFactory
+      canvasFactory: new NodeCanvasFactory(),
+    });
 
-    console.log(`[pdfRenderer] PDF tiene ${totalPages} página(s), renderizando a ${dpi} DPI...`);
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages;
 
-    for (let i = 0; i < totalPages; i++) {
-      const pageImage = sharp(pdfBuffer, { page: i, density: dpi });
-      const pageMetadata = await pageImage.metadata();
+    console.log(`[pdfRenderer] PDF: ${numPages} página(s), renderizando a ${targetDPI} DPI (scale ${scale.toFixed(2)})...`);
 
-      const pngBuffer = await pageImage
-        .png()
-        .toBuffer();
+    for (let i = 1; i <= numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale });
+
+      const canvasFactory = new NodeCanvasFactory();
+      const { canvas, context } = canvasFactory.create(
+        Math.floor(viewport.width),
+        Math.floor(viewport.height)
+      );
+
+      // Fondo blanco (importante para análisis de píxeles)
+      context.fillStyle = '#FFFFFF';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      await page.render({
+        canvasContext: context as any,
+        viewport,
+      }).promise;
+
+      // Exportar como PNG (sin pérdida — crítico para CV Judge)
+      const pngBuffer = canvas.toBuffer('image/png');
 
       pages.push({
-        buffer: pngBuffer,
-        width: pageMetadata.width || 0,
-        height: pageMetadata.height || 0,
-        pageNumber: i + 1, // 1-indexed
+        buffer: Buffer.from(pngBuffer),
+        width: canvas.width,
+        height: canvas.height,
+        pageNumber: i,
       });
 
-      console.log(`[pdfRenderer] Página ${i + 1}/${totalPages}: ${pageMetadata.width}x${pageMetadata.height}px`);
+      console.log(`[pdfRenderer] Página ${i}/${numPages}: ${canvas.width}x${canvas.height}px (${(pngBuffer.byteLength / 1024).toFixed(0)} KB)`);
+
+      // Liberar memoria
+      canvasFactory.destroy({ canvas, context });
+      page.cleanup();
     }
 
+    pdf.destroy();
     return pages;
-  } catch (sharpError: any) {
-    // Si Sharp no soporta PDF en este entorno (ej: libvips sin poppler),
-    // intentar método alternativo
-    console.warn(`[pdfRenderer] Sharp no pudo procesar el PDF: ${sharpError.message}`);
-    console.log('[pdfRenderer] Intentando método alternativo (PNG directo)...');
 
-    // Fallback: si el input ya es una imagen (PNG/JPEG), procesarla directamente
-    try {
-      const img = sharp(pdfBuffer);
-      const meta = await img.metadata();
-
-      if (meta.format && ['png', 'jpeg', 'webp', 'tiff'].includes(meta.format)) {
-        const pngBuffer = await img.png().toBuffer();
-        return [{
-          buffer: pngBuffer,
-          width: meta.width || 0,
-          height: meta.height || 0,
-          pageNumber: 1,
-        }];
-      }
-    } catch {
-      // Ignorar - no es una imagen tampoco
-    }
-
-    throw new Error(
-      `No se pudo renderizar el PDF. Sharp error: ${sharpError.message}. ` +
-      `Asegúrate de que libvips tenga soporte para PDF (poppler) en este entorno.`
-    );
+  } catch (error: any) {
+    throw new Error(`Error renderizando PDF server-side: ${error.message}`);
   }
 }
 
 /**
  * Renderiza una única página de un PDF.
- * Útil para procesamiento selectivo.
  */
 export async function renderSinglePage(
   pdfBuffer: Buffer,
-  pageNumber: number, // 1-indexed
-  dpi: number = 300
+  pageNumber: number,
+  targetDPI: number = 300
 ): Promise<RenderedPage> {
-  const pageIndex = pageNumber - 1; // Sharp usa 0-indexed
+  const scale = targetDPI / 72;
 
   try {
-    const pageImage = sharp(pdfBuffer, { page: pageIndex, density: dpi });
-    const metadata = await pageImage.metadata();
+    const uint8Array = new Uint8Array(pdfBuffer);
+    const loadingTask = pdfjs.getDocument({
+      data: uint8Array,
+      useSystemFonts: true,
+      // @ts-ignore
+      canvasFactory: new NodeCanvasFactory(),
+    });
 
-    const pngBuffer = await pageImage.png().toBuffer();
+    const pdf = await loadingTask.promise;
 
-    return {
-      buffer: pngBuffer,
-      width: metadata.width || 0,
-      height: metadata.height || 0,
+    if (pageNumber < 1 || pageNumber > pdf.numPages) {
+      throw new Error(`Página ${pageNumber} fuera de rango (1-${pdf.numPages})`);
+    }
+
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
+
+    const canvasFactory = new NodeCanvasFactory();
+    const { canvas, context } = canvasFactory.create(
+      Math.floor(viewport.width),
+      Math.floor(viewport.height)
+    );
+
+    context.fillStyle = '#FFFFFF';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({
+      canvasContext: context as any,
+      viewport,
+    }).promise;
+
+    const pngBuffer = canvas.toBuffer('image/png');
+
+    const result: RenderedPage = {
+      buffer: Buffer.from(pngBuffer),
+      width: canvas.width,
+      height: canvas.height,
       pageNumber,
     };
+
+    canvasFactory.destroy({ canvas, context });
+    page.cleanup();
+    pdf.destroy();
+
+    return result;
+
   } catch (error: any) {
     throw new Error(`Error renderizando página ${pageNumber}: ${error.message}`);
-  }
-}
-
-/**
- * Obtiene el número de páginas de un PDF sin renderizar.
- */
-export async function getPdfPageCount(pdfBuffer: Buffer): Promise<number> {
-  try {
-    const metadata = await sharp(pdfBuffer, { page: 0 }).metadata();
-    return metadata.pages || 1;
-  } catch {
-    return 1; // Asumir 1 si falla
   }
 }

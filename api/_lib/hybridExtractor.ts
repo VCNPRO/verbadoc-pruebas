@@ -2,26 +2,26 @@
  * FASE 3: Extractor Híbrido - CV Judge + Gemini para texto
  * api/_lib/hybridExtractor.ts
  *
- * Orquesta:
- * 1. Renderizado PDF → PNG (pdfRenderer)
- * 2. CV Judge para checkboxes (checkboxJudge)
- * 3. Gemini para campos de texto (con prompt simplificado)
- * 4. Combinación + validación + confianza real
+ * Procesamiento 100% server-side:
+ * 1. Recibe PDF buffer
+ * 2. Renderiza a PNG con pdfjs-dist + @napi-rs/canvas (server-side)
+ * 3. CV Judge para checkboxes (análisis determinista de píxeles)
+ * 4. Gemini para campos de texto (prompt simplificado, temperature 0.1)
+ * 5. Combinación + validación + confianza real basada en píxeles
  *
  * Feature flag: USE_HYBRID_EXTRACTION
  */
 
+import sharp from 'sharp';
 import { renderPdfToImages, type RenderedPage } from './pdfRenderer.js';
 import {
   analyzeCheckboxField,
   analyzeValuationGroup,
   analyzeBinaryCheckbox,
   type FieldConfidenceState,
-  type CheckboxResult,
 } from './checkboxJudge.js';
 import { GoogleGenAI } from '@google/genai';
 
-// Re-export coordinates from final-parser (embedded here to avoid ESM/CJS issues)
 import {
   FIELD_COORDINATES,
   VALUATION_COORDINATES,
@@ -67,9 +67,11 @@ REGLAS:
 - Devuelve SOLO JSON con estos campos.`;
 
 /**
- * Ejecuta la extracción híbrida completa:
- * - Checkboxes con CV Judge (análisis de píxeles)
- * - Texto con Gemini (prompt simplificado)
+ * Extracción híbrida completa desde PDF buffer.
+ * Todo server-side: renderizado, CV Judge, y Gemini.
+ *
+ * @param pdfBuffer - Buffer del archivo PDF original
+ * @param options - API key y modelo de Gemini
  */
 export async function extractHybrid(
   pdfBuffer: Buffer,
@@ -83,9 +85,10 @@ export async function extractHybrid(
   const fieldsNeedingReview: string[] = [];
 
   // ========================================
-  // PASO 1: Renderizar PDF a PNG
+  // PASO 1: Renderizar PDF a PNG (server-side)
+  // pdfjs-dist + @napi-rs/canvas, 300 DPI, PNG sin pérdida
   // ========================================
-  console.log('[hybridExtractor] Renderizando PDF a PNG...');
+  console.log('[hybridExtractor] Renderizando PDF a PNG server-side (300 DPI)...');
   let pages: RenderedPage[];
   try {
     pages = await renderPdfToImages(pdfBuffer, 300);
@@ -98,7 +101,7 @@ export async function extractHybrid(
     throw new Error('El PDF no contiene páginas');
   }
 
-  console.log(`[hybridExtractor] ${pages.length} páginas renderizadas`);
+  console.log(`[hybridExtractor] ${pages.length} página(s) renderizadas correctamente`);
 
   // Helper: obtener página por número (1-indexed)
   const getPage = (pageNum: number): RenderedPage | undefined =>
@@ -106,26 +109,27 @@ export async function extractHybrid(
 
   // ========================================
   // PASO 2: CV Judge para checkboxes
+  // Análisis determinista de píxeles sobre PNG sin pérdida
   // ========================================
   console.log('[hybridExtractor] Analizando checkboxes con CV Judge...');
 
-  // 2a. Campos de checkbox simples (modalidad, sexo, etc.)
+  // 2a. Campos de checkbox simples (modalidad, sexo, titulación, etc.)
   const checkboxFields = FIELD_COORDINATES.mainLayout.checkbox_fields;
 
-  for (const [fieldName, options] of Object.entries(checkboxFields)) {
-    // Campos binarios Sí/No (evaluación 8.1, 8.2, recomendaría)
+  for (const [fieldName, fieldOptions] of Object.entries(checkboxFields)) {
+    // Campos binarios Sí/No se procesan en pares más abajo
     if (fieldName.includes('_si') || fieldName.includes('_no')) {
-      continue; // Se procesan en pares abajo
+      continue;
     }
 
-    const page = getPage(options[0]?.page || 1);
+    const page = getPage(fieldOptions[0]?.page || 1);
     if (!page) continue;
 
     const result = await analyzeCheckboxField(
       page.buffer,
       page.width,
       page.height,
-      options.map(o => ({ value: o.value, code: o.code, box: o.box }))
+      fieldOptions.map(o => ({ value: o.value, code: o.code, box: o.box }))
     );
 
     const state: FieldConfidenceState = result.needsHumanReview
@@ -144,7 +148,7 @@ export async function extractHybrid(
     }
   }
 
-  // 2b. Campos binarios Sí/No
+  // 2b. Campos binarios Sí/No (evaluación 8.1, 8.2, recomendaría)
   const binaryPairs = [
     { name: 'valoracion_8_1', si: 'evaluacion_mecanismos_8_1_si', no: 'evaluacion_mecanismos_8_1_no' },
     { name: 'valoracion_8_2', si: 'evaluacion_mecanismos_8_2_si', no: 'evaluacion_mecanismos_8_2_no' },
@@ -228,22 +232,22 @@ export async function extractHybrid(
     }
   }
 
-  console.log(`[hybridExtractor] CV Judge completado: ${Object.keys(checkboxResults).length} campos checkbox analizados`);
+  console.log(`[hybridExtractor] CV Judge completado: ${Object.keys(checkboxResults).length} campos analizados`);
 
   // ========================================
   // PASO 3: Gemini para campos de texto
+  // Prompt simplificado, temperature 0.1, topK 1
   // ========================================
   let textResults: Record<string, any> = {};
 
   const apiKey = options?.geminiApiKey || process.env.GOOGLE_API_KEY || '';
   if (apiKey) {
-    console.log('[hybridExtractor] Extrayendo texto con Gemini...');
+    console.log('[hybridExtractor] Extrayendo texto con Gemini (temperature 0.1)...');
     try {
       const ai = new GoogleGenAI({ apiKey });
       const modelId = options?.geminiModel || 'gemini-2.5-flash';
 
-      // Enviar la primera página (donde están la mayoría de campos de texto)
-      // y la segunda página (sugerencias, fecha)
+      // Enviar las páginas renderizadas como PNG base64
       const parts: any[] = [{ text: TEXT_ONLY_PROMPT }];
 
       for (const page of pages) {
@@ -271,7 +275,7 @@ export async function extractHybrid(
       console.log(`[hybridExtractor] Gemini extrajo ${Object.keys(textResults).length} campos de texto`);
     } catch (geminiError: any) {
       console.error('[hybridExtractor] Error con Gemini:', geminiError.message);
-      // No fallar — los checkboxes ya están extraídos
+      // No fallar — los checkboxes ya están extraídos determinísticamente
     }
   } else {
     console.warn('[hybridExtractor] No hay API key de Gemini, solo se extraen checkboxes');
@@ -279,6 +283,7 @@ export async function extractHybrid(
 
   // ========================================
   // PASO 4: Combinar resultados
+  // Prioridad: CV Judge > Gemini para checkboxes
   // ========================================
   const extractedData: Record<string, any> = {};
 
@@ -287,7 +292,7 @@ export async function extractHybrid(
     extractedData[key] = value;
   }
 
-  // Segundo: checkboxes del CV Judge (sobrescriben si Gemini también extrajo)
+  // Segundo: checkboxes del CV Judge (sobrescriben si Gemini también los extrajo)
   for (const [key, result] of Object.entries(checkboxResults)) {
     extractedData[key] = result.value;
   }
@@ -310,6 +315,7 @@ export async function extractHybrid(
 
   // ========================================
   // PASO 5: Calcular confianza real
+  // Basada en resultados deterministas del CV Judge
   // ========================================
   const totalCheckboxFields = Object.keys(checkboxResults).length;
   const highConfidenceFields = Object.values(checkboxResults)
@@ -317,12 +323,10 @@ export async function extractHybrid(
   const ambiguousFields = Object.values(checkboxResults)
     .filter(r => r.state === 'CV_AMBIGUOUS').length;
 
-  // Confianza basada en CV Judge (no en ratio de campos)
   const cvConfidence = totalCheckboxFields > 0
     ? highConfidenceFields / totalCheckboxFields
     : 0;
 
-  // Penalizar por campos ambiguos
   const ambiguousPenalty = ambiguousFields * 0.02;
   const overallConfidence = Math.max(0, Math.min(1, cvConfidence - ambiguousPenalty));
 
