@@ -22,7 +22,11 @@ if (typeof globalThis.Path2D === 'undefined') {
 }
 
 // pdfjs-dist v3.11.174 — CJS nativo, compatible con Vercel serverless
-import * as pdfjs from 'pdfjs-dist-legacy/legacy/build/pdf.js';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pdfjs = require('pdfjs-dist-legacy/legacy/build/pdf.js');
+
+// Configurar workerSrc para que el fake worker pueda hacer require() del archivo
+pdfjs.GlobalWorkerOptions.workerSrc = require.resolve('pdfjs-dist-legacy/legacy/build/pdf.worker.js');
 
 export interface RenderedPage {
   buffer: Buffer;

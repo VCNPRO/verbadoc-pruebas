@@ -25,10 +25,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     diagnostics.napiCanvas = { status: 'FAIL', error: e.message };
   }
 
-  // Test 2: pdfjs-dist v3 CJS legacy
+  // Test 2: pdfjs-dist v3 CJS legacy + worker
   try {
     const pdfjs = require('pdfjs-dist-legacy/legacy/build/pdf.js');
-    diagnostics.pdfjsDistLegacy = { status: 'OK', version: '3.11.174', getDocument: typeof pdfjs.getDocument };
+    const workerPath = require.resolve('pdfjs-dist-legacy/legacy/build/pdf.worker.js');
+    pdfjs.GlobalWorkerOptions.workerSrc = workerPath;
+    diagnostics.pdfjsDistLegacy = { status: 'OK', version: '3.11.174', getDocument: typeof pdfjs.getDocument, workerPath };
   } catch (e: any) {
     diagnostics.pdfjsDist = { status: 'FAIL', error: e.message };
   }
