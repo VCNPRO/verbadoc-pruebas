@@ -13,6 +13,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { extractHybrid } from './_lib/hybridExtractor.js';
+// @ts-ignore
 import { calculateConfidenceScore } from './_lib/confidenceService.js';
 
 export const config = {

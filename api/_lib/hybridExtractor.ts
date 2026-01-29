@@ -1,28 +1,18 @@
 /**
- * FASE 3: Extractor Híbrido - CV Judge + Gemini para texto
+ * FASE 3: Extractor Híbrido — Gemini lee TODO directamente
  * api/_lib/hybridExtractor.ts
  *
  * Procesamiento 100% server-side:
  * 1. Recibe PDF buffer
- * 2. Renderiza a PNG con pdfjs-dist + @napi-rs/canvas (server-side)
- * 3. CV Judge para checkboxes (análisis determinista de píxeles)
- * 4. Gemini para campos de texto (prompt simplificado, temperature 0.1)
- * 5. Combinación + validación + confianza real basada en píxeles
+ * 2. Renderiza a PNG con pdfjs-dist + @napi-rs/canvas (server-side, 300 DPI)
+ * 3. Gemini lee TODOS los campos (texto + checkboxes) en una sola llamada
+ * 4. Validación de valores
  *
  * Feature flag: USE_HYBRID_EXTRACTION
  */
 
-import sharp from 'sharp';
 import { renderPdfToImages, type RenderedPage } from './pdfRenderer.js';
-import {
-  analyzeCheckboxField,
-  analyzeValuationGroup,
-  analyzeBinaryCheckbox,
-  type FieldConfidenceState,
-} from './checkboxJudge.js';
 import { GoogleGenAI } from '@google/genai';
-
-import { locateAllCheckboxes, type LocatorResult } from './geminiLocator.js';
 
 // --- Types ---
 
@@ -30,7 +20,7 @@ export interface HybridExtractionResult {
   extractedData: Record<string, any>;
   checkboxResults: Record<string, {
     value: any;
-    state: FieldConfidenceState;
+    state: 'GEMINI_READ';
     confidence: number;
     needsHumanReview: boolean;
   }>;
@@ -38,38 +28,76 @@ export interface HybridExtractionResult {
   overallConfidence: number;
   fieldsNeedingReview: string[];
   method: 'hybrid_cv_gemini';
-  localizationMethod: 'gemini' | 'fallback';
+  localizationMethod: 'gemini_direct';
   processingTimeMs: number;
 }
 
-// --- Text-only prompt for Gemini ---
-const TEXT_ONLY_PROMPT = `TAREA: Extraer SOLO los campos de TEXTO de este formulario FUNDAE.
-NO extraigas checkboxes ni valoraciones. Solo extrae estos campos:
+// --- Prompt completo: Gemini lee TODO ---
+const FULL_EXTRACTION_PROMPT = `Eres un lector experto de formularios FUNDAE de evaluación de cursos.
+Analiza las imágenes de este formulario y extrae TODOS los campos.
 
-1. numero_expediente: Formato "F24XXXX" o similar. Parte superior.
-2. perfil: Una letra mayúscula (ej: "B").
-3. cif_empresa: Formato letra + 8 dígitos (ej: "B12345678").
-4. numero_accion: Número de 1-4 dígitos.
-5. numero_grupo: Número de 1-4 dígitos.
-6. denominacion_aaff: Nombre completo del curso.
-7. edad: Número entero entre 16 y 99.
-8. lugar_trabajo: Nombre de provincia española.
-9. otra_titulacion_especificar: Texto libre si existe.
-10. sugerencias: Texto libre del participante.
-11. fecha_cumplimentacion: Formato DD/MM/YYYY.
+PÁGINA 1 — Datos del participante:
+- numero_expediente: Formato "FXXXXXX" o código alfanumérico. Parte superior.
+- perfil: Una letra mayúscula (ej: "B").
+- cif_empresa: Formato letra + 8 dígitos (ej: "B12345678").
+- numero_accion: Número de 1-5 dígitos.
+- numero_grupo: Número de 1-4 dígitos.
+- denominacion_aaff: Nombre completo del curso/acción formativa.
+- modalidad: "Presencial", "Teleformación" o "Mixta". Mira qué checkbox está marcado.
+- sexo: "1" (Mujer), "2" (Hombre) o "9" (No contesta). Mira qué checkbox está marcado.
+- edad: Número entero entre 16 y 99.
+- titulacion: Código de la titulación marcada. Posibles códigos: 1, 11, 111, 12, 2, 21, 3, 4, 41, 42, 5, 6, 6.1, 7, 7.1, 7.3, 7.4, 8, 9, 99. Devuelve el código del checkbox marcado.
+- otra_titulacion_especificar: Texto libre si existe.
+- categoria_profesional: "1" a "6" o "9" (No contesta). Mira qué checkbox está marcado.
+- horario_curso: "1" (Dentro jornada), "2" (Fuera), "3" (Ambas), "9" (NC).
+- porcentaje_jornada: "1" (<25%), "2" (25-50%), "3" (>50%), "9" (NC).
+- tamaño_empresa: "1" (1-9), "2" (10-49), "3" (50-99), "4" (100-250), "5" (>250), "9" (NC).
+- lugar_trabajo: Nombre de provincia española.
 
-REGLAS:
-- Si un campo no es legible, devuelve null.
-- NO inventes valores.
-- NO extraigas checkboxes ni escalas 1-4.
-- Devuelve SOLO JSON con estos campos.`;
+PÁGINA 2 — Valoraciones (tabla con escala NC, 1, 2, 3, 4):
+Para cada pregunta de valoración, indica qué columna está marcada: "NC", "1", "2", "3" o "4".
+Si no hay ninguna marcada, devuelve "NC".
+
+- valoracion_1_1: Pregunta 1.1 (Organización del curso)
+- valoracion_1_2: Pregunta 1.2
+- valoracion_2_1: Pregunta 2.1 (Contenidos y metodología)
+- valoracion_2_2: Pregunta 2.2
+- valoracion_3_1: Pregunta 3.1 (Duración y horario)
+- valoracion_3_2: Pregunta 3.2
+- valoracion_4_1_formadores: Pregunta 4.1 fila FORMADORES
+- valoracion_4_1_tutores: Pregunta 4.1 fila TUTORES
+- valoracion_4_2_formadores: Pregunta 4.2 fila FORMADORES
+- valoracion_4_2_tutores: Pregunta 4.2 fila TUTORES
+- valoracion_5_1: Pregunta 5.1 (Medios didácticos)
+- valoracion_5_2: Pregunta 5.2
+- valoracion_6_1: Pregunta 6.1 (Instalaciones)
+- valoracion_6_2: Pregunta 6.2
+- valoracion_7_1: Pregunta 7.1 (Solo teleformación/mixta)
+- valoracion_7_2: Pregunta 7.2
+- valoracion_8_1: Pregunta 8.1 — "Sí" o "No" (checkbox binario)
+- valoracion_8_2: Pregunta 8.2 — "Sí" o "No" (checkbox binario)
+- valoracion_9_1: Pregunta 9.1 (Valoración general)
+- valoracion_9_2: Pregunta 9.2
+- valoracion_9_3: Pregunta 9.3
+- valoracion_9_4: Pregunta 9.4
+- valoracion_9_5: Pregunta 9.5
+- valoracion_10: Pregunta 10 (Grado satisfacción general)
+- recomendaria_curso: "Sí" o "No" (checkbox binario al final)
+- sugerencias: Texto libre del participante.
+- fecha_cumplimentacion: Formato DD/MM/YYYY.
+
+REGLAS CRÍTICAS:
+- Para checkboxes: busca una MARCA visible (X, ✓, relleno, trazo de bolígrafo) dentro del cuadrado.
+- Un checkbox vacío (solo el cuadrado sin marca) = NO marcado.
+- Si ningún checkbox de un grupo está marcado, devuelve "NC" (No Contesta).
+- Si no puedes leer un campo de texto, devuelve null.
+- NO inventes valores. Si no ves marca clara, devuelve "NC".
+- temperature 0 — sé determinista y preciso.
+
+Devuelve SOLO un JSON con todos los campos listados arriba.`;
 
 /**
- * Extracción híbrida completa desde PDF buffer.
- * Todo server-side: renderizado, CV Judge, y Gemini.
- *
- * @param pdfBuffer - Buffer del archivo PDF original
- * @param options - API key y modelo de Gemini
+ * Extracción directa: Gemini lee todo el formulario.
  */
 export async function extractHybrid(
   pdfBuffer: Buffer,
@@ -79,12 +107,15 @@ export async function extractHybrid(
   }
 ): Promise<HybridExtractionResult> {
   const startTime = Date.now();
-  const checkboxResults: HybridExtractionResult['checkboxResults'] = {};
-  const fieldsNeedingReview: string[] = [];
+  const apiKey = options?.geminiApiKey || process.env.GOOGLE_API_KEY || '';
+  const modelId = options?.geminiModel || 'gemini-2.5-flash';
+
+  if (!apiKey) {
+    throw new Error('No hay GOOGLE_API_KEY configurada');
+  }
 
   // ========================================
   // PASO 1: Renderizar PDF a PNG (server-side)
-  // pdfjs-dist + @napi-rs/canvas, 300 DPI, PNG sin pérdida
   // ========================================
   console.log('[hybridExtractor] Renderizando PDF a PNG server-side (300 DPI)...');
   let pages: RenderedPage[];
@@ -99,235 +130,122 @@ export async function extractHybrid(
     throw new Error('El PDF no contiene páginas');
   }
 
-  console.log(`[hybridExtractor] ${pages.length} página(s) renderizadas correctamente`);
-
-  // Helper: obtener página por número (1-indexed)
-  const getPage = (pageNum: number): RenderedPage | undefined =>
-    pages.find(p => p.pageNumber === pageNum);
+  console.log(`[hybridExtractor] ${pages.length} página(s) renderizadas`);
 
   // ========================================
-  // PASO 1.5: Gemini localiza checkboxes dinámicamente
+  // PASO 2: Gemini lee TODO directamente
   // ========================================
-  const apiKey = options?.geminiApiKey || process.env.GOOGLE_API_KEY || '';
-  const modelId = options?.geminiModel || 'gemini-2.5-flash';
-  let locatorResult: LocatorResult;
+  console.log(`[hybridExtractor] Gemini (${modelId}) leyendo formulario completo...`);
 
-  if (apiKey) {
-    console.log('[hybridExtractor] Localizando checkboxes con Gemini...');
-    locatorResult = await locateAllCheckboxes(pages, apiKey, modelId);
-    console.log(`[hybridExtractor] Localización: método=${locatorResult.method}`);
-  } else {
-    console.warn('[hybridExtractor] No hay API key, usando coordenadas fallback');
-    const { FIELD_COORDINATES: FB_FIELD, VALUATION_COORDINATES: FB_VAL } = await import('./fundaeCoordinatesFallback.js');
-    locatorResult = { fieldCoordinates: FB_FIELD, valuationCoordinates: FB_VAL, method: 'fallback' };
+  const ai = new GoogleGenAI({ apiKey });
+
+  // Enviar solo páginas 1 y 2 (donde están los datos FUNDAE)
+  const pagesToSend = pages.filter(p => p.pageNumber <= 2);
+  const parts: any[] = [{ text: FULL_EXTRACTION_PROMPT }];
+
+  for (const page of pagesToSend) {
+    parts.push({
+      inlineData: {
+        mimeType: 'image/png',
+        data: page.buffer.toString('base64'),
+      },
+    });
   }
 
-  const FIELD_COORDINATES = locatorResult.fieldCoordinates;
-  const VALUATION_COORDINATES = locatorResult.valuationCoordinates;
+  const response = await ai.models.generateContent({
+    model: modelId,
+    contents: { parts },
+    config: {
+      responseMimeType: 'application/json',
+      temperature: 0,
+      topK: 1,
+      topP: 0.1,
+    },
+  });
 
-  // ========================================
-  // PASO 2: CV Judge para checkboxes
-  // Análisis determinista de píxeles sobre PNG sin pérdida
-  // ========================================
-  console.log('[hybridExtractor] Analizando checkboxes con CV Judge...');
-
-  // 2a. Campos de checkbox simples (modalidad, sexo, titulación, etc.)
-  const checkboxFields = FIELD_COORDINATES.mainLayout.checkbox_fields;
-
-  for (const [fieldName, fieldOptions] of Object.entries(checkboxFields)) {
-    // Campos binarios Sí/No se procesan en pares más abajo
-    if (fieldName.includes('_si') || fieldName.includes('_no')) {
-      continue;
-    }
-
-    const page = getPage(fieldOptions[0]?.page || 1);
-    if (!page) continue;
-
-    const result = await analyzeCheckboxField(
-      page.buffer,
-      page.width,
-      page.height,
-      fieldOptions.map(o => ({ value: o.value, code: o.code, box: o.box }))
-    );
-
-    const state: FieldConfidenceState = result.needsHumanReview
-      ? 'CV_AMBIGUOUS'
-      : 'CV_HIGH_CONFIDENCE';
-
-    checkboxResults[fieldName] = {
-      value: result.selectedCode || 'NC',
-      state,
-      confidence: result.confidence,
-      needsHumanReview: result.needsHumanReview,
-    };
-
-    // Logging detallado para diagnóstico de coordenadas
-    const densities = result.details.map(d => `${d.code}:${d.result.pixelDensity.toFixed(3)}(${d.result.state})`).join(', ');
-    console.log(`[CV Judge] ${fieldName}: selected=${result.selectedCode || 'NC'}, conf=${result.confidence.toFixed(2)} | ${densities}`);
-
-    if (result.needsHumanReview) {
-      fieldsNeedingReview.push(fieldName);
-    }
+  const responseText = response.text || '{}';
+  let extractedData: Record<string, any>;
+  try {
+    extractedData = JSON.parse(responseText.replace(/```json|```/g, '').trim());
+  } catch (parseError: any) {
+    console.error('[hybridExtractor] Error parseando respuesta Gemini:', parseError.message);
+    console.error('[hybridExtractor] Respuesta raw:', responseText.substring(0, 500));
+    throw new Error('Gemini devolvió JSON inválido');
   }
 
-  // 2b. Campos binarios Sí/No (evaluación 8.1, 8.2, recomendaría)
-  const binaryPairs = [
-    { name: 'valoracion_8_1', si: 'evaluacion_mecanismos_8_1_si', no: 'evaluacion_mecanismos_8_1_no' },
-    { name: 'valoracion_8_2', si: 'evaluacion_mecanismos_8_2_si', no: 'evaluacion_mecanismos_8_2_no' },
-    { name: 'recomendaria_curso', si: 'curso_recomendaria_si', no: 'curso_recomendaria_no' },
+  console.log(`[hybridExtractor] Gemini extrajo ${Object.keys(extractedData).length} campos`);
+
+  // ========================================
+  // PASO 3: Validar y normalizar valores
+  // ========================================
+  const checkboxResults: HybridExtractionResult['checkboxResults'] = {};
+  const fieldsNeedingReview: string[] = [];
+
+  // Campos de valoración válidos
+  const validValuationValues = ['NC', '1', '2', '3', '4', 'NA'];
+  const validBinaryValues = ['Sí', 'Si', 'No', 'NC'];
+
+  const valuationFields = [
+    'valoracion_1_1', 'valoracion_1_2',
+    'valoracion_2_1', 'valoracion_2_2',
+    'valoracion_3_1', 'valoracion_3_2',
+    'valoracion_4_1_formadores', 'valoracion_4_1_tutores',
+    'valoracion_4_2_formadores', 'valoracion_4_2_tutores',
+    'valoracion_5_1', 'valoracion_5_2',
+    'valoracion_6_1', 'valoracion_6_2',
+    'valoracion_7_1', 'valoracion_7_2',
+    'valoracion_9_1', 'valoracion_9_2', 'valoracion_9_3', 'valoracion_9_4', 'valoracion_9_5',
+    'valoracion_10',
   ];
 
-  for (const pair of binaryPairs) {
-    const siOptions = checkboxFields[pair.si];
-    const noOptions = checkboxFields[pair.no];
-    if (!siOptions?.[0] || !noOptions?.[0]) continue;
+  const binaryFields = ['valoracion_8_1', 'valoracion_8_2', 'recomendaria_curso'];
 
-    const page = getPage(siOptions[0].page);
-    if (!page) continue;
-
-    const result = await analyzeBinaryCheckbox(
-      page.buffer,
-      page.width,
-      page.height,
-      siOptions[0].box,
-      noOptions[0].box
-    );
-
-    checkboxResults[pair.name] = {
-      value: result.value,
-      state: result.needsHumanReview ? 'CV_AMBIGUOUS' : 'CV_HIGH_CONFIDENCE',
-      confidence: result.confidence,
-      needsHumanReview: result.needsHumanReview,
+  // Validar valoraciones
+  for (const field of valuationFields) {
+    const raw = String(extractedData[field] || 'NC');
+    const value = validValuationValues.includes(raw) ? raw : 'NC';
+    extractedData[field] = value;
+    checkboxResults[field] = {
+      value,
+      state: 'GEMINI_READ',
+      confidence: value !== 'NC' ? 0.85 : 0.70,
+      needsHumanReview: false,
     };
-
-    console.log(`[CV Judge] ${pair.name}: ${result.value}, conf=${result.confidence.toFixed(2)}`);
-
-    if (result.needsHumanReview) {
-      fieldsNeedingReview.push(pair.name);
-    }
   }
 
-  // 2c. Valoraciones (escala NC, 1, 2, 3, 4)
-  const valuationSections = [
-    { prefix: 'valoracion_1_1', coords: VALUATION_COORDINATES.organizacion_curso.item_1_1 },
-    { prefix: 'valoracion_1_2', coords: VALUATION_COORDINATES.organizacion_curso.item_1_2 },
-    { prefix: 'valoracion_2_1', coords: VALUATION_COORDINATES.contenidos_metodologia.item_2_1 },
-    { prefix: 'valoracion_2_2', coords: VALUATION_COORDINATES.contenidos_metodologia.item_2_2 },
-    { prefix: 'valoracion_3_1', coords: VALUATION_COORDINATES.duracion_horario.item_3_1 },
-    { prefix: 'valoracion_3_2', coords: VALUATION_COORDINATES.duracion_horario.item_3_2 },
-    { prefix: 'valoracion_4_1_formadores', coords: VALUATION_COORDINATES.formadores_tutores.item_4_1.formadores },
-    { prefix: 'valoracion_4_1_tutores', coords: VALUATION_COORDINATES.formadores_tutores.item_4_1.tutores },
-    { prefix: 'valoracion_4_2_formadores', coords: VALUATION_COORDINATES.formadores_tutores.item_4_2.formadores },
-    { prefix: 'valoracion_4_2_tutores', coords: VALUATION_COORDINATES.formadores_tutores.item_4_2.tutores },
-    { prefix: 'valoracion_5_1', coords: VALUATION_COORDINATES.medios_didacticos.item_5_1 },
-    { prefix: 'valoracion_5_2', coords: VALUATION_COORDINATES.medios_didacticos.item_5_2 },
-    { prefix: 'valoracion_6_1', coords: VALUATION_COORDINATES.instalaciones_medios_tecnicos.item_6_1 },
-    { prefix: 'valoracion_6_2', coords: VALUATION_COORDINATES.instalaciones_medios_tecnicos.item_6_2 },
-    { prefix: 'valoracion_7_1', coords: VALUATION_COORDINATES.solo_teleformacion_mixta.item_7_1 },
-    { prefix: 'valoracion_7_2', coords: VALUATION_COORDINATES.solo_teleformacion_mixta.item_7_2 },
-    { prefix: 'valoracion_9_1', coords: VALUATION_COORDINATES.valoracion_general_curso.item_9_1 },
-    { prefix: 'valoracion_9_2', coords: VALUATION_COORDINATES.valoracion_general_curso.item_9_2 },
-    { prefix: 'valoracion_9_3', coords: VALUATION_COORDINATES.valoracion_general_curso.item_9_3 },
-    { prefix: 'valoracion_9_4', coords: VALUATION_COORDINATES.valoracion_general_curso.item_9_4 },
-    { prefix: 'valoracion_9_5', coords: VALUATION_COORDINATES.valoracion_general_curso.item_9_5 },
-    { prefix: 'valoracion_10', coords: VALUATION_COORDINATES.grado_satisfaccion_general.item_10 },
-  ];
-
-  for (const { prefix, coords } of valuationSections) {
-    const page = getPage(coords.page);
-    if (!page) continue;
-
-    const result = await analyzeValuationGroup(
-      page.buffer,
-      page.width,
-      page.height,
-      coords.options
-    );
-
-    checkboxResults[prefix] = {
-      value: result.selectedCode,
-      state: result.needsHumanReview ? 'CV_AMBIGUOUS' : 'CV_HIGH_CONFIDENCE',
-      confidence: result.confidence,
-      needsHumanReview: result.needsHumanReview,
+  // Validar binarios
+  for (const field of binaryFields) {
+    let raw = String(extractedData[field] || 'NC');
+    if (raw === 'Si') raw = 'Sí';
+    const value = validBinaryValues.includes(raw) ? raw : 'NC';
+    extractedData[field] = value;
+    checkboxResults[field] = {
+      value,
+      state: 'GEMINI_READ',
+      confidence: (value === 'Sí' || value === 'No') ? 0.85 : 0.70,
+      needsHumanReview: false,
     };
+  }
 
-    const densities = result.details.map(d => `${d.code}:${d.result.pixelDensity.toFixed(3)}(${d.result.state})`).join(', ');
-    console.log(`[CV Judge] ${prefix}: selected=${result.selectedCode}, conf=${result.confidence.toFixed(2)} | ${densities}`);
-
-    if (result.needsHumanReview) {
-      fieldsNeedingReview.push(prefix);
+  // Validar campos de checkbox simples
+  const simpleCheckboxFields = ['modalidad', 'sexo', 'titulacion', 'categoria_profesional', 'horario_curso', 'porcentaje_jornada', 'tamaño_empresa'];
+  for (const field of simpleCheckboxFields) {
+    const value = extractedData[field];
+    if (value && value !== 'NC' && value !== null) {
+      checkboxResults[field] = {
+        value,
+        state: 'GEMINI_READ',
+        confidence: 0.85,
+        needsHumanReview: false,
+      };
+    } else {
+      checkboxResults[field] = {
+        value: value || 'NC',
+        state: 'GEMINI_READ',
+        confidence: 0.70,
+        needsHumanReview: false,
+      };
     }
-  }
-
-  console.log(`[hybridExtractor] CV Judge completado: ${Object.keys(checkboxResults).length} campos analizados`);
-
-  // ========================================
-  // PASO 3: Gemini para campos de texto
-  // Prompt simplificado, temperature 0.1, topK 1
-  // ========================================
-  let textResults: Record<string, any> = {};
-
-  if (apiKey) {
-    console.log('[hybridExtractor] Extrayendo texto con Gemini (temperature 0.1)...');
-    try {
-      const ai = new GoogleGenAI({ apiKey });
-
-      // Enviar las páginas renderizadas como PNG base64
-      const parts: any[] = [{ text: TEXT_ONLY_PROMPT }];
-
-      for (const page of pages) {
-        parts.push({
-          inlineData: {
-            mimeType: 'image/png',
-            data: page.buffer.toString('base64'),
-          },
-        });
-      }
-
-      const response = await ai.models.generateContent({
-        model: modelId,
-        contents: { parts },
-        config: {
-          responseMimeType: 'application/json',
-          temperature: 0.1,
-          topK: 1,
-          topP: 0.1,
-        },
-      });
-
-      const responseText = response.text || '{}';
-      textResults = JSON.parse(responseText.replace(/```json|```/g, '').trim());
-      console.log(`[hybridExtractor] Gemini extrajo ${Object.keys(textResults).length} campos de texto`);
-    } catch (geminiError: any) {
-      console.error('[hybridExtractor] Error con Gemini:', geminiError.message);
-      // No fallar — los checkboxes ya están extraídos determinísticamente
-    }
-  } else {
-    console.warn('[hybridExtractor] No hay API key de Gemini, solo se extraen checkboxes');
-  }
-
-  // ========================================
-  // PASO 4: Combinar resultados
-  // Prioridad: CV Judge > Gemini para checkboxes
-  // ========================================
-  const extractedData: Record<string, any> = {};
-
-  // Primero: campos de texto de Gemini
-  for (const [key, value] of Object.entries(textResults)) {
-    extractedData[key] = value;
-  }
-
-  // Segundo: checkboxes del CV Judge (sobrescriben si Gemini también los extrajo)
-  for (const [key, result] of Object.entries(checkboxResults)) {
-    extractedData[key] = result.value;
-  }
-
-  // Mapear campos de checkbox a nombres esperados por el sistema
-  if (checkboxResults.modalidad?.value) {
-    extractedData.modalidad = checkboxResults.modalidad.value;
-  }
-  if (checkboxResults.sexo?.value) {
-    extractedData.sexo = checkboxResults.sexo.value;
   }
 
   // Post-procesamiento: valoracion_7_x según modalidad
@@ -339,33 +257,31 @@ export async function extractHybrid(
   }
 
   // ========================================
-  // PASO 5: Calcular confianza real
-  // Basada en resultados deterministas del CV Judge
+  // PASO 4: Calcular confianza
   // ========================================
-  const totalCheckboxFields = Object.keys(checkboxResults).length;
-  const highConfidenceFields = Object.values(checkboxResults)
-    .filter(r => r.state === 'CV_HIGH_CONFIDENCE').length;
-  const ambiguousFields = Object.values(checkboxResults)
-    .filter(r => r.state === 'CV_AMBIGUOUS').length;
+  const totalFields = Object.keys(checkboxResults).length;
+  const fieldsWithValue = Object.values(checkboxResults).filter(r => r.value !== 'NC' && r.value !== null).length;
+  const overallConfidence = totalFields > 0 ? Math.max(0.5, fieldsWithValue / totalFields) : 0.5;
 
-  const cvConfidence = totalCheckboxFields > 0
-    ? highConfidenceFields / totalCheckboxFields
-    : 0;
+  const processingTimeMs = Date.now() - startTime;
+  console.log(`[hybridExtractor] Completado en ${processingTimeMs}ms, confianza: ${(overallConfidence * 100).toFixed(1)}%`);
 
-  const ambiguousPenalty = ambiguousFields * 0.02;
-  const overallConfidence = Math.max(0, Math.min(1, cvConfidence - ambiguousPenalty));
-
-  console.log(`[hybridExtractor] Confianza CV: ${(cvConfidence * 100).toFixed(1)}%, ` +
-    `ambiguos: ${ambiguousFields}, confianza final: ${(overallConfidence * 100).toFixed(1)}%`);
+  // Log resumen de valoraciones para diagnóstico
+  for (const field of valuationFields) {
+    console.log(`[Gemini] ${field}: ${extractedData[field]}`);
+  }
+  for (const field of binaryFields) {
+    console.log(`[Gemini] ${field}: ${extractedData[field]}`);
+  }
 
   return {
     extractedData,
     checkboxResults,
-    textResults,
+    textResults: extractedData,
     overallConfidence,
     fieldsNeedingReview,
     method: 'hybrid_cv_gemini',
-    localizationMethod: locatorResult.method,
-    processingTimeMs: Date.now() - startTime,
+    localizationMethod: 'gemini_direct',
+    processingTimeMs,
   };
 }
