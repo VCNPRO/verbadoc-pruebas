@@ -51,7 +51,7 @@ import { FUNDAE_SCHEMA, FUNDAE_EXTRACTION_PROMPT } from './src/constants/fundae-
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
 
-pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
     const { user } = useAuth();

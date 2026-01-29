@@ -51,7 +51,7 @@ interface BatchItem {
 }
 
 // Configurar PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
 
 // Utilidad para recortar imagen
 const cropImage = (imageUrl: string, region: Region): Promise<string> => {

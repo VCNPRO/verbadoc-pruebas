@@ -14,8 +14,8 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Configurar worker de PDF.js
 if (typeof window !== 'undefined' && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
-  console.log('📄 PDF.js worker configurado desde unpkg v5.4.296');
+    'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
+  console.log('📄 PDF.js worker configurado desde unpkg v5.4.530');
 }
 
 export interface PdfHighlight {
