@@ -54,9 +54,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log(`🧠 /api/extract-hybrid - Extracción híbrida server-side`);
-    console.log(`📄 Archivo: ${filename || 'unknown'}, ${(pdfBase64.length * 0.75 / 1024).toFixed(0)} KB`);
+    const sizeKB = (pdfBase64.length * 0.75 / 1024).toFixed(0);
+    console.log(`📄 Archivo: ${filename || 'unknown'}, ${sizeKB} KB`);
 
-    const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+    let pdfBuffer: Buffer;
+    try {
+      pdfBuffer = Buffer.from(pdfBase64, 'base64');
+    } catch (decodeError: any) {
+      return res.status(400).json({ error: 'Base64 inválido', message: decodeError.message });
+    }
 
     const result = await extractHybrid(pdfBuffer, {
       geminiApiKey: process.env.GOOGLE_API_KEY,

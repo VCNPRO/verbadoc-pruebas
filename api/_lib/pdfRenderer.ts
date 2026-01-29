@@ -11,7 +11,13 @@
  */
 
 import { createCanvas } from '@napi-rs/canvas';
-import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
+
+// pdfjs-dist es ESM-only en v5. Usamos dynamic import para compatibilidad
+// con el bundler CJS de Vercel serverless.
+async function getPdfjs() {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  return pdfjs;
+}
 
 export interface RenderedPage {
   buffer: Buffer;
@@ -58,6 +64,7 @@ export async function renderPdfToImages(
 
   try {
     const uint8Array = new Uint8Array(pdfBuffer);
+    const pdfjs = await getPdfjs();
     const loadingTask = pdfjs.getDocument({
       data: uint8Array,
       useSystemFonts: true,
@@ -126,6 +133,7 @@ export async function renderSinglePage(
 
   try {
     const uint8Array = new Uint8Array(pdfBuffer);
+    const pdfjs = await getPdfjs();
     const loadingTask = pdfjs.getDocument({
       data: uint8Array,
       useSystemFonts: true,
