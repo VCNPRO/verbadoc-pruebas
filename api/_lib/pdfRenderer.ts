@@ -2,23 +2,17 @@
  * FASE 2: Renderizado de PDF a PNG de alta resolución (Server-side)
  * api/_lib/pdfRenderer.ts
  *
- * Usa pdfjs-dist + @napi-rs/canvas para renderizar PDFs a PNG en Node.js.
- * Esto permite procesamiento 100% server-side en Vercel serverless.
+ * Usa pdfjs-serverless + @napi-rs/canvas para renderizar PDFs a PNG en Node.js.
+ * Procesamiento 100% server-side en Vercel serverless.
  *
+ * - pdfjs-serverless: PDF.js v5 pre-empaquetado para serverless (CJS nativo)
+ * - @napi-rs/canvas: Canvas API en Rust para Node.js (Vercel compatible)
  * - PNG sin pérdida para máxima fidelidad en análisis de píxeles
  * - 300 DPI para resolución adecuada en formularios A4
- * - Compatible con Vercel serverless (no requiere poppler/ghostscript)
  */
 
 import { createCanvas } from '@napi-rs/canvas';
-
-// pdfjs-dist v5 es ESM-only. Vercel (esbuild) convierte import() en require().
-// Usamos new Function para evitar que esbuild transforme el dynamic import.
-async function getPdfjs() {
-  const importModule = new Function('specifier', 'return import(specifier)');
-  const pdfjs = await importModule('pdfjs-dist/legacy/build/pdf.mjs');
-  return pdfjs;
-}
+import { getDocument } from 'pdfjs-serverless';
 
 export interface RenderedPage {
   buffer: Buffer;
@@ -27,7 +21,7 @@ export interface RenderedPage {
   pageNumber: number;
 }
 
-// Custom CanvasFactory para pdfjs-dist usando @napi-rs/canvas
+// Custom CanvasFactory para pdfjs usando @napi-rs/canvas
 class NodeCanvasFactory {
   create(width: number, height: number) {
     const canvas = createCanvas(width, height);
@@ -48,7 +42,6 @@ class NodeCanvasFactory {
 
 /**
  * Renderiza un PDF a imágenes PNG individuales por página.
- * Usa pdfjs-dist con @napi-rs/canvas para renderizado server-side.
  *
  * @param pdfBuffer - Buffer del archivo PDF
  * @param targetDPI - Resolución de renderizado (default: 300)
@@ -65,15 +58,13 @@ export async function renderPdfToImages(
 
   try {
     const uint8Array = new Uint8Array(pdfBuffer);
-    const pdfjs = await getPdfjs();
-    const loadingTask = pdfjs.getDocument({
+    const pdf = await getDocument({
       data: uint8Array,
       useSystemFonts: true,
       // @ts-ignore - pdfjs accepts CanvasFactory
       canvasFactory: new NodeCanvasFactory(),
-    });
+    }).promise;
 
-    const pdf = await loadingTask.promise;
     const numPages = pdf.numPages;
 
     console.log(`[pdfRenderer] PDF: ${numPages} página(s), renderizando a ${targetDPI} DPI (scale ${scale.toFixed(2)})...`);
@@ -134,15 +125,12 @@ export async function renderSinglePage(
 
   try {
     const uint8Array = new Uint8Array(pdfBuffer);
-    const pdfjs = await getPdfjs();
-    const loadingTask = pdfjs.getDocument({
+    const pdf = await getDocument({
       data: uint8Array,
       useSystemFonts: true,
       // @ts-ignore
       canvasFactory: new NodeCanvasFactory(),
-    });
-
-    const pdf = await loadingTask.promise;
+    }).promise;
 
     if (pageNumber < 1 || pageNumber > pdf.numPages) {
       throw new Error(`Página ${pageNumber} fuera de rango (1-${pdf.numPages})`);
