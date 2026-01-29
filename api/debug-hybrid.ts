@@ -25,12 +25,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     diagnostics.napiCanvas = { status: 'FAIL', error: e.message };
   }
 
-  // Test 2: pdfjs-serverless
+  // Test 2: pdfjs-serverless (dynamic import for ESM)
   try {
-    const { getDocument } = require('pdfjs-serverless');
-    diagnostics.pdfjsServerless = { status: 'OK', getDocument: typeof getDocument };
+    const pdfjsMod = await import('pdfjs-serverless');
+    diagnostics.pdfjsServerless = { status: 'OK', getDocument: typeof pdfjsMod.getDocument };
   } catch (e: any) {
-    diagnostics.pdfjsServerless = { status: 'FAIL', error: e.message };
+    diagnostics.pdfjsServerless = { status: 'FAIL_DYNAMIC', error: e.message };
+  }
+
+  // Test 2b: pdfjs-dist legacy (dynamic import)
+  try {
+    const pdfjsLegacy = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    diagnostics.pdfjsDist = { status: 'OK', getDocument: typeof pdfjsLegacy.getDocument };
+  } catch (e: any) {
+    diagnostics.pdfjsDist = { status: 'FAIL', error: e.message };
   }
 
   // Test 3: sharp
