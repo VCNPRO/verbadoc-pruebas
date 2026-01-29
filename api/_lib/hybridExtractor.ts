@@ -37,26 +37,29 @@ const FULL_EXTRACTION_PROMPT = `Eres un lector experto de formularios FUNDAE de 
 Analiza las imágenes de este formulario y extrae TODOS los campos.
 
 PÁGINA 1 — Datos del participante:
-- numero_expediente: Formato "FXXXXXX" o código alfanumérico. Parte superior.
-- perfil: Una letra mayúscula (ej: "B").
-- cif_empresa: Formato letra + 8 dígitos (ej: "B12345678").
-- numero_accion: Número de 1-5 dígitos.
-- numero_grupo: Número de 1-4 dígitos.
-- denominacion_aaff: Nombre completo del curso/acción formativa.
-- modalidad: "Presencial", "Teleformación" o "Mixta". Mira qué checkbox está marcado.
-- sexo: "1" (Mujer), "2" (Hombre) o "9" (No contesta). Mira qué checkbox está marcado.
-- edad: Número entero entre 16 y 99.
-- titulacion: Código de la titulación marcada. Posibles códigos: 1, 11, 111, 12, 2, 21, 3, 4, 41, 42, 5, 6, 6.1, 7, 7.1, 7.3, 7.4, 8, 9, 99. Devuelve el código del checkbox marcado.
-- otra_titulacion_especificar: Texto libre si existe.
-- categoria_profesional: "1" a "6" o "9" (No contesta). Mira qué checkbox está marcado.
-- horario_curso: "1" (Dentro jornada), "2" (Fuera), "3" (Ambas), "9" (NC).
-- porcentaje_jornada: "1" (<25%), "2" (25-50%), "3" (>50%), "9" (NC).
-- tamaño_empresa: "1" (1-9), "2" (10-49), "3" (50-99), "4" (100-250), "5" (>250), "9" (NC).
-- lugar_trabajo: Nombre de provincia española.
+- numero_expediente: Formato "FXXXXXX" o código alfanumérico. Parte superior. Si no es legible devuelve "NC".
+- perfil: Una letra mayúscula (ej: "B"). Si no es legible devuelve "NC".
+- cif_empresa: Formato letra + 8 dígitos (ej: "B12345678"). Si no es legible devuelve "NC".
+- numero_accion: Número de 1-5 dígitos. Si no es legible devuelve "NC".
+- numero_grupo: Número de 1-4 dígitos. Si no es legible devuelve "NC".
+- denominacion_aaff: Nombre completo del curso/acción formativa. Si no es legible devuelve "NC".
+- modalidad: "Presencial", "Teleformación" o "Mixta". Mira qué checkbox tiene una MARCA CLARA de bolígrafo dentro. Si ninguno tiene marca, devuelve "NC".
+- sexo: "1" (Mujer), "2" (Hombre) o "9" (No contesta). IMPORTANTE: El checkbox de "Mujer" aparece primero (arriba o izquierda), luego "Hombre", luego "No contesta". Solo devuelve el código del que tenga una MARCA CLARA de bolígrafo. Si ninguno tiene marca, devuelve "NC".
+- edad: Número entero entre 16 y 99. Si no es legible devuelve "NC".
+- titulacion: Código de la titulación marcada. Posibles códigos: 1, 11, 111, 12, 2, 21, 3, 4, 41, 42, 5, 6, 6.1, 7, 7.1, 7.3, 7.4, 8, 9, 99. Devuelve SOLO el código del checkbox que tenga marca clara. Si ninguno tiene marca, devuelve "NC".
+- otra_titulacion_especificar: Texto libre si existe, si no "NC".
+- categoria_profesional: "1" a "6" o "9" (No contesta). Si ninguno tiene marca, devuelve "NC".
+- horario_curso: "1" (Dentro jornada), "2" (Fuera), "3" (Ambas), "9" (NC). Si ninguno tiene marca, devuelve "NC".
+- porcentaje_jornada: "1" (<25%), "2" (25-50%), "3" (>50%), "9" (NC). Si ninguno tiene marca, devuelve "NC".
+- tamaño_empresa: "1" (1-9), "2" (10-49), "3" (50-99), "4" (100-250), "5" (>250), "9" (NC). Si ninguno tiene marca, devuelve "NC".
+- lugar_trabajo: Nombre de provincia española. Si no es legible devuelve "NC".
 
 PÁGINA 2 — Valoraciones (tabla con escala NC, 1, 2, 3, 4):
-Para cada pregunta de valoración, indica qué columna está marcada: "NC", "1", "2", "3" o "4".
-Si no hay ninguna marcada, devuelve "NC".
+La tabla tiene columnas: NC, 1, 2, 3, 4. Cada fila tiene UNA casilla marcada como máximo.
+Para cada pregunta, mira EN QUÉ COLUMNA hay una marca de bolígrafo (X, ✓, relleno, trazo).
+SOLO cuenta como marcado si hay un trazo CLARO de bolígrafo DENTRO de la casilla.
+Una casilla vacía (solo los bordes impresos del cuadrado) NO está marcada.
+Si no hay NINGUNA casilla marcada en la fila, devuelve "NC".
 
 - valoracion_1_1: Pregunta 1.1 (Organización del curso)
 - valoracion_1_2: Pregunta 1.2
@@ -64,37 +67,37 @@ Si no hay ninguna marcada, devuelve "NC".
 - valoracion_2_2: Pregunta 2.2
 - valoracion_3_1: Pregunta 3.1 (Duración y horario)
 - valoracion_3_2: Pregunta 3.2
-- valoracion_4_1_formadores: Pregunta 4.1 fila FORMADORES
-- valoracion_4_1_tutores: Pregunta 4.1 fila TUTORES
-- valoracion_4_2_formadores: Pregunta 4.2 fila FORMADORES
-- valoracion_4_2_tutores: Pregunta 4.2 fila TUTORES
+- valoracion_4_1_formadores: Pregunta 4.1 fila FORMADORES (primera sub-fila de 4.1)
+- valoracion_4_1_tutores: Pregunta 4.1 fila TUTORES (segunda sub-fila de 4.1)
+- valoracion_4_2_formadores: Pregunta 4.2 fila FORMADORES (primera sub-fila de 4.2)
+- valoracion_4_2_tutores: Pregunta 4.2 fila TUTORES (segunda sub-fila de 4.2)
 - valoracion_5_1: Pregunta 5.1 (Medios didácticos)
 - valoracion_5_2: Pregunta 5.2
-- valoracion_6_1: Pregunta 6.1 (Instalaciones)
+- valoracion_6_1: Pregunta 6.1 (Instalaciones y medios técnicos)
 - valoracion_6_2: Pregunta 6.2
-- valoracion_7_1: Pregunta 7.1 (Solo teleformación/mixta)
-- valoracion_7_2: Pregunta 7.2
-- valoracion_8_1: Pregunta 8.1 — "Sí" o "No" (checkbox binario)
-- valoracion_8_2: Pregunta 8.2 — "Sí" o "No" (checkbox binario)
+- valoracion_7_1: Pregunta 7.1 (Solo teleformación/mixta). Si la modalidad es Presencial, devuelve "NA".
+- valoracion_7_2: Pregunta 7.2 (Solo teleformación/mixta). Si la modalidad es Presencial, devuelve "NA".
+- valoracion_8_1: Pregunta 8.1 — Tiene DOS checkboxes: "Sí" y "No". SOLO devuelve "Sí" o "No" si uno de ellos tiene marca CLARA de bolígrafo. Si AMBOS están vacíos (sin marca), devuelve "NC".
+- valoracion_8_2: Pregunta 8.2 — Igual que 8.1. "Sí", "No" o "NC" si ninguno está marcado.
 - valoracion_9_1: Pregunta 9.1 (Valoración general)
 - valoracion_9_2: Pregunta 9.2
 - valoracion_9_3: Pregunta 9.3
 - valoracion_9_4: Pregunta 9.4
 - valoracion_9_5: Pregunta 9.5
 - valoracion_10: Pregunta 10 (Grado satisfacción general)
-- recomendaria_curso: "Sí" o "No" (checkbox binario al final)
-- sugerencias: Texto libre del participante.
-- fecha_cumplimentacion: Formato DD/MM/YYYY.
+- recomendaria_curso: "Sí", "No" o "NC" si ninguno está marcado. Misma regla que 8.1/8.2.
+- sugerencias: Texto libre del participante. Si no hay texto escrito, devuelve "NC".
+- fecha_cumplimentacion: Formato DD/MM/YYYY. Si no es legible devuelve "NC".
 
 REGLAS CRÍTICAS:
-- Para checkboxes: busca una MARCA visible (X, ✓, relleno, trazo de bolígrafo) dentro del cuadrado.
-- Un checkbox vacío (solo el cuadrado sin marca) = NO marcado.
-- Si ningún checkbox de un grupo está marcado, devuelve "NC" (No Contesta).
-- Si no puedes leer un campo de texto, devuelve null.
-- NO inventes valores. Si no ves marca clara, devuelve "NC".
-- temperature 0 — sé determinista y preciso.
+1. NUNCA devuelvas null. Si un campo no tiene datos, devuelve "NC".
+2. Un checkbox está marcado SOLO si tiene un trazo de bolígrafo visible (X, ✓, relleno, tachadura) DENTRO del cuadrado. Los bordes impresos del cuadrado NO cuentan como marca.
+3. En caso de DUDA sobre si hay marca o no, devuelve "NC". Es mejor decir "no contesta" que inventar.
+4. Para campos binarios (8.1, 8.2, recomendaría): si no ves marca clara ni en "Sí" ni en "No", devuelve "NC".
+5. Para la tabla de valoraciones: cada fila solo puede tener UNA columna marcada (NC, 1, 2, 3 o 4).
+6. Sé muy cuidadoso con el sexo: verifica cuál de los checkboxes (Mujer=1, Hombre=2, NC=9) tiene realmente marca.
 
-Devuelve SOLO un JSON con todos los campos listados arriba.`;
+Devuelve SOLO un JSON con todos los campos listados arriba. NUNCA uses null, usa "NC" para campos sin dato.`;
 
 /**
  * Extracción directa: Gemini lee todo el formulario.
@@ -260,7 +263,14 @@ export async function extractHybrid(
   // PASO 4: Calcular confianza
   // ========================================
   const totalFields = Object.keys(checkboxResults).length;
-  const fieldsWithValue = Object.values(checkboxResults).filter(r => r.value !== 'NC' && r.value !== null).length;
+  // Reemplazar cualquier null residual por "NC"
+  for (const key of Object.keys(extractedData)) {
+    if (extractedData[key] === null || extractedData[key] === undefined) {
+      extractedData[key] = 'NC';
+    }
+  }
+
+  const fieldsWithValue = Object.values(checkboxResults).filter(r => r.value !== 'NC').length;
   const overallConfidence = totalFields > 0 ? Math.max(0.5, fieldsWithValue / totalFields) : 0.5;
 
   const processingTimeMs = Date.now() - startTime;
