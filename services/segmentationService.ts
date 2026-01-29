@@ -158,7 +158,7 @@ export async function extractSegmentAsImage(
 
     // Configurar worker
     const pdfjsVersion = pdfjs.version || '3.11.174';
-    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
 
     // Cargar PDF
     const arrayBuffer = await originalPdf.arrayBuffer();
@@ -242,7 +242,7 @@ export async function getPDFInfo(pdfFile: File): Promise<{
   try {
     const pdfjs = await import('pdfjs-dist');
     const pdfjsVersion = pdfjs.version || '3.11.174';
-    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+    pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
 
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;

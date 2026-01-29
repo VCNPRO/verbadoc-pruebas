@@ -5,7 +5,7 @@ import * as pdfjs from 'pdfjs-dist';
 
 // Configurar worker de pdfjs si no está ya configurado
 if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
-  pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.296/build/pdf.worker.min.mjs';
+  pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
 }
 
 // Límite seguro: archivos > 2.5 MB se comprimen (base64 añade ~33%)
