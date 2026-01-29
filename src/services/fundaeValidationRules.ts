@@ -370,6 +370,52 @@ export function processMultipleAnswers(extractedData: any): {
 }
 
 // ============================================================================
+// VALIDACIÓN DE EXCLUSIVIDAD MUTUA DESDE CV JUDGE
+// ============================================================================
+
+/**
+ * Valida resultados del CV Judge: exclusividad mutua en checkboxes.
+ * Usado cuando la extracción híbrida proporciona resultados de píxeles.
+ */
+export function validateCVJudgeResults(
+  checkboxResults: Record<string, {
+    value: any;
+    state: string;
+    confidence: number;
+    needsHumanReview: boolean;
+  }>
+): {
+  isValid: boolean;
+  ambiguousFields: string[];
+  multipleMarksFields: string[];
+  highConfidenceFields: string[];
+} {
+  const ambiguousFields: string[] = [];
+  const multipleMarksFields: string[] = [];
+  const highConfidenceFields: string[] = [];
+
+  for (const [fieldName, result] of Object.entries(checkboxResults)) {
+    if (result.state === 'CV_AMBIGUOUS') {
+      ambiguousFields.push(fieldName);
+    } else if (result.state === 'CV_HIGH_CONFIDENCE') {
+      highConfidenceFields.push(fieldName);
+    }
+
+    // Detectar si se marcó NC por marcas múltiples
+    if (result.value === 'NC' && result.needsHumanReview && result.confidence > 0.5) {
+      multipleMarksFields.push(fieldName);
+    }
+  }
+
+  return {
+    isValid: ambiguousFields.length === 0 && multipleMarksFields.length === 0,
+    ambiguousFields,
+    multipleMarksFields,
+    highConfidenceFields,
+  };
+}
+
+// ============================================================================
 // VALIDACIÓN COMPLETA DE FORMULARIO FUNDAE
 // ============================================================================
 

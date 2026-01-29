@@ -324,7 +324,85 @@ export function getConfidenceScore(extractedData: any): number {
   return calculateConfidenceScore(extractedData).score;
 }
 
+/**
+ * Calcula confianza basada en resultados del CV Judge (análisis de píxeles).
+ * Complementa la confianza general con datos deterministas de checkboxes.
+ */
+export function calculateHybridConfidence(
+  extractedData: any,
+  checkboxResults?: Record<string, {
+    value: any;
+    state: string; // 'CV_HIGH_CONFIDENCE' | 'CV_AMBIGUOUS' | 'GEMINI_FALLBACK'
+    confidence: number;
+    needsHumanReview: boolean;
+  }>
+): ConfidenceResult {
+  // Base: confianza estándar
+  const baseResult = calculateConfidenceScore(extractedData);
+
+  if (!checkboxResults || Object.keys(checkboxResults).length === 0) {
+    return baseResult;
+  }
+
+  // Ajustar score con datos del CV Judge
+  const totalCVFields = Object.keys(checkboxResults).length;
+  const highConfidence = Object.values(checkboxResults)
+    .filter(r => r.state === 'CV_HIGH_CONFIDENCE').length;
+  const ambiguous = Object.values(checkboxResults)
+    .filter(r => r.state === 'CV_AMBIGUOUS').length;
+  const fallback = Object.values(checkboxResults)
+    .filter(r => r.state === 'GEMINI_FALLBACK').length;
+
+  // CV Judge ratio (determinista = más fiable)
+  const cvRatio = highConfidence / totalCVFields;
+
+  // Penalizar por campos ambiguos y fallbacks
+  const cvPenalty = (ambiguous * 0.03) + (fallback * 0.02);
+
+  // Combinar: 60% CV Judge + 40% score estándar
+  const hybridScore = Math.max(0, Math.min(1,
+    (cvRatio * 0.6) + (baseResult.score * 0.4) - cvPenalty
+  ));
+
+  const roundedScore = Math.round(hybridScore * 100) / 100;
+
+  let level: 'high' | 'medium' | 'low';
+  let recommendation: string;
+
+  if (roundedScore >= 0.85) {
+    level = 'high';
+    recommendation = 'Extracción híbrida fiable. CV Judge determinista en checkboxes.';
+  } else if (roundedScore >= 0.65) {
+    level = 'medium';
+    recommendation = 'Extracción parcialmente fiable. Revisar campos ambiguos del CV Judge.';
+  } else {
+    level = 'low';
+    recommendation = 'Extracción poco fiable. Revisión manual recomendada.';
+  }
+
+  if (ambiguous > 0) {
+    recommendation += ` ${ambiguous} campo(s) con lectura ambigua de checkbox.`;
+  }
+
+  return {
+    score: roundedScore,
+    percentage: Math.round(roundedScore * 100),
+    level,
+    details: {
+      ...baseResult.details,
+      // Enrich with CV Judge info via inconsistencies
+      inconsistencies: [
+        ...baseResult.details.inconsistencies,
+        ...(ambiguous > 0 ? [`CV Judge: ${ambiguous} checkbox(es) con densidad ambigua (3-12%)`] : []),
+        ...(fallback > 0 ? [`CV Judge: ${fallback} campo(s) usaron Gemini como fallback`] : []),
+      ],
+    },
+    recommendation,
+  };
+}
+
 export default {
   calculateConfidenceScore,
-  getConfidenceScore
+  getConfidenceScore,
+  calculateHybridConfidence,
 };

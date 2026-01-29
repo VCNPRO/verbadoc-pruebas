@@ -70,6 +70,9 @@
   "functions": {
     "api/process-queue.ts": {
       "maxDuration": 300
+    },
+    "api/extract-hybrid.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [

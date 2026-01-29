@@ -927,6 +927,94 @@ export const extractWithHybridSystem = async (
 };
 
 // Buscar imagen en documento
+// ============================================
+// EXTRACCIÓN HÍBRIDA: CV Judge + Gemini Texto
+// ============================================
+
+/**
+ * Extracción híbrida usando CV Judge para checkboxes y Gemini para texto.
+ * Activar con USE_HYBRID_EXTRACTION=true
+ *
+ * @param file - Archivo PDF/imagen
+ * @param schema - Schema de campos FUNDAE
+ * @param prompt - Prompt de extracción (se ignora, se usa text-only prompt)
+ * @param modelId - Modelo Gemini para campos de texto
+ */
+export const extractWithHybridCVJudge = async (
+  file: File,
+  schema: SchemaField[],
+  prompt: string,
+  modelId: GeminiModel = 'gemini-2.5-flash'
+): Promise<HybridExtractionResult> => {
+  const startTime = Date.now();
+
+  console.log('🧠 MODO HÍBRIDO: CV Judge (checkboxes) + Gemini (texto)');
+
+  try {
+    // Convertir File a base64 para enviar al backend
+    const base64Data = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result.split(',')[1]);
+        } else {
+          reject(new Error('No se pudo leer el archivo'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Error al leer archivo'));
+      reader.readAsDataURL(file);
+    });
+
+    const baseURL = typeof window !== 'undefined'
+      ? window.location.origin
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : 'http://localhost:5173';
+
+    const response = await fetch(`${baseURL}/api/extract-hybrid`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        pdfBase64: base64Data,
+        filename: file.name,
+        model: modelId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Unknown' }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    const result = await response.json();
+
+    console.log(`✅ Híbrido completado: ${result.overallConfidence}% confianza`);
+    console.log(`📊 Campos revisión humana: ${result.fieldsNeedingReview?.length || 0}`);
+
+    return {
+      data: result.extractedData,
+      method: 'hybrid' as ExtractionMethod,
+      confidence: result.overallConfidence / 100,
+      confidencePercentage: result.overallConfidence,
+      processingTimeMs: Date.now() - startTime,
+      usedFallback: false,
+      modelUsed: modelId,
+      modelEscalated: false,
+      attempts: 1,
+    };
+  } catch (error: any) {
+    console.error('❌ Error en extracción híbrida:', error.message);
+    // Fallback al sistema IA puro
+    console.log('🔄 Fallback a extracción IA pura...');
+    const aiResult = await extractWithHybridSystem(file, schema, prompt, modelId, { forceAI: true });
+    return {
+      ...aiResult,
+      usedFallback: true,
+      fallbackReason: `hybrid_error: ${error.message}`,
+    };
+  }
+};
+
 export const searchImageInDocument = async (
     documentFile: File,
     referenceImageFile: File,
