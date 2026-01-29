@@ -111,7 +111,7 @@ export async function extractHybrid(
 ): Promise<HybridExtractionResult> {
   const startTime = Date.now();
   const apiKey = options?.geminiApiKey || process.env.GOOGLE_API_KEY || '';
-  const modelId = options?.geminiModel || 'gemini-3-flash-preview';
+  const modelId = options?.geminiModel || 'gemini-3-pro-preview';
 
   if (!apiKey) {
     throw new Error('No hay GOOGLE_API_KEY configurada');
