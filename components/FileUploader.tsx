@@ -138,25 +138,46 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                 });
             } else if (entry.isDirectory) {
                 const dirReader = entry.createReader();
-                return new Promise((resolve) => {
-                    dirReader.readEntries(async (entries: any[]) => {
-                        for (const entry of entries) {
-                            await readEntry(entry);
-                        }
-                        resolve();
+                // readEntries solo devuelve un lote (~100), hay que llamar hasta que devuelva vacío
+                const readAllEntries = (): Promise<any[]> => {
+                    return new Promise((resolve) => {
+                        const allEntries: any[] = [];
+                        const readBatch = () => {
+                            dirReader.readEntries((entries: any[]) => {
+                                if (entries.length === 0) {
+                                    resolve(allEntries);
+                                } else {
+                                    allEntries.push(...entries);
+                                    readBatch();
+                                }
+                            });
+                        };
+                        readBatch();
                     });
-                });
+                };
+                const entries = await readAllEntries();
+                for (const e of entries) {
+                    await readEntry(e);
+                }
             }
         };
 
+        // IMPORTANTE: capturar todas las entries SÍNCRONAMENTE antes de cualquier await
+        // porque DataTransferItemList se invalida después del primer tick asíncrono
+        const entries: any[] = [];
         for (let i = 0; i < items.length; i++) {
             const item = items[i];
             if (item.kind === 'file') {
                 const entry = item.webkitGetAsEntry();
                 if (entry) {
-                    await readEntry(entry);
+                    entries.push(entry);
                 }
             }
+        }
+
+        // Ahora procesar las entries capturadas
+        for (const entry of entries) {
+            await readEntry(entry);
         }
 
         return files;
