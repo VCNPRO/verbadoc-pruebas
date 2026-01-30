@@ -251,6 +251,91 @@ export async function extractHybrid(
     }
   }
 
+  // Post-procesamiento: lugar_trabajo → provincia oficial en MAYÚSCULAS
+  // Mapeo: todas las variantes (castellano, sin tilde, euskera, gallego, catalán, IATA) → provincia oficial
+  const PROVINCIA_ALIASES: Record<string, string> = {
+    // 52 provincias oficiales + Ceuta y Melilla
+    'alava': 'ALAVA', 'álava': 'ALAVA', 'araba': 'ALAVA',
+    'albacete': 'ALBACETE',
+    'alicante': 'ALICANTE', 'alacant': 'ALICANTE',
+    'almeria': 'ALMERIA', 'almería': 'ALMERIA',
+    'asturias': 'ASTURIAS', 'oviedo': 'ASTURIAS',
+    'avila': 'AVILA', 'ávila': 'AVILA',
+    'badajoz': 'BADAJOZ',
+    'barcelona': 'BARCELONA',
+    'burgos': 'BURGOS',
+    'caceres': 'CACERES', 'cáceres': 'CACERES',
+    'cadiz': 'CADIZ', 'cádiz': 'CADIZ',
+    'cantabria': 'CANTABRIA', 'santander': 'CANTABRIA',
+    'castellon': 'CASTELLON', 'castellón': 'CASTELLON', 'castelló': 'CASTELLON',
+    'ceuta': 'CEUTA',
+    'ciudad real': 'CIUDAD REAL',
+    'cordoba': 'CORDOBA', 'córdoba': 'CORDOBA',
+    'cuenca': 'CUENCA',
+    'girona': 'GIRONA', 'gerona': 'GIRONA',
+    'granada': 'GRANADA',
+    'guadalajara': 'GUADALAJARA',
+    'guipuzcoa': 'GUIPUZCOA', 'guipúzcoa': 'GUIPUZCOA', 'gipuzkoa': 'GUIPUZCOA',
+    'huelva': 'HUELVA',
+    'huesca': 'HUESCA', 'osca': 'HUESCA',
+    'islas baleares': 'ISLAS BALEARES', 'illes balears': 'ISLAS BALEARES', 'baleares': 'ISLAS BALEARES', 'balears': 'ISLAS BALEARES', 'mallorca': 'ISLAS BALEARES', 'palma': 'ISLAS BALEARES', 'palma de mallorca': 'ISLAS BALEARES',
+    'jaen': 'JAEN', 'jaén': 'JAEN',
+    'la coruña': 'LA CORUNA', 'a coruña': 'LA CORUNA', 'coruña': 'LA CORUNA', 'coruna': 'LA CORUNA', 'a coruña': 'LA CORUNA',
+    'la rioja': 'LA RIOJA', 'rioja': 'LA RIOJA', 'logroño': 'LA RIOJA', 'logrono': 'LA RIOJA',
+    'las palmas': 'LAS PALMAS', 'gran canaria': 'LAS PALMAS', 'las palmas de gran canaria': 'LAS PALMAS',
+    'leon': 'LEON', 'león': 'LEON',
+    'lleida': 'LLEIDA', 'lerida': 'LLEIDA', 'lérida': 'LLEIDA',
+    'lugo': 'LUGO',
+    'madrid': 'MADRID',
+    'malaga': 'MALAGA', 'málaga': 'MALAGA',
+    'melilla': 'MELILLA',
+    'murcia': 'MURCIA',
+    'navarra': 'NAVARRA', 'nafarroa': 'NAVARRA',
+    'ourense': 'OURENSE', 'orense': 'OURENSE',
+    'palencia': 'PALENCIA',
+    'pontevedra': 'PONTEVEDRA', 'vigo': 'PONTEVEDRA',
+    'salamanca': 'SALAMANCA',
+    'segovia': 'SEGOVIA',
+    'sevilla': 'SEVILLA',
+    'soria': 'SORIA',
+    'tarragona': 'TARRAGONA',
+    'santa cruz de tenerife': 'SANTA CRUZ DE TENERIFE', 'tenerife': 'SANTA CRUZ DE TENERIFE', 'santa cruz': 'SANTA CRUZ DE TENERIFE',
+    'teruel': 'TERUEL',
+    'toledo': 'TOLEDO',
+    'valencia': 'VALENCIA', 'valència': 'VALENCIA',
+    'valladolid': 'VALLADOLID',
+    'vizcaya': 'VIZCAYA', 'bizkaia': 'VIZCAYA', 'bilbao': 'VIZCAYA',
+    'zamora': 'ZAMORA',
+    'zaragoza': 'ZARAGOZA', 'saragossa': 'ZARAGOZA',
+  };
+
+  const lugarRaw = String(extractedData.lugar_trabajo || 'NC').trim();
+  if (lugarRaw !== 'NC' && lugarRaw !== '') {
+    const lugarLower = lugarRaw.toLowerCase();
+    // 1. Coincidencia directa del texto completo
+    if (PROVINCIA_ALIASES[lugarLower]) {
+      extractedData.lugar_trabajo = PROVINCIA_ALIASES[lugarLower];
+    } else {
+      // 2. Buscar fragmentos de 4, 3, 2, 1 palabras
+      const words = lugarRaw.split(/[\s,\/\-]+/).filter(w => w.length > 0);
+      let found = false;
+      for (let len = Math.min(4, words.length); len >= 1 && !found; len--) {
+        for (let i = 0; i <= words.length - len && !found; i++) {
+          const candidate = words.slice(i, i + len).join(' ').toLowerCase();
+          if (PROVINCIA_ALIASES[candidate]) {
+            extractedData.lugar_trabajo = PROVINCIA_ALIASES[candidate];
+            found = true;
+          }
+        }
+      }
+      if (!found) {
+        extractedData.lugar_trabajo = 'NC';
+      }
+    }
+  } else {
+    extractedData.lugar_trabajo = 'NC';
+  }
+
   // Post-procesamiento: valoracion_7_x según modalidad
   const modalidad = String(extractedData.modalidad || '').toLowerCase();
   const esPresencial = modalidad.includes('presencial') && !modalidad.includes('mixta');

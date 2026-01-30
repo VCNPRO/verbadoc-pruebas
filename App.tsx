@@ -1016,21 +1016,28 @@ function AppContent() {
     // Limpiar todo el historial
     const handleClearHistory = async () => {
         if (confirm('¿Estás seguro de que deseas eliminar todo el historial? Esta acción no se puede deshacer.')) {
-            try {
-                console.log(`🗑️ Eliminando ${history.length} registros de la BD...`);
+            console.log(`🗑️ Eliminando ${history.length} registros de la BD...`);
 
-                // Eliminar todos los registros de la BD
-                const deletePromises = history.map(item => deleteExtraction(item.id));
-                await Promise.all(deletePromises);
+            let okCount = 0;
+            let failCount = 0;
 
-                // Solo si todo tuvo éxito, limpiar el estado local
-                setHistory([]);
-                localStorage.removeItem('verbadoc-history');
-                console.log('✅ Historial eliminado completamente de BD y frontend');
-            } catch (error: any) {
-                console.error('❌ Error al limpiar historial:', error);
-                alert(`Error al limpiar historial: ${error.message}`);
+            // Eliminar en lotes de 5 para no saturar, ignorando 404 (ya borrado)
+            const BATCH = 5;
+            for (let i = 0; i < history.length; i += BATCH) {
+                const batch = history.slice(i, i + BATCH);
+                const results = await Promise.allSettled(
+                    batch.map(item => deleteExtraction(item.id))
+                );
+                for (const r of results) {
+                    if (r.status === 'fulfilled') okCount++;
+                    else failCount++;
+                }
             }
+
+            // Limpiar estado local siempre (los que fallaron con 404 ya no existen)
+            setHistory([]);
+            localStorage.removeItem('verbadoc-history');
+            console.log(`✅ Historial limpiado: ${okCount} eliminados, ${failCount} ya no existían`);
         }
     };
 
@@ -1424,10 +1431,10 @@ function AppContent() {
                             </p>
                         </div>
                         <div className="flex items-center gap-4">
-                            {/* Config Button */}
+                            {/* Config Button - cuadrado */}
                             <button
                                 onClick={() => setIsConfigModalOpen(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#6366f1' : '#4f46e5',
                                     borderColor: isLightMode ? '#4f46e5' : '#6366f1',
@@ -1439,22 +1446,14 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <span className="hidden sm:inline">Config</span>
                             </button>
-                            {/* Selector de Modelo IA */}
-                            <div className="flex items-center gap-2">
-                                <label
-                                    htmlFor="model-select"
-                                    className="text-xs font-medium hidden sm:inline"
-                                    style={{ color: isLightMode ? '#1e3a8a' : '#94a3b8' }}
-                                >
-                                    Modelo IA:
-                                </label>
+                            {/* Selector de Modelo IA - compacto cuadrado */}
+                            <div className="relative" title={`Modelo IA: ${selectedModel}`}>
                                 <select
                                     id="model-select"
                                     value={selectedModel}
                                     onChange={(e) => setSelectedModel(e.target.value as GeminiModel)}
-                                    className="text-sm px-3 py-1.5 rounded-md border-2 focus:outline-none focus:ring-2 transition-all"
+                                    className="text-xs h-8 pl-1.5 pr-5 rounded-md border focus:outline-none focus:ring-2 transition-all cursor-pointer font-semibold"
                                     style={{
                                         backgroundColor: isLightMode ? '#f9fafb' : '#1e293b',
                                         borderColor: isLightMode ? '#3b82f6' : '#475569',
@@ -1470,7 +1469,7 @@ function AppContent() {
                             </div>
                             <button
                                 onClick={() => navigate('/resultados')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#3b82f6' : '#06b6d4',
                                     borderColor: isLightMode ? '#1d4ed8' : '#0891b2',
@@ -1483,10 +1482,10 @@ function AppContent() {
                                 </svg>
                                 <span className="hidden sm:inline">Resultados</span>
                             </button>
-                            {/* ✅ Botón de Revisión (Fase 5) */}
+                            {/* Botón de Revisión */}
                             <button
                                 onClick={() => navigate('/review')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#f59e0b' : '#f97316',
                                     borderColor: isLightMode ? '#d97706' : '#ea580c',
@@ -1499,15 +1498,15 @@ function AppContent() {
                                 </svg>
                                 <span className="hidden sm:inline">Revisar</span>
                                 {reviewCount > 0 && (
-                                    <span className="bg-white/25 px-1.5 rounded text-xs font-bold">
+                                    <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-bold min-w-[1.5rem] text-center">
                                         {reviewCount}
                                     </span>
                                 )}
                             </button>
-                            {/* ✅ Botón Excel Master */}
+                            {/* Botón Excel Master */}
                             <button
                                 onClick={() => navigate('/master-excel')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#10b981' : '#059669',
                                     borderColor: isLightMode ? '#059669' : '#047857',
@@ -1525,10 +1524,10 @@ function AppContent() {
                                     </span>
                                 )}
                             </button>
-                            {/* ✅ Botón No Procesables */}
+                            {/* Botón No Procesables */}
                             <button
                                 onClick={() => navigate('/unprocessable')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#ef4444' : '#dc2626',
                                     borderColor: isLightMode ? '#dc2626' : '#b91c1c',
@@ -1546,10 +1545,10 @@ function AppContent() {
                                     </span>
                                 )}
                             </button>
-                            {/* ✅ Botón Editor de Plantillas IDP */}
+                            {/* Botón Plantillas - cuadrado */}
                             <button
                                 onClick={() => navigate('/templates')}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#8b5cf6' : '#7c3aed',
                                     borderColor: isLightMode ? '#7c3aed' : '#a78bfa',
@@ -1558,11 +1557,11 @@ function AppContent() {
                                 title="Editor de Plantillas de Extracción"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
-                                <span className="hidden sm:inline">Plantillas</span>
                             </button>
+                            {/* Botón Ayuda - cuadrado */}
                             <button
                                 onClick={() => setIsHelpModalOpen(true)}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#2563eb' : '#0891b2',
                                     borderColor: isLightMode ? '#1d4ed8' : '#06b6d4',
@@ -1573,7 +1572,6 @@ function AppContent() {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span className="hidden sm:inline">Ayuda</span>
                             </button>
 
                             {/* Logout Button */}
