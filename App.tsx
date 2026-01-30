@@ -83,6 +83,7 @@ function AppContent() {
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
     const [history, setHistory] = useState<ExtractionResult[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [extractionProgress, setExtractionProgress] = useState<{ total: number; completed: number; errors: number; startTime: number | null }>({ total: 0, completed: 0, errors: 0, startTime: null });
     const [viewingFile, setViewingFile] = useState<File | null>(null);
     const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
@@ -90,12 +91,22 @@ function AppContent() {
     const [currentDepartamento, setCurrentDepartamento] = useState<Departamento>('general');
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
+    const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
+    const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-pro-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
 
     const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
     const [isHtrTranscribing, setIsHtrTranscribing] = useState<boolean>(false);
     const [isBarcodeReading, setIsBarcodeReading] = useState<boolean>(false);
+    const [, setTimerTick] = useState(0);
+
+    // Timer para actualizar el reloj de progreso cada segundo
+    useEffect(() => {
+        if (!isLoading || !extractionProgress.startTime) return;
+        const interval = setInterval(() => setTimerTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, [isLoading, extractionProgress.startTime]);
 
     // Contadores para botones de navegación
     const [reviewCount, setReviewCount] = useState<number>(0);
@@ -542,6 +553,7 @@ function AppContent() {
         }
 
         setIsLoading(true);
+        setExtractionProgress({ total: finalFiles.length, completed: 0, errors: 0, startTime: Date.now() });
 
         // Lazy import the service (only if needed for non-JSON files)
         const nonJsonFiles = finalFiles.filter(f => !f.file.name.toLowerCase().endsWith('.json'));
@@ -689,7 +701,10 @@ function AppContent() {
         const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(null).map(async () => {
             while (queue.length > 0) {
                 const file = queue.shift();
-                if (file) await processFile(file);
+                if (file) {
+                    await processFile(file);
+                    setExtractionProgress(prev => ({ ...prev, completed: prev.completed + 1 }));
+                }
             }
         });
 
@@ -697,6 +712,7 @@ function AppContent() {
         // ----------------------------------------------------
 
         setIsLoading(false);
+        setExtractionProgress(prev => ({ ...prev, startTime: null }));
         setShowResultsExpanded(true); // Mostrar resultados automáticamente
     };
 
@@ -1575,6 +1591,53 @@ function AppContent() {
                 </div>
             </header>
 
+            {/* Barra de progreso de extracción */}
+            {isLoading && extractionProgress.startTime && (
+                <div
+                    className="sticky top-16 z-10 border-b"
+                    style={{
+                        backgroundColor: isLightMode ? '#eff6ff' : '#1e293b',
+                        borderBottomColor: isLightMode ? '#bfdbfe' : '#334155',
+                    }}
+                >
+                    <div className="px-4 sm:px-6 lg:px-8 py-2 flex items-center gap-4">
+                        <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: isLightMode ? '#3b82f6' : '#60a5fa', borderTopColor: 'transparent' }} />
+                        <div className="flex-1">
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-semibold" style={{ color: isLightMode ? '#1e3a8a' : '#93c5fd' }}>
+                                    Procesando {extractionProgress.completed}/{extractionProgress.total} formularios
+                                </span>
+                                <span className="text-xs font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                    {(() => {
+                                        const elapsed = Math.floor((Date.now() - (extractionProgress.startTime || Date.now())) / 1000);
+                                        const min = Math.floor(elapsed / 60);
+                                        const sec = elapsed % 60;
+                                        return `${min}:${sec.toString().padStart(2, '0')}`;
+                                    })()}
+                                    {extractionProgress.completed > 0 && (() => {
+                                        const elapsed = (Date.now() - (extractionProgress.startTime || Date.now())) / 1000;
+                                        const avgPerFile = elapsed / extractionProgress.completed;
+                                        const remaining = Math.ceil(avgPerFile * (extractionProgress.total - extractionProgress.completed));
+                                        const rMin = Math.floor(remaining / 60);
+                                        const rSec = remaining % 60;
+                                        return ` | ~${rMin}:${rSec.toString().padStart(2, '0')} restante`;
+                                    })()}
+                                </span>
+                            </div>
+                            <div className="w-full rounded-full h-2" style={{ backgroundColor: isLightMode ? '#dbeafe' : '#334155' }}>
+                                <div
+                                    className="h-2 rounded-full transition-all duration-300"
+                                    style={{
+                                        width: `${extractionProgress.total > 0 ? (extractionProgress.completed / extractionProgress.total) * 100 : 0}%`,
+                                        backgroundColor: isLightMode ? '#3b82f6' : '#60a5fa',
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <main className="p-4 sm:p-6 lg:p-8 flex-grow">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
                     <div className="lg:col-span-3 h-full">
@@ -1614,46 +1677,77 @@ function AppContent() {
                         />
                     </div>
                     <div className="lg:col-span-3 h-full">
-                        <div className="h-full flex flex-col overflow-auto">
-                            {/* AI Assistant Panel */}
-                            <div className="mb-4">
-                                <AIAssistantPanel
-                                    file={activeFile?.file || null}
-                                    onSchemaGenerated={(generatedSchema, generatedPrompt) => {
-                                        setSchema(generatedSchema);
-                                        setPrompt(generatedPrompt);
+                        <div className="h-full flex flex-col overflow-auto gap-2">
+                            {/* AI Assistant Panel - colapsable */}
+                            <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
+                                <button
+                                    onClick={() => setAiPanelOpen(prev => !prev)}
+                                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                    style={{
+                                        backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
+                                        color: isLightMode ? '#334155' : '#cbd5e1',
                                     }}
-                                    onValidationComplete={(validationResult) => {
-                                        console.log('Validación completada:', validationResult);
-                                    }}
-                                    onStartExtraction={(newSchema, newPrompt) => {
-                                        // 🔥 Usar schema pasado directamente para evitar race conditions
-                                        if (activeFile && !isLoading) {
-                                            console.log('🚀 Iniciando extracción automática con schema recibido:', newSchema.length, 'campos');
-                                            // Actualizar schema y prompt localmente
-                                            setSchema(newSchema);
-                                            setPrompt(newPrompt);
-                                            // Ejecutar extracción con el schema correcto
-                                            setTimeout(() => handleExtract(), 100);
-                                        }
-                                    }}
-                                    extractedData={activeFile?.extractedData}
-                                    currentSchema={schema}
-                                />
+                                >
+                                    <span>Asistente IA</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${aiPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                {aiPanelOpen && (
+                                    <div className="p-2">
+                                        <AIAssistantPanel
+                                            file={activeFile?.file || null}
+                                            onSchemaGenerated={(generatedSchema, generatedPrompt) => {
+                                                setSchema(generatedSchema);
+                                                setPrompt(generatedPrompt);
+                                            }}
+                                            onValidationComplete={(validationResult) => {
+                                                console.log('Validación completada:', validationResult);
+                                            }}
+                                            onStartExtraction={(newSchema, newPrompt) => {
+                                                if (activeFile && !isLoading) {
+                                                    console.log('Iniciando extraccion automatica con schema recibido:', newSchema.length, 'campos');
+                                                    setSchema(newSchema);
+                                                    setPrompt(newPrompt);
+                                                    setTimeout(() => handleExtract(), 100);
+                                                }
+                                            }}
+                                            extractedData={activeFile?.extractedData}
+                                            currentSchema={schema}
+                                        />
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Templates Panel */}
-                            <div>
-                                <TemplatesPanel
-                                    onSelectTemplate={handleSelectTemplate}
-                                    currentSchema={schema}
-                                    currentPrompt={prompt}
-                                    onDepartamentoChange={handleDepartamentoChange}
-                                    currentDepartamento={currentDepartamento}
-                                    theme={currentTheme}
-                                    isLightMode={isLightMode}
-                                    user={user}
-                                />
+                            {/* Templates Panel - colapsable */}
+                            <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
+                                <button
+                                    onClick={() => setTemplatesPanelOpen(prev => !prev)}
+                                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                    style={{
+                                        backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
+                                        color: isLightMode ? '#334155' : '#cbd5e1',
+                                    }}
+                                >
+                                    <span>Plantillas</span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${templatesPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                {templatesPanelOpen && (
+                                    <div className="p-2">
+                                        <TemplatesPanel
+                                            onSelectTemplate={handleSelectTemplate}
+                                            currentSchema={schema}
+                                            currentPrompt={prompt}
+                                            onDepartamentoChange={handleDepartamentoChange}
+                                            currentDepartamento={currentDepartamento}
+                                            theme={currentTheme}
+                                            isLightMode={isLightMode}
+                                            user={user}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
