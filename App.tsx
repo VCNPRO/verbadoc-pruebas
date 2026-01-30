@@ -90,7 +90,7 @@ function AppContent() {
     const [currentDepartamento, setCurrentDepartamento] = useState<Departamento>('general');
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
-    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-2.5-pro');
+    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-pro-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
 
     const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
@@ -1447,26 +1447,7 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                             </button>
-                            {/* Selector de Modelo IA - compacto cuadrado */}
-                            <div className="relative" title={`Modelo IA: ${selectedModel}`}>
-                                <select
-                                    id="model-select"
-                                    value={selectedModel}
-                                    onChange={(e) => setSelectedModel(e.target.value as GeminiModel)}
-                                    className="text-xs h-8 pl-1.5 pr-5 rounded-md border focus:outline-none focus:ring-2 transition-all cursor-pointer font-semibold"
-                                    style={{
-                                        backgroundColor: isLightMode ? '#f9fafb' : '#1e293b',
-                                        borderColor: isLightMode ? '#3b82f6' : '#475569',
-                                        color: isLightMode ? '#1e3a8a' : '#f1f5f9'
-                                    }}
-                                >
-                                    {AVAILABLE_MODELS.map(model => (
-                                        <option key={model.id} value={model.id}>
-                                            {model.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            {/* Modelo IA fijo: Gemini 3 Pro */}
                             <button
                                 onClick={() => navigate('/resultados')}
                                 className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
