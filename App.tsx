@@ -93,6 +93,7 @@ function AppContent() {
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
     const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
     const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
+    const [advancedConfigOpen, setAdvancedConfigOpen] = useState<boolean>(false);
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-pro-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
 
@@ -1631,117 +1632,146 @@ function AppContent() {
             )}
 
             <main className="p-4 sm:p-6 lg:p-8 flex-grow">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
-                    <div className="lg:col-span-3 h-full">
-                        <FileUploader
-                            files={files}
-                            setFiles={setFiles}
-                            activeFileId={activeFileId}
-                            onFileSelect={handleFileSelect}
-                            onExtractAll={handleExtractAll}
-                            onExtractSelected={handleExtractSelected}
-                            isLoading={isLoading}
-                            onViewFile={handleViewFile}
-                            theme={currentTheme}
-                            isLightMode={isLightMode}
-                            duplicateFiles={duplicateFiles}
-                        />
-                    </div>
-                    <div className="lg:col-span-6 h-full">
-                        <ExtractionEditor
-                            file={activeFile}
-                            template={selectedTemplate}
-                            onUpdateTemplate={handleUpdateHealthTemplate}
-                            schema={schema}
-                            setSchema={setSchema}
-                            prompt={prompt}
-                            setPrompt={setPrompt}
-                            onExtract={handleExtract}
-                            isLoading={isLoading || isTranscribing || isHtrTranscribing || isBarcodeReading}
-                            onFullTranscription={handleFullTranscription}
-                            isTranscribing={isTranscribing}
-                            onHtrTranscription={handleHtrTranscription}
-                            isHtrTranscribing={isHtrTranscribing}
-                            onBarcodeRead={handleBarcodeRead}
-                            isBarcodeReading={isBarcodeReading}
-                            theme={currentTheme}
-                            isLightMode={isLightMode}
-                        />
-                    </div>
-                    <div className="lg:col-span-3 h-full">
-                        <div className="h-full flex flex-col overflow-auto gap-2">
-                            {/* AI Assistant Panel - colapsable */}
-                            <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                                <button
-                                    onClick={() => setAiPanelOpen(prev => !prev)}
-                                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
-                                    style={{
-                                        backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
-                                        color: isLightMode ? '#334155' : '#cbd5e1',
-                                    }}
-                                >
-                                    <span>Asistente IA</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${aiPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {aiPanelOpen && (
-                                    <div className="p-2">
-                                        <AIAssistantPanel
-                                            file={activeFile?.file || null}
-                                            onSchemaGenerated={(generatedSchema, generatedPrompt) => {
-                                                setSchema(generatedSchema);
-                                                setPrompt(generatedPrompt);
-                                            }}
-                                            onValidationComplete={(validationResult) => {
-                                                console.log('Validación completada:', validationResult);
-                                            }}
-                                            onStartExtraction={(newSchema, newPrompt) => {
-                                                if (activeFile && !isLoading) {
-                                                    console.log('Iniciando extraccion automatica con schema recibido:', newSchema.length, 'campos');
-                                                    setSchema(newSchema);
-                                                    setPrompt(newPrompt);
-                                                    setTimeout(() => handleExtract(), 100);
-                                                }
-                                            }}
-                                            extractedData={activeFile?.extractedData}
-                                            currentSchema={schema}
-                                        />
-                                    </div>
-                                )}
-                            </div>
+                {/* Zona principal: carga de archivos centrada */}
+                <div className="max-w-5xl mx-auto">
+                    <FileUploader
+                        files={files}
+                        setFiles={setFiles}
+                        activeFileId={activeFileId}
+                        onFileSelect={handleFileSelect}
+                        onExtractAll={handleExtractAll}
+                        onExtractSelected={handleExtractSelected}
+                        isLoading={isLoading}
+                        onViewFile={handleViewFile}
+                        theme={currentTheme}
+                        isLightMode={isLightMode}
+                        duplicateFiles={duplicateFiles}
+                    />
+                </div>
 
-                            {/* Templates Panel - colapsable */}
-                            <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                                <button
-                                    onClick={() => setTemplatesPanelOpen(prev => !prev)}
-                                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
-                                    style={{
-                                        backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
-                                        color: isLightMode ? '#334155' : '#cbd5e1',
-                                    }}
-                                >
-                                    <span>Plantillas</span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${templatesPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {templatesPanelOpen && (
-                                    <div className="p-2">
-                                        <TemplatesPanel
-                                            onSelectTemplate={handleSelectTemplate}
-                                            currentSchema={schema}
-                                            currentPrompt={prompt}
-                                            onDepartamentoChange={handleDepartamentoChange}
-                                            currentDepartamento={currentDepartamento}
+                {/* Configuracion avanzada - colapsable */}
+                <div className="max-w-5xl mx-auto mt-4">
+                    <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
+                        <button
+                            onClick={() => setAdvancedConfigOpen(prev => !prev)}
+                            className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors"
+                            style={{
+                                backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
+                                color: isLightMode ? '#475569' : '#94a3b8',
+                            }}
+                        >
+                            <div className="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span>Configuracion avanzada</span>
+                                <span className="text-xs font-normal" style={{ color: isLightMode ? '#94a3b8' : '#64748b' }}>
+                                    Esquema, Plantillas, Asistente IA
+                                </span>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${advancedConfigOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {advancedConfigOpen && (
+                            <div className="p-4">
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                    {/* Esquema y Prompt */}
+                                    <div className="lg:col-span-2">
+                                        <ExtractionEditor
+                                            file={activeFile}
+                                            template={selectedTemplate}
+                                            onUpdateTemplate={handleUpdateHealthTemplate}
+                                            schema={schema}
+                                            setSchema={setSchema}
+                                            prompt={prompt}
+                                            setPrompt={setPrompt}
+                                            onExtract={handleExtract}
+                                            isLoading={isLoading || isTranscribing || isHtrTranscribing || isBarcodeReading}
+                                            onFullTranscription={handleFullTranscription}
+                                            isTranscribing={isTranscribing}
+                                            onHtrTranscription={handleHtrTranscription}
+                                            isHtrTranscribing={isHtrTranscribing}
+                                            onBarcodeRead={handleBarcodeRead}
+                                            isBarcodeReading={isBarcodeReading}
                                             theme={currentTheme}
                                             isLightMode={isLightMode}
-                                            user={user}
                                         />
                                     </div>
-                                )}
+                                    {/* Plantillas y Asistente IA */}
+                                    <div className="flex flex-col gap-3">
+                                        <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
+                                            <button
+                                                onClick={() => setTemplatesPanelOpen(prev => !prev)}
+                                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                                style={{
+                                                    backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
+                                                    color: isLightMode ? '#334155' : '#cbd5e1',
+                                                }}
+                                            >
+                                                <span>Plantillas</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${templatesPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            {templatesPanelOpen && (
+                                                <div className="p-2">
+                                                    <TemplatesPanel
+                                                        onSelectTemplate={handleSelectTemplate}
+                                                        currentSchema={schema}
+                                                        currentPrompt={prompt}
+                                                        onDepartamentoChange={handleDepartamentoChange}
+                                                        currentDepartamento={currentDepartamento}
+                                                        theme={currentTheme}
+                                                        isLightMode={isLightMode}
+                                                        user={user}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
+                                            <button
+                                                onClick={() => setAiPanelOpen(prev => !prev)}
+                                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                                style={{
+                                                    backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
+                                                    color: isLightMode ? '#334155' : '#cbd5e1',
+                                                }}
+                                            >
+                                                <span>Asistente IA</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${aiPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            {aiPanelOpen && (
+                                                <div className="p-2">
+                                                    <AIAssistantPanel
+                                                        file={activeFile?.file || null}
+                                                        onSchemaGenerated={(generatedSchema, generatedPrompt) => {
+                                                            setSchema(generatedSchema);
+                                                            setPrompt(generatedPrompt);
+                                                        }}
+                                                        onValidationComplete={(validationResult) => {
+                                                            console.log('Validación completada:', validationResult);
+                                                        }}
+                                                        onStartExtraction={(newSchema, newPrompt) => {
+                                                            if (activeFile && !isLoading) {
+                                                                setSchema(newSchema);
+                                                                setPrompt(newPrompt);
+                                                                setTimeout(() => handleExtract(), 100);
+                                                            }
+                                                        }}
+                                                        extractedData={activeFile?.extractedData}
+                                                        currentSchema={schema}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </div>
             </main>
