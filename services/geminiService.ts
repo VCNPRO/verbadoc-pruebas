@@ -226,17 +226,24 @@ export interface ModelInfo {
 
 export const AVAILABLE_MODELS: ModelInfo[] = [
     {
+        id: 'gemini-3-pro-preview',
+        name: 'Gemini 3 Pro',
+        description: 'Modelo más preciso para formularios FUNDAE (5/5 en tests)',
+        bestFor: 'FUNDAE, checkboxes, formularios manuscritos',
+        costPerDoc: '~$0.01/doc (recomendado)'
+    },
+    {
         id: 'gemini-2.5-flash',
-        name: 'Estándar 🇪🇺',
-        description: 'Modelo estable y probado procesado en Europa (Bélgica)',
+        name: 'Estándar',
+        description: 'Modelo estable y probado',
         bestFor: 'Uso general, facturas, contratos, informes',
-        costPerDoc: '~$0.0016/doc (recomendado)'
+        costPerDoc: '~$0.0016/doc'
     },
     {
         id: 'gemini-2.5-pro',
-        name: 'Avanzado 🇪🇺',
-        description: 'Modelo avanzado procesado en Europa (Bélgica)',
-        bestFor: 'Documentos complejos, múltiples tablas, análisis profundo',
+        name: 'Avanzado',
+        description: 'Modelo avanzado',
+        bestFor: 'Documentos complejos, múltiples tablas',
         costPerDoc: '~$0.008/doc'
     }
 ];
