@@ -1614,14 +1614,6 @@ function AppContent() {
                                         const sec = elapsed % 60;
                                         return `${min}:${sec.toString().padStart(2, '0')}`;
                                     })()}
-                                    {extractionProgress.completed > 0 && (() => {
-                                        const elapsed = (Date.now() - (extractionProgress.startTime || Date.now())) / 1000;
-                                        const avgPerFile = elapsed / extractionProgress.completed;
-                                        const remaining = Math.ceil(avgPerFile * (extractionProgress.total - extractionProgress.completed));
-                                        const rMin = Math.floor(remaining / 60);
-                                        const rSec = remaining % 60;
-                                        return ` | ~${rMin}:${rSec.toString().padStart(2, '0')} restante`;
-                                    })()}
                                 </span>
                             </div>
                             <div className="w-full rounded-full h-2" style={{ backgroundColor: isLightMode ? '#dbeafe' : '#334155' }}>
