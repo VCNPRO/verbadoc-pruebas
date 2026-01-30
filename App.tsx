@@ -1465,84 +1465,7 @@ function AppContent() {
                                 </svg>
                             </button>
                             {/* Modelo IA fijo: Gemini 3 Pro */}
-                            <button
-                                onClick={() => navigate('/resultados')}
-                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
-                                style={{
-                                    backgroundColor: isLightMode ? '#3b82f6' : '#06b6d4',
-                                    borderColor: isLightMode ? '#1d4ed8' : '#0891b2',
-                                    color: '#ffffff'
-                                }}
-                                title="Ver Historial de Resultados"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                                </svg>
-                                <span className="hidden sm:inline">Resultados</span>
-                            </button>
-                            {/* Botón de Revisión */}
-                            <button
-                                onClick={() => navigate('/review')}
-                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
-                                style={{
-                                    backgroundColor: isLightMode ? '#f59e0b' : '#f97316',
-                                    borderColor: isLightMode ? '#d97706' : '#ea580c',
-                                    color: '#ffffff'
-                                }}
-                                title="Revisar Formularios con Errores"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="hidden sm:inline">Revisar</span>
-                                {reviewCount > 0 && (
-                                    <span className="bg-white/30 px-2 py-0.5 rounded-full text-xs font-bold min-w-[1.5rem] text-center">
-                                        {reviewCount}
-                                    </span>
-                                )}
-                            </button>
-                            {/* Botón Excel Master */}
-                            <button
-                                onClick={() => navigate('/master-excel')}
-                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
-                                style={{
-                                    backgroundColor: isLightMode ? '#10b981' : '#059669',
-                                    borderColor: isLightMode ? '#059669' : '#047857',
-                                    color: '#ffffff'
-                                }}
-                                title="Ver Excel Master de Formularios"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <span className="hidden sm:inline">Excel</span>
-                                {masterExcelCount > 0 && (
-                                    <span className="bg-white/25 px-1.5 rounded text-xs font-bold">
-                                        {masterExcelCount}
-                                    </span>
-                                )}
-                            </button>
-                            {/* Botón No Procesables */}
-                            <button
-                                onClick={() => navigate('/unprocessable')}
-                                className="flex items-center gap-1.5 px-4 py-1.5 border rounded-md text-xs transition-all duration-500 font-semibold shadow hover:shadow-md hover:scale-105"
-                                style={{
-                                    backgroundColor: isLightMode ? '#ef4444' : '#dc2626',
-                                    borderColor: isLightMode ? '#dc2626' : '#b91c1c',
-                                    color: '#ffffff'
-                                }}
-                                title="Ver documentos no procesables"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span className="hidden sm:inline">No Proc.</span>
-                                {unprocessableCount > 0 && (
-                                    <span className="bg-white/25 px-1.5 rounded text-xs font-bold">
-                                        {unprocessableCount}
-                                    </span>
-                                )}
-                            </button>
+                            {/* Resultados, Revisar, Excel, No Proc → movidos al panel lateral */}
                             {/* Botón Plantillas - cuadrado */}
                             <button
                                 onClick={() => navigate('/templates')}
@@ -1632,8 +1555,87 @@ function AppContent() {
             )}
 
             <main className="p-4 sm:p-6 lg:p-8 flex-grow">
-                {/* Zona principal: carga de archivos centrada */}
-                <div className="max-w-5xl mx-auto">
+                <div className="flex gap-4">
+                    {/* Panel lateral: tarjetas de navegacion */}
+                    <div className="hidden lg:flex flex-col gap-2 w-48 flex-shrink-0">
+                        {/* Resultados */}
+                        <button
+                            onClick={() => navigate('/resultados')}
+                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            style={{
+                                backgroundColor: isLightMode ? '#eff6ff' : 'rgba(59, 130, 246, 0.1)',
+                                borderColor: isLightMode ? '#bfdbfe' : '#1e3a5f',
+                            }}
+                        >
+                            <div>
+                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#1e3a8a' : '#60a5fa' }}>{history.length}</p>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#3b82f6' : '#60a5fa'}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            </svg>
+                        </button>
+                        {/* Revisar */}
+                        <button
+                            onClick={() => navigate('/review')}
+                            className="flex flex-col p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            style={{
+                                backgroundColor: isLightMode ? '#fffbeb' : 'rgba(245, 158, 11, 0.1)',
+                                borderColor: isLightMode ? '#fde68a' : '#78350f',
+                            }}
+                        >
+                            <div className="flex items-center justify-between w-full">
+                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>Revisar</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewCount}</p>
+                            </div>
+                            {reviewCount > 0 && (
+                                <div className="w-full mt-1.5">
+                                    <div className="w-full rounded-full h-1.5" style={{ backgroundColor: isLightMode ? '#fde68a' : '#451a03' }}>
+                                        <div className="h-1.5 rounded-full" style={{ width: `${history.length > 0 ? Math.max(5, ((history.length - reviewCount) / history.length) * 100) : 0}%`, backgroundColor: isLightMode ? '#f59e0b' : '#fbbf24' }} />
+                                    </div>
+                                    <p className="text-[10px] mt-0.5" style={{ color: isLightMode ? '#b45309' : '#d97706' }}>
+                                        {history.length > 0 ? Math.round(((history.length - reviewCount) / history.length) * 100) : 0}% validados
+                                    </p>
+                                </div>
+                            )}
+                        </button>
+                        {/* Excel */}
+                        <button
+                            onClick={() => navigate('/master-excel')}
+                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            style={{
+                                backgroundColor: isLightMode ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)',
+                                borderColor: isLightMode ? '#a7f3d0' : '#064e3b',
+                            }}
+                        >
+                            <div>
+                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{masterExcelCount}</p>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </button>
+                        {/* No Procesables */}
+                        <button
+                            onClick={() => navigate('/unprocessable')}
+                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            style={{
+                                backgroundColor: isLightMode ? '#fef2f2' : 'rgba(239, 68, 68, 0.1)',
+                                borderColor: isLightMode ? '#fecaca' : '#7f1d1d',
+                            }}
+                        >
+                            <div>
+                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>No Proc.</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>{unprocessableCount}</p>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#ef4444' : '#f87171'}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                    {/* Zona central: carga de archivos */}
+                    <div className="flex-grow min-w-0">
                     <FileUploader
                         files={files}
                         setFiles={setFiles}
@@ -1647,10 +1649,11 @@ function AppContent() {
                         isLightMode={isLightMode}
                         duplicateFiles={duplicateFiles}
                     />
+                    </div>
                 </div>
 
                 {/* Configuracion avanzada - colapsable */}
-                <div className="max-w-5xl mx-auto mt-4">
+                <div className="mt-4">
                     <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
                         <button
                             onClick={() => setAdvancedConfigOpen(prev => !prev)}
