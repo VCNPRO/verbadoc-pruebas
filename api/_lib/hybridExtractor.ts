@@ -336,6 +336,14 @@ export async function extractHybrid(
     extractedData.lugar_trabajo = 'NC';
   }
 
+  // Alias de campos: Gemini usa "titulacion" y "tamaño_empresa", el sistema espera "titulacion_codigo" y "tamano_empresa"
+  if (extractedData.titulacion !== undefined && extractedData.titulacion_codigo === undefined) {
+    extractedData.titulacion_codigo = extractedData.titulacion;
+  }
+  if (extractedData['tamaño_empresa'] !== undefined && extractedData.tamano_empresa === undefined) {
+    extractedData.tamano_empresa = extractedData['tamaño_empresa'];
+  }
+
   // Post-procesamiento: valoracion_7_x según modalidad
   const modalidad = String(extractedData.modalidad || '').toLowerCase();
   const esPresencial = modalidad.includes('presencial') && !modalidad.includes('mixta');
