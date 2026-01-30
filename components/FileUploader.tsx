@@ -369,65 +369,53 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                         </div>
                                     </div>
                                     <div className="overflow-y-auto pr-2 flex-grow">
-                                        <ul className="space-y-2">
+                                        <ul className="space-y-1">
                                             {files.map(f => (
                                                 <li key={f.id}>
                                                     <button
                                                         onClick={() => onFileSelect(f.id)}
-                                                        className="w-full text-left p-2 rounded-md transition-all duration-200 border-l-4"
+                                                        className="w-full text-left px-2 py-1 rounded transition-all duration-200 border-l-3"
                                                         style={{
                                                             backgroundColor: activeFileId === f.id
                                                                 ? (isLightMode ? '#dbeafe' : 'rgba(8, 145, 178, 0.2)')
-                                                                : (isLightMode ? '#eff6ff' : 'rgba(51, 65, 85, 0.3)')
-                                                            ,
+                                                                : 'transparent',
                                                             borderLeftColor: activeFileId === f.id ? accentColor : 'transparent'
                                                         }}
                                                     >
-                                                        <div className="flex items-center justify-between gap-2">
-                                                            <div className="flex items-center gap-3 min-w-0">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={selectedFileIds.has(f.id)}
-                                                                    onChange={(e) => toggleFileSelection(f.id, e)}
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    className="w-4 h-4 rounded flex-shrink-0"
-                                                                    style={{ accentColor: accentColor }}
-                                                                />
-                                                                <FileIcon className="w-6 h-6 flex-shrink-0" style={{ color: isLightMode ? '#93c5fd' : '#94a3b8' }} />
-                                                                <div className="flex-grow min-w-0">
-                                                                    <p className="text-sm font-medium truncate flex items-center gap-1" style={{ color: duplicateFiles?.has(f.file.name) ? '#ef4444' : textColor }}>
-                                                                        {duplicateFiles?.has(f.file.name) && <span title="Archivo duplicado">⚠️</span>}
-                                                                        {f.file.name}
-                                                                    </p>
-                                                                    <p className="text-xs" style={{ color: duplicateFiles?.has(f.file.name) ? '#f87171' : textSecondary }}>
-                                                                        {formatBytes(f.file.size)}
-                                                                        {duplicateFiles?.has(f.file.name) && ' - DUPLICADO'}
-                                                                    </p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex items-center gap-3 flex-shrink-0">
-                                                                <StatusIndicator status={f.status} />
-                                                                {onViewFile && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            onViewFile(f.file);
-                                                                        }}
-                                                                        className="p-1 transition-colors rounded-full"
-                                                                        style={{ color: textSecondary }}
-                                                                        title="Ver documento"
-                                                                    >
-                                                                        <EyeIcon className="w-4 h-4" />
-                                                                    </button>
-                                                                )}
+                                                        <div className="flex items-center gap-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedFileIds.has(f.id)}
+                                                                onChange={(e) => toggleFileSelection(f.id, e)}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                className="w-3.5 h-3.5 rounded flex-shrink-0"
+                                                                style={{ accentColor: accentColor }}
+                                                            />
+                                                            <span className="text-xs font-medium truncate flex-grow min-w-0" style={{ color: duplicateFiles?.has(f.file.name) ? '#ef4444' : textColor }}>
+                                                                {duplicateFiles?.has(f.file.name) && '⚠️ '}
+                                                                {f.file.name}
+                                                            </span>
+                                                            <span className="text-[10px] flex-shrink-0" style={{ color: textSecondary }}>
+                                                                {formatBytes(f.file.size)}
+                                                            </span>
+                                                            <StatusIndicator status={f.status} />
+                                                            {onViewFile && (
                                                                 <button
-                                                                    onClick={(e) => onRemoveFile(f.id, e)}
-                                                                    className="p-1 transition-colors rounded-full"
+                                                                    onClick={(e) => { e.stopPropagation(); onViewFile(f.file); }}
+                                                                    className="p-0.5 transition-colors rounded-full flex-shrink-0"
                                                                     style={{ color: textSecondary }}
+                                                                    title="Ver documento"
                                                                 >
-                                                                    <TrashIcon className="w-4 h-4" />
+                                                                    <EyeIcon className="w-3.5 h-3.5" />
                                                                 </button>
-                                                            </div>
+                                                            )}
+                                                            <button
+                                                                onClick={(e) => onRemoveFile(f.id, e)}
+                                                                className="p-0.5 transition-colors rounded-full flex-shrink-0"
+                                                                style={{ color: textSecondary }}
+                                                            >
+                                                                <TrashIcon className="w-3.5 h-3.5" />
+                                                            </button>
                                                         </div>
                                                     </button>
                                                 </li>
