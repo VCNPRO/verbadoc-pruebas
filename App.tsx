@@ -111,6 +111,7 @@ function AppContent() {
 
     // Contadores para botones de navegación
     const [reviewCount, setReviewCount] = useState<number>(0);
+    const [reviewStats, setReviewStats] = useState<{ total: number; needsReview: number; valid: number; rejected: number }>({ total: 0, needsReview: 0, valid: 0, rejected: 0 });
     const [masterExcelCount, setMasterExcelCount] = useState<number>(0);
     const [unprocessableCount, setUnprocessableCount] = useState<number>(0);
 
@@ -223,13 +224,20 @@ function AppContent() {
 
         async function loadCounts() {
             try {
-                // Cargar contador de revisión (documentos con errores o needs_review)
-                const reviewResponse = await fetch('/api/extractions?needsReview=true&limit=1', {
+                // Cargar stats completos de revisión
+                const reviewResponse = await fetch('/api/extractions?limit=1', {
                     credentials: 'include'
                 });
                 if (reviewResponse.ok) {
                     const reviewData = await reviewResponse.json();
-                    setReviewCount(reviewData.count || 0);
+                    const stats = reviewData.stats || {};
+                    setReviewStats({
+                        total: stats.total || 0,
+                        needsReview: stats.needsReview || 0,
+                        valid: stats.valid || 0,
+                        rejected: stats.rejected || 0,
+                    });
+                    setReviewCount(stats.needsReview || 0);
                 }
 
                 // Cargar contador de Excel Master
@@ -1584,18 +1592,36 @@ function AppContent() {
                                 borderColor: isLightMode ? '#fde68a' : '#78350f',
                             }}
                         >
-                            <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center justify-between w-full mb-1.5">
                                 <p className="text-xs font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>Revisar</p>
-                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewCount}</p>
+                                <p className="text-sm font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewStats.total}</p>
                             </div>
-                            {reviewCount > 0 && (
-                                <div className="w-full mt-1.5">
-                                    <div className="w-full rounded-full h-1.5" style={{ backgroundColor: isLightMode ? '#fde68a' : '#451a03' }}>
-                                        <div className="h-1.5 rounded-full" style={{ width: `${history.length > 0 ? Math.max(5, ((history.length - reviewCount) / history.length) * 100) : 0}%`, backgroundColor: isLightMode ? '#f59e0b' : '#fbbf24' }} />
+                            {reviewStats.total > 0 && (
+                                <div className="w-full space-y-1">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px]" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>Pendientes</span>
+                                        <span className="text-[10px] font-bold" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>
+                                            {reviewStats.needsReview} ({(reviewStats.needsReview / reviewStats.total * 100).toFixed(1)}%)
+                                        </span>
                                     </div>
-                                    <p className="text-[10px] mt-0.5" style={{ color: isLightMode ? '#b45309' : '#d97706' }}>
-                                        {history.length > 0 ? Math.round(((history.length - reviewCount) / history.length) * 100) : 0}% validados
-                                    </p>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px]" style={{ color: isLightMode ? '#059669' : '#34d399' }}>Validos</span>
+                                        <span className="text-[10px] font-bold" style={{ color: isLightMode ? '#059669' : '#34d399' }}>
+                                            {reviewStats.valid} ({(reviewStats.valid / reviewStats.total * 100).toFixed(1)}%)
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px]" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>Rechazados</span>
+                                        <span className="text-[10px] font-bold" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>
+                                            {reviewStats.rejected} ({(reviewStats.rejected / reviewStats.total * 100).toFixed(1)}%)
+                                        </span>
+                                    </div>
+                                    {/* Barra apilada */}
+                                    <div className="w-full rounded-full h-2 flex overflow-hidden" style={{ backgroundColor: isLightMode ? '#e5e7eb' : '#1f2937' }}>
+                                        <div style={{ width: `${(reviewStats.valid / reviewStats.total) * 100}%`, backgroundColor: isLightMode ? '#10b981' : '#34d399' }} />
+                                        <div style={{ width: `${(reviewStats.needsReview / reviewStats.total) * 100}%`, backgroundColor: isLightMode ? '#f59e0b' : '#fbbf24' }} />
+                                        <div style={{ width: `${(reviewStats.rejected / reviewStats.total) * 100}%`, backgroundColor: isLightMode ? '#ef4444' : '#f87171' }} />
+                                    </div>
                                 </div>
                             )}
                         </button>

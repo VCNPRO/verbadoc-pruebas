@@ -1000,6 +1000,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           newStatus = 'pending';
         }
 
+        // Si el formulario es horizontal (landscape), forzar revisión
+        if (dataObj._landscape === true && newStatus === 'valid') {
+          newStatus = 'needs_review';
+          console.log('[validacion] Formulario horizontal detectado → needs_review');
+        }
+
         console.log(`📊 Validación: ${errors.length} errores, campos básicos OK: ${basicFieldsOK}, estado: ${newStatus}`);
 
         await ExtractionResultDB.update(extraction.id, {

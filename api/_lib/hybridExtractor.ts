@@ -135,6 +135,13 @@ export async function extractHybrid(
 
   console.log(`[hybridExtractor] ${pages.length} página(s) renderizadas`);
 
+  // Detectar formularios en horizontal (landscape)
+  const landscapePages = pages.filter(p => p.width > p.height);
+  const isLandscape = landscapePages.length > 0;
+  if (isLandscape) {
+    console.log(`[hybridExtractor] ⚠️ Formulario HORIZONTAL detectado: ${landscapePages.map(p => `pág ${p.pageNumber} (${p.width}x${p.height})`).join(', ')}`);
+  }
+
   // ========================================
   // PASO 2: Gemini lee TODO directamente
   // ========================================
@@ -361,6 +368,12 @@ export async function extractHybrid(
     if (extractedData[key] === null || extractedData[key] === undefined) {
       extractedData[key] = 'NC';
     }
+  }
+
+  // Si es landscape, añadir a fieldsNeedingReview
+  if (isLandscape) {
+    fieldsNeedingReview.push('FORMULARIO_HORIZONTAL');
+    extractedData._landscape = true;
   }
 
   const fieldsWithValue = Object.values(checkboxResults).filter(r => r.value !== 'NC').length;
