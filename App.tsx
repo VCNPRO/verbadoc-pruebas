@@ -1593,13 +1593,13 @@ function AppContent() {
                             }}
                         >
                             <div className="flex items-center justify-between w-full mb-1.5">
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>Revisar</p>
+                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>Totales</p>
                                 <p className="text-sm font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewStats.total}</p>
                             </div>
                             {reviewStats.total > 0 && (
                                 <div className="w-full space-y-1">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px]" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>Pendientes</span>
+                                        <span className="text-[10px]" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>Por revisar</span>
                                         <span className="text-[10px] font-bold" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>
                                             {reviewStats.needsReview} ({(reviewStats.needsReview / reviewStats.total * 100).toFixed(1)}%)
                                         </span>
