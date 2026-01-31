@@ -91,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Procesar directamente con la librería compartida (sin fetch)
         const textResult = await processWithVertexAI({
-          model: doc.model || 'gemini-2.5-flash',
+          model: doc.model || 'gemini-3-pro-preview',
           contents: {
             role: 'user',
             parts: [{

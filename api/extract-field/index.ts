@@ -70,7 +70,7 @@ INSTRUCCIONES:
 RESPUESTA: Solo el texto extraído, sin explicaciones adicionales.`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3-pro-preview',
         contents: {
           parts: [
             { inlineData: { mimeType: 'image/jpeg', data: base64Image } },

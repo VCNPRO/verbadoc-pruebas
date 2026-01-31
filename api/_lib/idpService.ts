@@ -44,7 +44,7 @@ IMPORTANTE: Si ninguna plantilla coincide claramente, usa confidence < 0.5
 Responde en JSON: { "match_id": "el-id-de-la-plantilla", "confidence": 0.0-1.0, "reason": "breve explicación" }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-pro-preview',
       contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
@@ -75,7 +75,7 @@ INSTRUCCIONES:
 Responde JSON: { "anchors": [{"label": "nombre", "x": número, "y": número}, ...] }`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-pro-preview',
       contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] },
       config: { responseMimeType: "application/json" }
     });
@@ -237,7 +237,7 @@ export const extractWithConfidence = async (base64Image: string, region: Region,
     }
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-pro-preview',
       contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] }
     });
 
@@ -309,7 +309,7 @@ EJEMPLO de una fila con campo y casillas:
 Devuelve JSON array con ABSOLUTAMENTE TODOS los elementos detectados.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-pro-preview',
       contents: {
         parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }]
       },

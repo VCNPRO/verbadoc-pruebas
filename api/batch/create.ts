@@ -78,7 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userId: user.userId,
       name,
       description,
-      modelUsed: modelUsed || 'gemini-2.5-flash',
+      modelUsed: modelUsed || 'gemini-3-pro-preview',
       promptTemplate,
       schemaConfig,
       files,
