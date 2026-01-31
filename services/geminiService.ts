@@ -177,14 +177,39 @@ const convertSchemaToVertexAI = (schema: SchemaField[]): VertexAISchema => {
     return {
         type: 'OBJECT',
         properties,
-        // NO incluimos required - permite valores null/omitidos
+        required: Object.keys(properties), // Forzar que Gemini devuelva TODOS los campos
     };
 };
 
 // Post-procesamiento: convierte null/undefined a "NC"
 // Excepción: valoracion_7_x depende de modalidad
+// Lista de TODOS los campos FUNDAE que siempre deben estar presentes
+const FUNDAE_REQUIRED_FIELDS = [
+    'numero_expediente', 'perfil', 'cif_empresa', 'numero_accion', 'numero_grupo',
+    'denominacion_aaff', 'modalidad', 'edad', 'sexo', 'titulacion', 'titulacion_codigo',
+    'lugar_trabajo', 'categoria_profesional', 'categoria_profesional_otra',
+    'horario_curso', 'porcentaje_jornada', 'tamano_empresa',
+    'valoracion_1_1', 'valoracion_1_2', 'valoracion_2_1', 'valoracion_2_2',
+    'valoracion_3_1', 'valoracion_3_2',
+    'valoracion_4_1_formadores', 'valoracion_4_1_tutores',
+    'valoracion_4_2_formadores', 'valoracion_4_2_tutores',
+    'valoracion_5_1', 'valoracion_5_2', 'valoracion_6_1', 'valoracion_6_2',
+    'valoracion_7_1', 'valoracion_7_2',
+    'valoracion_8_1', 'valoracion_8_2',
+    'valoracion_9_1', 'valoracion_9_2', 'valoracion_9_3', 'valoracion_9_4', 'valoracion_9_5',
+    'valoracion_10', 'recomendaria_curso', 'sugerencias', 'fecha_cumplimentacion',
+    'registro_entrada'
+];
+
 const postProcessExtraction = (data: any): any => {
     const result = { ...data };
+
+    // Asegurar que TODOS los campos FUNDAE estén presentes (rellenar faltantes con NC)
+    for (const field of FUNDAE_REQUIRED_FIELDS) {
+        if (!(field in result)) {
+            result[field] = 'NC';
+        }
+    }
 
     // Determinar valor para valoracion_7_x basado en modalidad
     const modalidad = result.modalidad?.toLowerCase() || '';
@@ -204,8 +229,8 @@ const postProcessExtraction = (data: any): any => {
 
     // Asegurar que valoracion_7_x sea NA si es presencial (incluso si tiene valor)
     if (esPresencial) {
-        if (result.valoracion_7_1 !== undefined) result.valoracion_7_1 = 'NA';
-        if (result.valoracion_7_2 !== undefined) result.valoracion_7_2 = 'NA';
+        result.valoracion_7_1 = 'NA';
+        result.valoracion_7_2 = 'NA';
     }
 
     return result;
@@ -769,59 +794,18 @@ export const extractWithHybridSystem = async (
       ).length;
       lastConfidence = extractedFields / totalFields;
 
-      console.log(`📊 Resultado Flash: ${Math.round(lastConfidence * 100)}% confianza (${extractedFields}/${totalFields} campos)`);
+      console.log(`📊 Resultado Gemini 3 Pro: ${Math.round(lastConfidence * 100)}% confianza (${extractedFields}/${totalFields} campos)`);
 
-      // Si la confianza es suficiente, devolver resultado
-      if (lastConfidence >= threshold) {
-        console.log(`✅ Confianza suficiente con ${currentModel}`);
-        return {
-          data: aiData,
-          method: 'ai',
-          confidence: lastConfidence,
-          confidencePercentage: Math.round(lastConfidence * 100),
-          processingTimeMs: Date.now() - startTime,
-          usedFallback: false,
-          modelUsed: currentModel,
-          modelEscalated: false,
-          attempts: attempts,
-        };
-      }
-
-      // INTENTO 2: Escalar a gemini-2.5-pro si está habilitado
-      if (enableEscalation && lastConfidence < threshold) {
-        console.log(`⚠️ Confianza baja (${Math.round(lastConfidence * 100)}%), escalando a modelo superior...`);
-
-        currentModel = 'gemini-2.5-pro';
-        modelEscalated = true;
-        attempts++;
-
-        console.log(`🤖 Intento ${attempts}: Usando ${currentModel} (modelo avanzado)...`);
-
-        const proData = await extractDataFromDocument(file, schema, prompt, currentModel);
-        lastData = proData;
-
-        // Recalcular confianza
-        const proExtractedFields = Object.entries(proData).filter(([_, v]) =>
-          v !== null && v !== undefined && v !== '' && v !== 'NC'
-        ).length;
-        lastConfidence = proExtractedFields / totalFields;
-
-        console.log(`📊 Resultado Pro: ${Math.round(lastConfidence * 100)}% confianza (${proExtractedFields}/${totalFields} campos)`);
-      }
-
-      // Devolver el mejor resultado obtenido
-      const finalMethod: ExtractionMethod = modelEscalated ? 'ai_escalated' : 'ai';
-
+      // Devolver resultado directo (sin escalado, solo gemini-3-pro-preview)
       return {
-        data: lastData,
-        method: finalMethod,
+        data: aiData,
+        method: 'ai',
         confidence: lastConfidence,
         confidencePercentage: Math.round(lastConfidence * 100),
         processingTimeMs: Date.now() - startTime,
-        usedFallback: modelEscalated,
-        fallbackReason: modelEscalated ? 'low_confidence_escalated_to_pro' : undefined,
+        usedFallback: false,
         modelUsed: currentModel,
-        modelEscalated: modelEscalated,
+        modelEscalated: false,
         attempts: attempts,
       };
 

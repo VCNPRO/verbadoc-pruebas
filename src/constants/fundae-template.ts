@@ -148,12 +148,11 @@ REGLA 5 - ANTE LA DUDA → "NC":
 - No estás seguro → "NC"
 - Parece tachado/corregido → "NC"
 
-REGLA 6 - CAMPOS QUE NO EXISTEN FÍSICAMENTE EN EL PDF:
-⚠️ MUY IMPORTANTE: Distinguir entre "campo vacío" y "campo inexistente":
+REGLA 6 - DEVOLVER SIEMPRE TODOS LOS CAMPOS:
+⚠️ MUY IMPORTANTE: SIEMPRE devuelve TODOS los campos del schema en el JSON.
 - Si el campo/pregunta EXISTE en el PDF pero la respuesta está vacía → devuelve "NC"
-- Si el campo/pregunta NO EXISTE FÍSICAMENTE en el PDF (no aparece la pregunta) → NO INCLUIR ese campo en el JSON
-Ejemplo: Si la pregunta "¿Recomendaría este curso?" NO aparece en el PDF, NO devuelvas recomendaria_curso en absoluto.
-Solo incluye en el JSON los campos que SÍ existen físicamente en el documento.
+- Si el campo/pregunta NO se ve claramente en el PDF → devuelve "NC"
+- NUNCA omitas un campo del JSON. Todos los campos deben estar presentes.
 
 Las marcas válidas son: X, ✓, ✗, círculo, tachado, o relleno completo de casilla.
 
@@ -330,7 +329,7 @@ SATISFACCIÓN FINAL:
   • Si la pregunta EXISTE y hay marca en Sí → devolver "Sí"
   • Si la pregunta EXISTE y hay marca en No → devolver "No"
   • Si la pregunta EXISTE pero sin marca → devolver "NC"
-  • Si la pregunta NO EXISTE físicamente en el PDF → NO INCLUIR este campo en el JSON (omitirlo completamente)
+  • Si la pregunta NO aparece en el PDF → devolver "NC"
 
 ═══════════════════════════════════════════════════════════════════════════════
 CAMPOS ADICIONALES
