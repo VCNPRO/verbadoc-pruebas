@@ -55,10 +55,123 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
   const [correctedValue, setCorrectedValue] = useState('');
   const [correctionNotes, setCorrectionNotes] = useState('');
 
-  // Estado para editar cualquier campo (no solo errores)
-  const [isFieldEditModalOpen, setIsFieldEditModalOpen] = useState(false);
-  const [editingField, setEditingField] = useState<{ key: string; value: any } | null>(null);
-  const [fieldEditValue, setFieldEditValue] = useState('');
+  // Estado para edición inline de campos
+  const [inlineEditField, setInlineEditField] = useState<string | null>(null);
+  const [inlineEditValue, setInlineEditValue] = useState('');
+
+  // Determinar opciones de dropdown según el campo
+  const getFieldOptions = (key: string): string[] | null => {
+    const k = key.toLowerCase();
+
+    // Binario
+    if (k === 'valoracion_8_1' || k === 'valoracion_8_2' || k === 'recomendaria_curso') {
+      return ['NC', 'Sí', 'No'];
+    }
+    // Teleformación
+    if (k === 'valoracion_7_1' || k === 'valoracion_7_2') {
+      return ['NC', '1', '2', '3', '4', 'NA'];
+    }
+    // Valoración genérica
+    if (k.startsWith('valoracion_')) {
+      return ['NC', '1', '2', '3', '4'];
+    }
+    // Sexo
+    if (k === 'sexo') return ['NC', '1', '2', '9'];
+    // Modalidad
+    if (k === 'modalidad') return ['NC', 'Presencial', 'Teleformación', 'Mixta'];
+    // Categoría profesional
+    if (k === 'categoria_profesional') return ['NC', '1', '2', '3', '4', '5', '6', '9'];
+    // Horario
+    if (k === 'horario_curso') return ['NC', '1', '2', '3', '9'];
+    // Porcentaje jornada
+    if (k === 'porcentaje_jornada') return ['NC', '1', '2', '3', '9'];
+    // Tamaño empresa
+    if (k === 'tamano_empresa') return ['NC', '1', '2', '3', '4', '5', '9'];
+
+    return null; // Texto libre
+  };
+
+  // Iniciar edición inline
+  const handleStartInlineEdit = (key: string, value: any) => {
+    setInlineEditField(key);
+    setInlineEditValue(String(value ?? ''));
+  };
+
+  // Guardar edición inline
+  const handleSaveInlineEdit = (key: string, newValue: string) => {
+    if (!extraction) return;
+
+    const updatedData = {
+      ...extraction.extracted_data,
+      [key]: newValue
+    };
+
+    setExtraction({
+      ...extraction,
+      extracted_data: updatedData
+    });
+
+    setInlineEditField(null);
+    setInlineEditValue('');
+    console.log(`✅ Campo "${key}" actualizado a: "${newValue}"`);
+  };
+
+  // Cancelar edición inline
+  const handleCancelInlineEdit = () => {
+    setInlineEditField(null);
+    setInlineEditValue('');
+  };
+
+  // Renderizar celda de valor (inline edit o texto)
+  const renderValueCell = (key: string, value: any) => {
+    if (inlineEditField === key) {
+      const options = getFieldOptions(key);
+      if (options) {
+        return (
+          <select
+            value={inlineEditValue}
+            onChange={(e) => handleSaveInlineEdit(key, e.target.value)}
+            onBlur={handleCancelInlineEdit}
+            autoFocus
+            className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+          >
+            {!options.includes(String(value ?? '')) && (
+              <option value={String(value ?? '')}>{String(value ?? '(vacío)')}</option>
+            )}
+            {options.map((opt) => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
+        );
+      }
+      // Texto libre: input inline
+      return (
+        <input
+          type="text"
+          value={inlineEditValue}
+          onChange={(e) => setInlineEditValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSaveInlineEdit(key, inlineEditValue);
+            if (e.key === 'Escape') handleCancelInlineEdit();
+          }}
+          onBlur={handleCancelInlineEdit}
+          autoFocus
+          className="w-full px-2 py-1 border border-blue-400 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+        />
+      );
+    }
+
+    // Modo lectura: click para editar
+    return (
+      <span
+        onClick={() => handleStartInlineEdit(key, value)}
+        className="cursor-pointer hover:bg-blue-50 px-1 py-0.5 rounded transition-colors"
+        title="Click para editar"
+      >
+        {String(value ?? '-')}
+      </span>
+    );
+  };
 
   // Generar highlights para el PDF basados en errores de validación
   const pdfHighlights = useMemo<PdfHighlight[]>(() => {
@@ -294,57 +407,6 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
     }
   };
 
-  // Abrir modal para editar cualquier campo
-  const handleStartFieldEdit = (key: string, value: any) => {
-    setEditingField({ key, value });
-    setFieldEditValue(String(value ?? ''));
-    setIsFieldEditModalOpen(true);
-  };
-
-  // Guardar cambio de campo
-  const handleSaveFieldEdit = async () => {
-    if (!editingField || !extraction) return;
-
-    const originalValue = extraction.extracted_data[editingField.key];
-
-    // Actualizar el estado local PRIMERO (UX inmediata)
-    const updatedData = {
-      ...extraction.extracted_data,
-      [editingField.key]: fieldEditValue
-    };
-
-    setExtraction({
-      ...extraction,
-      extracted_data: updatedData
-    });
-
-    // Cerrar modal
-    setIsFieldEditModalOpen(false);
-    setEditingField(null);
-    setFieldEditValue('');
-
-    // Persistir en BD (background, no bloquea UI)
-    try {
-      const response = await fetch(`/api/extractions/${extraction.id}/field-edit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          fieldName: editingField.key,
-          originalValue,
-          newValue: fieldEditValue
-        })
-      });
-
-      if (!response.ok) {
-        console.error('⚠️ Error al persistir edición en BD:', await response.text());
-      } else {
-        console.log(`✅ Campo "${editingField.key}" persistido en BD: "${originalValue}" → "${fieldEditValue}"`);
-      }
-    } catch (error) {
-      console.error('⚠️ Error de red al persistir edición (cambio local mantenido):', error);
-    }
-  };
 
   // Aprobar formulario completo
   const handleApprove = async () => {
@@ -534,7 +596,7 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
   // Atajos de teclado
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isEditModalOpen) return; // No interferir con el modal
+      if (isEditModalOpen || inlineEditField) return; // No interferir con edición
 
       if (e.key === 'ArrowLeft') {
         handlePreviousError();
@@ -547,7 +609,7 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isEditModalOpen, currentErrorIndex, errors.length]);
+  }, [isEditModalOpen, inlineEditField, currentErrorIndex, errors.length]);
 
   if (loading) {
     return (
@@ -714,7 +776,7 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
                           <tr key={key} className="border-b border-gray-100 hover:bg-gray-100">
                             <td className="py-1 px-1 text-center">
                               <button
-                                onClick={() => handleStartFieldEdit(key, value)}
+                                onClick={() => handleStartInlineEdit(key, value)}
                                 className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                                 title="Editar campo"
                               >
@@ -722,7 +784,7 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
                               </button>
                             </td>
                             <td className="py-1 px-2 font-mono text-gray-500 text-xs">{key}</td>
-                            <td className="py-1 px-2 text-gray-900">{String(value ?? '-')}</td>
+                            <td className="py-1 px-2 text-gray-900">{renderValueCell(key, value)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -916,7 +978,7 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
                             <tr key={key} className={currentError?.field_name === key ? 'bg-amber-50' : 'hover:bg-gray-50'}>
                               <td className="px-2 py-2 text-center">
                                 <button
-                                  onClick={() => handleStartFieldEdit(key, value)}
+                                  onClick={() => handleStartInlineEdit(key, value)}
                                   className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                                   title="Editar campo"
                                 >
@@ -924,7 +986,7 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
                                 </button>
                               </td>
                               <td className="px-4 py-2 text-xs font-mono text-gray-500">{key}</td>
-                              <td className="px-4 py-2 text-sm text-gray-900">{String(value ?? '')}</td>
+                              <td className="px-4 py-2 text-sm text-gray-900">{renderValueCell(key, value)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -1063,78 +1125,6 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
         </div>
       )}
 
-      {/* Modal para editar cualquier campo */}
-      {isFieldEditModalOpen && editingField && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Editar Campo
-                </h2>
-                <button
-                  onClick={() => setIsFieldEditModalOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Nombre del campo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Campo
-                </label>
-                <p className="text-gray-900 font-mono bg-gray-100 px-3 py-2 rounded">{editingField.key}</p>
-              </div>
-
-              {/* Valor original */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Valor Original
-                </label>
-                <p className="text-gray-500 bg-gray-50 px-3 py-2 rounded text-sm">
-                  {String(editingField.value ?? '(vacío)')}
-                </p>
-              </div>
-
-              {/* Nuevo valor */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nuevo Valor
-                </label>
-                <input
-                  type="text"
-                  value={fieldEditValue}
-                  onChange={(e) => setFieldEditValue(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Introduce el nuevo valor"
-                  autoFocus
-                />
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
-              <button
-                onClick={() => setIsFieldEditModalOpen(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSaveFieldEdit}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Guardar Cambio
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
