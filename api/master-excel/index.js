@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
         LIMIT ${parseInt(limit)}
       `;
 
-      // Stats simplificadas
+      // Stats simplificadas (excluyendo needs_review para consistencia con las filas mostradas)
       const statsResult = await sql`
         SELECT
           COUNT(*)::INTEGER AS total_rows,
@@ -34,6 +34,7 @@ module.exports = async function handler(req, res) {
           COUNT(*) FILTER (WHERE validation_status = 'approved')::INTEGER AS approved
         FROM master_excel_output
         WHERE is_latest = true
+          AND validation_status != 'needs_review'
       `;
 
       return res.status(200).json({
@@ -51,10 +52,37 @@ module.exports = async function handler(req, res) {
   if (req.method === 'POST') {
     try {
       const { extraction_id, row_data, filename, validation_status = 'pending' } = req.body;
-      const userId = '3360dfa5-0000-0000-0000-000000000001';
+
+      // Obtener userId del token JWT o usar fallback
+      let userId = '3360dfa5-0a33-4c11-8ccb-6e50dd7e3705';
+      try {
+        const jwt = require('jsonwebtoken');
+        const token = req.cookies?.['auth-token'];
+        if (token && process.env.JWT_SECRET) {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET);
+          userId = decoded.id || decoded.userId || userId;
+        }
+      } catch (e) {
+        console.warn('JWT verification failed, using fallback userId');
+      }
 
       if (!extraction_id || !row_data || !filename) {
         return res.status(400).json({ error: 'Faltan campos: extraction_id, row_data, filename' });
+      }
+
+      // Verificar si ya existe para este extraction_id
+      const existing = await sql`SELECT id FROM master_excel_output WHERE extraction_id = ${extraction_id}::uuid AND is_latest = true LIMIT 1`;
+      if (existing.rows.length > 0) {
+        // Actualizar en vez de duplicar
+        const updated = await sql`
+          UPDATE master_excel_output
+          SET row_data = ${JSON.stringify(row_data)}::jsonb,
+              validation_status = ${validation_status},
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = ${existing.rows[0].id}
+          RETURNING *
+        `;
+        return res.status(200).json({ success: true, row: updated.rows[0], updated: true });
       }
 
       // Obtener siguiente row_number
