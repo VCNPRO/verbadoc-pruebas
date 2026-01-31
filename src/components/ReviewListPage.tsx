@@ -212,19 +212,24 @@ export default function ReviewListPage() {
   const executeDelete = async () => {
     try {
       setProcessing(true);
-      const idsToProcess = Array.from(selectedIds);
       const CONCURRENCY = 3;
       let successCount = 0;
       let failCount = 0;
 
-      const processItem = async (id: string) => {
+      // Separar por tipo: extractions normales vs unprocessable
+      const extractionIds = extractions
+        .filter(ex => selectedIds.has(ex.id) && ex.source !== 'unprocessable')
+        .map(ex => ex.id);
+      const unprocessableIds = extractions
+        .filter(ex => selectedIds.has(ex.id) && ex.source === 'unprocessable')
+        .map(ex => ex.id);
+
+      const deleteExtraction = async (id: string) => {
         try {
-          // DELETE /api/extractions/:id/delete
           const response = await fetch(`/api/extractions/${id}/delete`, {
             method: 'DELETE',
             credentials: 'include'
           });
-
           if (!response.ok) throw new Error('Falló eliminación');
           return true;
         } catch (error) {
@@ -233,9 +238,32 @@ export default function ReviewListPage() {
         }
       };
 
-      for (let i = 0; i < idsToProcess.length; i += CONCURRENCY) {
-        const chunk = idsToProcess.slice(i, i + CONCURRENCY);
-        const results = await Promise.all(chunk.map(processItem));
+      const deleteUnprocessable = async (id: string) => {
+        try {
+          const response = await fetch(`/api/unprocessable?id=${id}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+          if (!response.ok) throw new Error('Falló eliminación');
+          return true;
+        } catch (error) {
+          console.error(`❌ Falló eliminación de no procesable ${id}:`, error);
+          return false;
+        }
+      };
+
+      // Procesar extractions normales
+      for (let i = 0; i < extractionIds.length; i += CONCURRENCY) {
+        const chunk = extractionIds.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(chunk.map(deleteExtraction));
+        successCount += results.filter(Boolean).length;
+        failCount += results.filter(r => !r).length;
+      }
+
+      // Procesar unprocessable
+      for (let i = 0; i < unprocessableIds.length; i += CONCURRENCY) {
+        const chunk = unprocessableIds.slice(i, i + CONCURRENCY);
+        const results = await Promise.all(chunk.map(deleteUnprocessable));
         successCount += results.filter(Boolean).length;
         failCount += results.filter(r => !r).length;
       }
