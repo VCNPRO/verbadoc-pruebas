@@ -56,32 +56,23 @@ PÁGINA 1 — Datos del participante:
 
 PÁGINA 2 — Valoraciones (tabla con escala NC, 1, 2, 3, 4):
 
-⚠️⚠️⚠️ ERROR COMÚN QUE DEBES EVITAR ⚠️⚠️⚠️
-La PRIMERA casilla de cada fila es NC (No Contesta). NO LA IGNORES.
-Si ignoras la casilla NC y empiezas a contar desde "1", todos tus valores estarán DESPLAZADOS +1 y serán INCORRECTOS.
+Cada sección de la tabla tiene una CABECERA con las etiquetas "NC  1  2  3  4" impresas.
+Cada fila debajo de la cabecera tiene 5 casillas alineadas verticalmente con esas etiquetas.
 
-La tabla tiene EXACTAMENTE 5 casillas por fila. De IZQUIERDA a DERECHA:
-  □ □ □ □ □
-  NC 1  2  3  4
-
-  Casilla 1 (más a la IZQUIERDA) = NC
-  Casilla 2 = 1
-  Casilla 3 = 2
-  Casilla 4 = 3
-  Casilla 5 (más a la DERECHA) = 4
-
-⚠️ MÉTODO DE LECTURA OBLIGATORIO para cada fila:
-1. Mira la CABECERA de la sección (donde está impreso "NC  1  2  3  4")
-2. La casilla que está DEBAJO de "NC" es NC, la que está DEBAJO de "1" es 1, etc.
-3. Traza una línea vertical imaginaria desde la etiqueta de la cabecera hasta la casilla de la fila
-4. El valor es la etiqueta de la cabecera que queda JUSTO ENCIMA de la casilla marcada
-
-EJEMPLO: Si la marca está en la TERCERA casilla desde la izquierda → el valor es "2" (NO "3").
-EJEMPLO: Si la marca está en la CUARTA casilla desde la izquierda → el valor es "3" (NO "4").
+⚠️ MÉTODO DE LECTURA — LEE LA ETIQUETA, NO CUENTES POSICIONES:
+Para cada fila de valoración:
+1. Localiza cuál de las 5 casillas tiene una marca de bolígrafo
+2. Mira VERTICALMENTE HACIA ARRIBA desde esa casilla hasta la cabecera de la sección
+3. Lee la ETIQUETA que está en la cabecera directamente encima: será "NC", "1", "2", "3" o "4"
+4. ESA etiqueta es el valor. NO cuentes posiciones, LEE la etiqueta de la cabecera.
 
 SOLO cuenta como marcado si hay un trazo CLARO de bolígrafo (X, ✓, relleno, trazo) DENTRO de la casilla.
 Una casilla vacía (solo los bordes impresos del cuadrado) NO está marcada.
 Si no hay NINGUNA casilla marcada en la fila, devuelve "NC".
+
+NOTA SOBRE SECCIONES CON DOS FILAS DE CHECKBOXES (Formadores/Tutores):
+La sección 4 tiene DOS columnas de checkboxes: "Formadores" (izquierda) y "Tutores" (derecha).
+Cada columna tiene su PROPIA cabecera "NC 1 2 3 4". Lee cada columna por separado.
 
 - valoracion_1_1: Pregunta 1.1 (Organización del curso)
 - valoracion_1_2: Pregunta 1.2
@@ -152,21 +143,22 @@ Eres un verificador independiente. La primera IA ha extraído valores de un form
 Tu trabajo es VERIFICAR si el valor extraído es CORRECTO — es decir, si la marca de bolígrafo está realmente en la COLUMNA indicada.
 
 ESTRUCTURA DE LA TABLA DE VALORACIONES:
-Las columnas van de IZQUIERDA a DERECHA: NC, 1, 2, 3, 4
-Usa la CABECERA impresa ("NC  1  2  3  4") como referencia para identificar cada columna.
+Cada sección tiene una cabecera impresa con "NC  1  2  3  4".
+Las casillas de cada fila están alineadas verticalmente con esas etiquetas.
 
 CAMPOS A VERIFICAR:
 ${fieldList}
 
 Para CADA campo:
 1. Localiza la fila de esa pregunta en la tabla
-2. Localiza la CABECERA de la sección ("NC  1  2  3  4")
-3. Identifica EN QUÉ COLUMNA hay marca de bolígrafo, contando desde la izquierda (1ª=NC, 2ª=1, 3ª=2, 4ª=3, 5ª=4)
-4. Compara con el valor que extrajo la primera IA
+2. Encuentra cuál casilla de esa fila tiene marca de bolígrafo
+3. Mira VERTICALMENTE HACIA ARRIBA desde la casilla marcada hasta la cabecera
+4. Lee la ETIQUETA de la cabecera que está directamente encima de la casilla marcada
+5. Compara esa etiqueta con el valor que extrajo la primera IA
 
 Responde:
-- "CONFIRMADO" — la marca está efectivamente en la columna del valor indicado
-- "NO_CONFIRMADO" — la marca está en OTRA columna, no hay marca, o tienes duda
+- "CONFIRMADO" — la etiqueta de la cabecera encima de la marca coincide con el valor indicado
+- "NO_CONFIRMADO" — la etiqueta NO coincide, no hay marca, o tienes duda
 
 REGLAS:
 1. Solo confirma si la marca está en la columna EXACTA del valor indicado
@@ -498,6 +490,22 @@ export async function extractHybrid(
   for (const field of verificationResult.verified) {
     if (checkboxResults[field]) {
       checkboxResults[field].confidence = 0.95; // Confirmado por doble pasada
+    }
+  }
+
+  // Si la verificación rechazó muchos campos → documento sucio, marcar para revisión humana
+  const totalVerified = verificationResult.verified.length + verificationResult.changed.length;
+  if (!verificationResult.skipped && totalVerified > 0) {
+    const rejectionRate = verificationResult.changed.length / totalVerified;
+    if (verificationResult.changed.length >= 5 || rejectionRate >= 0.4) {
+      console.log(`[hybridExtractor] ⚠️ Documento SUCIO detectado: ${verificationResult.changed.length}/${totalVerified} campos rechazados por verificación (${(rejectionRate * 100).toFixed(0)}%)`);
+      fieldsNeedingReview.push('DOCUMENTO_BAJA_CALIDAD');
+      // Marcar todos los checkboxes para revisión humana
+      for (const field of [...valuationFields, ...binaryFields]) {
+        if (checkboxResults[field]) {
+          checkboxResults[field].needsHumanReview = true;
+        }
+      }
     }
   }
 
