@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
       // Stats simplificadas (excluyendo needs_review para consistencia con las filas mostradas)
       const statsResult = await sql`
         SELECT
-          COUNT(*)::INTEGER AS total_rows,
+          COUNT(*)::INTEGER AS total,
           COUNT(*) FILTER (WHERE validation_status = 'pending')::INTEGER AS pending,
           COUNT(*) FILTER (WHERE validation_status = 'valid')::INTEGER AS valid,
           COUNT(*) FILTER (WHERE validation_status = 'approved')::INTEGER AS approved
