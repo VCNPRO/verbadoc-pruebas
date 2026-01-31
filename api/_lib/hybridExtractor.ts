@@ -97,7 +97,191 @@ REGLAS CRÍTICAS:
 5. Para la tabla de valoraciones: cada fila solo puede tener UNA columna marcada (NC, 1, 2, 3 o 4).
 6. Sé muy cuidadoso con el sexo: verifica cuál de los checkboxes (Mujer=1, Hombre=2, NC=9) tiene realmente marca.
 
+⚠️ PROTOCOLO ANTI-ALUCINACIÓN PARA VALORACIONES ⚠️
+
+ATENCIÓN: Este es un proyecto gubernamental con 16.000 documentos. Un valor INVENTADO es INACEPTABLE.
+Para CADA fila de valoración (1.1, 1.2, 2.1... hasta 10) y CADA checkbox (sexo, modalidad, categoría, etc.):
+
+PASO 1 - EXAMINA las casillas de esa fila/campo una por una.
+PASO 2 - DECIDE:
+  - UNA SOLA casilla con marca CLARA e INEQUÍVOCA de bolígrafo → ese valor
+  - NINGUNA casilla tiene marca de bolígrafo → "NC"
+  - Marca DUDOSA (sombra, mancha, borde grueso, artefacto de escaneo) → "NC"
+  - MÁS DE UNA casilla marcada → "NC"
+  - CUALQUIER nivel de duda → "NC"
+
+RECUERDA: Una casilla VACÍA tiene solo los bordes impresos. NO la confundas con una marca.
+Los artefactos de escaneo, sombras de dobleces del papel, y bordes gruesos NO son marcas de bolígrafo.
+
+ES MEJOR 100 NC DE MÁS QUE 1 VALOR INVENTADO.
+Un NC erróneo se corrige fácilmente en revisión humana. Un valor inventado puede pasar desapercibido y causar errores graves.
+
 Devuelve SOLO un JSON con todos los campos listados arriba. NUNCA uses null, usa "NC" para campos sin dato.`;
+
+// --- Prompt de verificación anti-alucinación (CAPA 2) ---
+function buildVerificationPrompt(fieldsToVerify: { field: string; value: string; questionLabel: string }[]): string {
+  const fieldList = fieldsToVerify.map(f =>
+    `- ${f.field}: La primera pasada dijo "${f.value}" para "${f.questionLabel}". ¿Hay una marca CLARA e INEQUÍVOCA de bolígrafo en la casilla ${f.value} de esa fila?`
+  ).join('\n');
+
+  return `VERIFICACIÓN ESTRICTA DE CHECKBOXES — ANTI-ALUCINACIÓN
+
+Eres un verificador independiente. La primera IA ha extraído valores de un formulario FUNDAE.
+Tu trabajo es VERIFICAR si realmente hay marcas de bolígrafo en las casillas indicadas.
+
+CAMPOS A VERIFICAR:
+${fieldList}
+
+Para CADA campo, responde:
+- "CONFIRMADO" — si ves una marca CLARA e INEQUÍVOCA de bolígrafo (X, ✓, relleno, trazo) DENTRO de esa casilla específica
+- "NO_CONFIRMADO" — si la casilla está vacía, tiene solo bordes impresos, hay sombra/mancha/artefacto, o tienes CUALQUIER duda
+
+REGLAS:
+1. Solo confirma si la marca es OBVIA e INDISCUTIBLE
+2. Sombras de escaneo, bordes gruesos, dobleces del papel NO son marcas
+3. Si no puedes ubicar la fila/pregunta con certeza → NO_CONFIRMADO
+4. Ante CUALQUIER duda → NO_CONFIRMADO
+
+Responde SOLO con JSON: { "campo": "CONFIRMADO" o "NO_CONFIRMADO" }
+Ejemplo: { "valoracion_1_1": "CONFIRMADO", "valoracion_2_1": "NO_CONFIRMADO" }`;
+}
+
+// Mapeo de campos a etiquetas legibles para el prompt de verificación
+const FIELD_LABELS: Record<string, string> = {
+  valoracion_1_1: 'Pregunta 1.1 (Organización del curso)',
+  valoracion_1_2: 'Pregunta 1.2',
+  valoracion_2_1: 'Pregunta 2.1 (Contenidos y metodología)',
+  valoracion_2_2: 'Pregunta 2.2',
+  valoracion_3_1: 'Pregunta 3.1 (Duración y horario)',
+  valoracion_3_2: 'Pregunta 3.2',
+  valoracion_4_1_formadores: 'Pregunta 4.1 fila FORMADORES',
+  valoracion_4_1_tutores: 'Pregunta 4.1 fila TUTORES',
+  valoracion_4_2_formadores: 'Pregunta 4.2 fila FORMADORES',
+  valoracion_4_2_tutores: 'Pregunta 4.2 fila TUTORES',
+  valoracion_5_1: 'Pregunta 5.1 (Medios didácticos)',
+  valoracion_5_2: 'Pregunta 5.2',
+  valoracion_6_1: 'Pregunta 6.1 (Instalaciones)',
+  valoracion_6_2: 'Pregunta 6.2',
+  valoracion_7_1: 'Pregunta 7.1 (Teleformación)',
+  valoracion_7_2: 'Pregunta 7.2 (Teleformación)',
+  valoracion_9_1: 'Pregunta 9.1 (Valoración general)',
+  valoracion_9_2: 'Pregunta 9.2',
+  valoracion_9_3: 'Pregunta 9.3',
+  valoracion_9_4: 'Pregunta 9.4',
+  valoracion_9_5: 'Pregunta 9.5',
+  valoracion_10: 'Pregunta 10 (Satisfacción general)',
+  valoracion_8_1: 'Pregunta 8.1 (Sí/No)',
+  valoracion_8_2: 'Pregunta 8.2 (Sí/No)',
+  recomendaria_curso: 'Recomendaría el curso (Sí/No)',
+};
+
+/**
+ * CAPA 2: Segunda pasada de verificación anti-alucinación.
+ * Solo verifica campos donde Gemini devolvió un VALOR (no NC).
+ * Si la verificación dice NO_CONFIRMADO → se cambia a NC.
+ */
+async function verifyValuations(
+  extractedData: Record<string, any>,
+  pages: { buffer: Buffer; pageNumber: number }[],
+  apiKey: string,
+  modelId: string
+): Promise<{ changed: string[]; verified: string[]; skipped: boolean }> {
+  const allValuationFields = [
+    'valoracion_1_1', 'valoracion_1_2',
+    'valoracion_2_1', 'valoracion_2_2',
+    'valoracion_3_1', 'valoracion_3_2',
+    'valoracion_4_1_formadores', 'valoracion_4_1_tutores',
+    'valoracion_4_2_formadores', 'valoracion_4_2_tutores',
+    'valoracion_5_1', 'valoracion_5_2',
+    'valoracion_6_1', 'valoracion_6_2',
+    'valoracion_7_1', 'valoracion_7_2',
+    'valoracion_9_1', 'valoracion_9_2', 'valoracion_9_3', 'valoracion_9_4', 'valoracion_9_5',
+    'valoracion_10',
+    'valoracion_8_1', 'valoracion_8_2', 'recomendaria_curso',
+  ];
+
+  // Solo verificar campos con valor (no NC, no NA)
+  const fieldsToVerify = allValuationFields
+    .filter(f => {
+      const v = String(extractedData[f] || 'NC');
+      return v !== 'NC' && v !== 'NA';
+    })
+    .map(f => ({
+      field: f,
+      value: String(extractedData[f]),
+      questionLabel: FIELD_LABELS[f] || f,
+    }));
+
+  if (fieldsToVerify.length === 0) {
+    console.log('[anti-hallucination] Todos los campos son NC/NA, no hay nada que verificar');
+    return { changed: [], verified: [], skipped: true };
+  }
+
+  console.log(`[anti-hallucination] CAPA 2: Verificando ${fieldsToVerify.length} campos con valor...`);
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = buildVerificationPrompt(fieldsToVerify);
+
+    // Enviar página 2 (donde están las valoraciones) + opcionalmente página 1
+    const pagesToSend = pages.filter(p => p.pageNumber <= 2);
+    const parts: any[] = [{ text: prompt }];
+    for (const page of pagesToSend) {
+      parts.push({
+        inlineData: {
+          mimeType: 'image/png',
+          data: page.buffer.toString('base64'),
+        },
+      });
+    }
+
+    const response = await ai.models.generateContent({
+      model: modelId,
+      contents: { parts },
+      config: {
+        responseMimeType: 'application/json',
+        temperature: 0,
+        topK: 1,
+        topP: 0.1,
+      },
+    });
+
+    const responseText = response.text || '{}';
+    let verification: Record<string, string>;
+    try {
+      verification = JSON.parse(responseText.replace(/```json|```/g, '').trim());
+    } catch {
+      console.error('[anti-hallucination] Error parseando respuesta de verificación, manteniendo valores originales');
+      return { changed: [], verified: [], skipped: true };
+    }
+
+    const changed: string[] = [];
+    const verified: string[] = [];
+
+    for (const { field } of fieldsToVerify) {
+      const result = verification[field];
+      if (result === 'NO_CONFIRMADO') {
+        console.log(`[anti-hallucination] ❌ ${field}: "${extractedData[field]}" → NC (no confirmado)`);
+        extractedData[field] = 'NC';
+        changed.push(field);
+      } else if (result === 'CONFIRMADO') {
+        console.log(`[anti-hallucination] ✅ ${field}: "${extractedData[field]}" confirmado`);
+        verified.push(field);
+      } else {
+        // Respuesta inesperada → conservador: cambiar a NC
+        console.log(`[anti-hallucination] ⚠️ ${field}: respuesta inesperada "${result}" → NC`);
+        extractedData[field] = 'NC';
+        changed.push(field);
+      }
+    }
+
+    console.log(`[anti-hallucination] Resultado: ${verified.length} confirmados, ${changed.length} cambiados a NC`);
+    return { changed, verified, skipped: false };
+  } catch (error: any) {
+    console.error(`[anti-hallucination] Error en verificación (no bloquea): ${error.message}`);
+    return { changed: [], verified: [], skipped: true };
+  }
+}
 
 /**
  * Extracción directa: Gemini lee todo el formulario.
@@ -258,6 +442,33 @@ export async function extractHybrid(
     }
   }
 
+  // ========================================
+  // PASO 3b: CAPA 2 — Verificación anti-alucinación
+  // Segunda pasada independiente para confirmar valoraciones
+  // ========================================
+  const verificationResult = await verifyValuations(
+    extractedData,
+    pagesToSend,
+    apiKey,
+    modelId
+  );
+
+  // Actualizar confianza de campos cambiados a NC por verificación
+  for (const field of verificationResult.changed) {
+    if (checkboxResults[field]) {
+      checkboxResults[field].value = 'NC';
+      checkboxResults[field].confidence = 0.95; // Alta confianza: verificación activa lo rechazó
+      checkboxResults[field].needsHumanReview = false;
+    }
+  }
+
+  // Subir confianza de campos confirmados por verificación
+  for (const field of verificationResult.verified) {
+    if (checkboxResults[field]) {
+      checkboxResults[field].confidence = 0.95; // Confirmado por doble pasada
+    }
+  }
+
   // Post-procesamiento: lugar_trabajo → provincia oficial en MAYÚSCULAS
   // Mapeo: todas las variantes (castellano, sin tilde, euskera, gallego, catalán, IATA) → provincia oficial
   const PROVINCIA_ALIASES: Record<string, string> = {
@@ -374,6 +585,14 @@ export async function extractHybrid(
   if (isLandscape) {
     fieldsNeedingReview.push('FORMULARIO_HORIZONTAL');
     extractedData._landscape = true;
+  }
+
+  // Log resumen de verificación anti-alucinación
+  if (!verificationResult.skipped) {
+    console.log(`[anti-hallucination] RESUMEN: ${verificationResult.verified.length} confirmados, ${verificationResult.changed.length} revertidos a NC`);
+    if (verificationResult.changed.length > 0) {
+      console.log(`[anti-hallucination] Campos revertidos: ${verificationResult.changed.join(', ')}`);
+    }
   }
 
   const fieldsWithValue = Object.values(checkboxResults).filter(r => r.value !== 'NC').length;
