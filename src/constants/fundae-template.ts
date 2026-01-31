@@ -233,24 +233,25 @@ SECCIÓN II - DATOS DEL PARTICIPANTE
 SECCIÓN III - VALORACIONES (escala 1-4)
 ═══════════════════════════════════════════════════════════════════════════════
 
-⚠️ MÉTODO DE LECTURA OBLIGATORIO PARA CADA VALORACIÓN:
+⚠️ MÉTODO DE LECTURA OBLIGATORIO PARA VALORACIONES (1, 2, 3, 4):
 
-PASO 1: Localiza la fila de la pregunta
-PASO 2: Identifica las 4 casillas de esa fila (están bajo columnas 1, 2, 3, 4)
-PASO 3: CUENTA desde la IZQUIERDA: primera casilla=1, segunda=2, tercera=3, cuarta=4
-PASO 4: Mira cuál casilla tiene marca (X, ✓, círculo, relleno)
-PASO 5: Devuelve el número de la POSICIÓN donde está la marca
+PASO 1 - Examina CADA casilla individualmente:
+- Casilla 1: ¿qué ves? (vacía / marca clara / marca dudosa / sombra)
+- Casilla 2: ¿qué ves?
+- Casilla 3: ¿qué ves?
+- Casilla 4: ¿qué ves?
+
+PASO 2 - Decide:
+- Si UNA sola casilla tiene "marca clara" → ese número
+- Si NINGUNA tiene marca clara → NC
+- Si MÁS DE UNA parece marcada → NC
+- Si hay duda → NC
 
 ESCALA:
   • Posición 1 (izquierda) = Completamente en desacuerdo
   • Posición 2 = En desacuerdo
   • Posición 3 = De acuerdo
   • Posición 4 (derecha) = Completamente de acuerdo
-
-⚠️ CASOS ESPECIALES:
-  • Si NINGUNA casilla tiene marca → "NC"
-  • Si HAY MARCA EN DOS O MÁS casillas → "NC"
-  • Si la marca no es clara → "NC"
 
 ORGANIZACIÓN (valoracion_1_X):
 - valoracion_1_1: "El curso ha estado bien organizado"
