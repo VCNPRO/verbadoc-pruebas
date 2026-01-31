@@ -431,7 +431,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               COUNT(*) as total,
               COUNT(*) FILTER (WHERE e.validation_status = 'pending') as pending,
               COUNT(*) FILTER (WHERE e.validation_status = 'valid' OR e.validation_status = 'approved') as valid,
-              COUNT(*) FILTER (WHERE e.validation_errors_count > 0 OR e.validation_status = 'needs_review') as needs_review,
+              COUNT(*) FILTER (WHERE (e.validation_errors_count > 0 OR e.validation_status = 'needs_review') AND e.validation_status NOT IN ('valid', 'approved', 'rejected')) as needs_review,
               COUNT(*) FILTER (WHERE e.validation_status = 'rejected') as rejected_extractions
             FROM extraction_results e
             JOIN users u ON e.user_id = u.id
