@@ -55,9 +55,22 @@ PÁGINA 1 — Datos del participante:
 - lugar_trabajo: Nombre de provincia española. Si no es legible devuelve "NC".
 
 PÁGINA 2 — Valoraciones (tabla con escala NC, 1, 2, 3, 4):
-La tabla tiene columnas: NC, 1, 2, 3, 4. Cada fila tiene UNA casilla marcada como máximo.
-Para cada pregunta, mira EN QUÉ COLUMNA hay una marca de bolígrafo (X, ✓, relleno, trazo).
-SOLO cuenta como marcado si hay un trazo CLARO de bolígrafo DENTRO de la casilla.
+La tabla tiene EXACTAMENTE 5 columnas de checkboxes por fila, de IZQUIERDA a DERECHA en este orden:
+  COLUMNA 1 (más a la izquierda) = NC
+  COLUMNA 2 = 1
+  COLUMNA 3 = 2
+  COLUMNA 4 = 3
+  COLUMNA 5 (más a la derecha) = 4
+Las etiquetas "NC 1 2 3 4" están impresas en la CABECERA de la tabla. Úsalas como referencia.
+Cada fila tiene UNA casilla marcada como máximo.
+
+⚠️ MÉTODO DE LECTURA OBLIGATORIO para cada fila:
+1. Localiza la CABECERA de esa sección (donde pone "NC  1  2  3  4")
+2. Identifica cuál de las 5 casillas de la fila tiene marca de bolígrafo
+3. CUENTA la posición desde la izquierda: 1ª=NC, 2ª=1, 3ª=2, 4ª=3, 5ª=4
+4. VERIFICA que la posición de la marca coincide con la etiqueta de la cabecera
+
+SOLO cuenta como marcado si hay un trazo CLARO de bolígrafo (X, ✓, relleno, trazo) DENTRO de la casilla.
 Una casilla vacía (solo los bordes impresos del cuadrado) NO está marcada.
 Si no hay NINGUNA casilla marcada en la fila, devuelve "NC".
 
@@ -127,17 +140,27 @@ function buildVerificationPrompt(fieldsToVerify: { field: string; value: string;
   return `VERIFICACIÓN ESTRICTA DE CHECKBOXES — ANTI-ALUCINACIÓN
 
 Eres un verificador independiente. La primera IA ha extraído valores de un formulario FUNDAE.
-Tu trabajo es VERIFICAR si realmente hay marcas de bolígrafo en las casillas indicadas.
+Tu trabajo es VERIFICAR si el valor extraído es CORRECTO — es decir, si la marca de bolígrafo está realmente en la COLUMNA indicada.
+
+ESTRUCTURA DE LA TABLA DE VALORACIONES:
+Las columnas van de IZQUIERDA a DERECHA: NC, 1, 2, 3, 4
+Usa la CABECERA impresa ("NC  1  2  3  4") como referencia para identificar cada columna.
 
 CAMPOS A VERIFICAR:
 ${fieldList}
 
-Para CADA campo, responde:
-- "CONFIRMADO" — si ves una marca CLARA e INEQUÍVOCA de bolígrafo (X, ✓, relleno, trazo) DENTRO de esa casilla específica
-- "NO_CONFIRMADO" — si la casilla está vacía, tiene solo bordes impresos, hay sombra/mancha/artefacto, o tienes CUALQUIER duda
+Para CADA campo:
+1. Localiza la fila de esa pregunta en la tabla
+2. Localiza la CABECERA de la sección ("NC  1  2  3  4")
+3. Identifica EN QUÉ COLUMNA hay marca de bolígrafo, contando desde la izquierda (1ª=NC, 2ª=1, 3ª=2, 4ª=3, 5ª=4)
+4. Compara con el valor que extrajo la primera IA
+
+Responde:
+- "CONFIRMADO" — la marca está efectivamente en la columna del valor indicado
+- "NO_CONFIRMADO" — la marca está en OTRA columna, no hay marca, o tienes duda
 
 REGLAS:
-1. Solo confirma si la marca es OBVIA e INDISCUTIBLE
+1. Solo confirma si la marca está en la columna EXACTA del valor indicado
 2. Sombras de escaneo, bordes gruesos, dobleces del papel NO son marcas
 3. Si no puedes ubicar la fila/pregunta con certeza → NO_CONFIRMADO
 4. Ante CUALQUIER duda → NO_CONFIRMADO
