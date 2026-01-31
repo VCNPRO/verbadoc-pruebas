@@ -302,16 +302,17 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
   };
 
   // Guardar cambio de campo
-  const handleSaveFieldEdit = () => {
+  const handleSaveFieldEdit = async () => {
     if (!editingField || !extraction) return;
 
-    // Actualizar el campo en extracted_data localmente
+    const originalValue = extraction.extracted_data[editingField.key];
+
+    // Actualizar el estado local PRIMERO (UX inmediata)
     const updatedData = {
       ...extraction.extracted_data,
       [editingField.key]: fieldEditValue
     };
 
-    // Actualizar el estado local de extraction
     setExtraction({
       ...extraction,
       extracted_data: updatedData
@@ -322,7 +323,27 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
     setEditingField(null);
     setFieldEditValue('');
 
-    console.log(`✅ Campo "${editingField.key}" actualizado localmente a: "${fieldEditValue}"`);
+    // Persistir en BD (background, no bloquea UI)
+    try {
+      const response = await fetch(`/api/extractions/${extraction.id}/field-edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          fieldName: editingField.key,
+          originalValue,
+          newValue: fieldEditValue
+        })
+      });
+
+      if (!response.ok) {
+        console.error('⚠️ Error al persistir edición en BD:', await response.text());
+      } else {
+        console.log(`✅ Campo "${editingField.key}" persistido en BD: "${originalValue}" → "${fieldEditValue}"`);
+      }
+    } catch (error) {
+      console.error('⚠️ Error de red al persistir edición (cambio local mantenido):', error);
+    }
   };
 
   // Aprobar formulario completo

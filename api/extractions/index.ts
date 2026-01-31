@@ -1044,6 +1044,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('⚠️ Error en validación:', validationError);
       }
 
+      // --- TRACKING: Incrementar total_extractions por campo ---
+      try {
+        const fieldNames = Object.keys(dataObj).filter(k => !k.startsWith('_'));
+        for (const fieldName of fieldNames) {
+          await sql`
+            INSERT INTO field_correction_stats (field_name, total_extractions, updated_at)
+            VALUES (${fieldName}, 1, NOW())
+            ON CONFLICT (field_name)
+            DO UPDATE SET
+              total_extractions = field_correction_stats.total_extractions + 1,
+              updated_at = NOW()
+          `;
+        }
+        console.log(`📊 Tracking: ${fieldNames.length} campos registrados en field_correction_stats`);
+      } catch (trackingError) {
+        console.error('⚠️ Error en tracking (no afecta extracción):', trackingError);
+      }
+
       return res.status(201).json({
         success: true,
         extraction,

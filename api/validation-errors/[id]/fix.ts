@@ -6,6 +6,7 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { ValidationErrorDB, ExtractionResultDB } from '../../lib/extractionDB.js';
 import jwt from 'jsonwebtoken';
+import { sql } from '@vercel/postgres';
 
 // Helper: Verificar autenticación
 function verifyAuth(req: VercelRequest): { userId: string; role: string } | null {
@@ -83,6 +84,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log(`✅ Error ${id} corregido por usuario ${user.userId}: ${correctedValue}`);
+
+    // --- TRACKING: Incrementar human_corrections para este campo ---
+    try {
+      const errorInfo = await sql`
+        SELECT field_name FROM validation_errors WHERE id = ${id} LIMIT 1
+      `;
+      const fieldName = errorInfo.rows[0]?.field_name;
+      if (fieldName) {
+        await sql`
+          INSERT INTO field_correction_stats (field_name, human_corrections, last_correction_at, updated_at)
+          VALUES (${fieldName}, 1, NOW(), NOW())
+          ON CONFLICT (field_name)
+          DO UPDATE SET
+            human_corrections = field_correction_stats.human_corrections + 1,
+            last_correction_at = NOW(),
+            updated_at = NOW()
+        `;
+        console.log(`📊 Tracking: corrección humana registrada para campo "${fieldName}"`);
+      }
+    } catch (trackingError) {
+      console.error('⚠️ Error en tracking (no afecta corrección):', trackingError);
+    }
 
     return res.status(200).json({
       success: true,
