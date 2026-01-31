@@ -55,20 +55,29 @@ PÁGINA 1 — Datos del participante:
 - lugar_trabajo: Nombre de provincia española. Si no es legible devuelve "NC".
 
 PÁGINA 2 — Valoraciones (tabla con escala NC, 1, 2, 3, 4):
-La tabla tiene EXACTAMENTE 5 columnas de checkboxes por fila, de IZQUIERDA a DERECHA en este orden:
-  COLUMNA 1 (más a la izquierda) = NC
-  COLUMNA 2 = 1
-  COLUMNA 3 = 2
-  COLUMNA 4 = 3
-  COLUMNA 5 (más a la derecha) = 4
-Las etiquetas "NC 1 2 3 4" están impresas en la CABECERA de la tabla. Úsalas como referencia.
-Cada fila tiene UNA casilla marcada como máximo.
+
+⚠️⚠️⚠️ ERROR COMÚN QUE DEBES EVITAR ⚠️⚠️⚠️
+La PRIMERA casilla de cada fila es NC (No Contesta). NO LA IGNORES.
+Si ignoras la casilla NC y empiezas a contar desde "1", todos tus valores estarán DESPLAZADOS +1 y serán INCORRECTOS.
+
+La tabla tiene EXACTAMENTE 5 casillas por fila. De IZQUIERDA a DERECHA:
+  □ □ □ □ □
+  NC 1  2  3  4
+
+  Casilla 1 (más a la IZQUIERDA) = NC
+  Casilla 2 = 1
+  Casilla 3 = 2
+  Casilla 4 = 3
+  Casilla 5 (más a la DERECHA) = 4
 
 ⚠️ MÉTODO DE LECTURA OBLIGATORIO para cada fila:
-1. Localiza la CABECERA de esa sección (donde pone "NC  1  2  3  4")
-2. Identifica cuál de las 5 casillas de la fila tiene marca de bolígrafo
-3. CUENTA la posición desde la izquierda: 1ª=NC, 2ª=1, 3ª=2, 4ª=3, 5ª=4
-4. VERIFICA que la posición de la marca coincide con la etiqueta de la cabecera
+1. Mira la CABECERA de la sección (donde está impreso "NC  1  2  3  4")
+2. La casilla que está DEBAJO de "NC" es NC, la que está DEBAJO de "1" es 1, etc.
+3. Traza una línea vertical imaginaria desde la etiqueta de la cabecera hasta la casilla de la fila
+4. El valor es la etiqueta de la cabecera que queda JUSTO ENCIMA de la casilla marcada
+
+EJEMPLO: Si la marca está en la TERCERA casilla desde la izquierda → el valor es "2" (NO "3").
+EJEMPLO: Si la marca está en la CUARTA casilla desde la izquierda → el valor es "3" (NO "4").
 
 SOLO cuenta como marcado si hay un trazo CLARO de bolígrafo (X, ✓, relleno, trazo) DENTRO de la casilla.
 Una casilla vacía (solo los bordes impresos del cuadrado) NO está marcada.
