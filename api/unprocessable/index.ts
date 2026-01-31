@@ -271,11 +271,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Acción no válida. Usar: send_to_review' });
       }
 
-      // Verificar que el documento existe y pertenece al usuario
-      const doc = await sql`
-        SELECT * FROM unprocessable_documents
-        WHERE id = ${id} AND user_id = ${user.userId}
-      `;
+      // Verificar que el documento existe y pertenece al cliente del usuario
+      let doc;
+      if (user.clientId) {
+        doc = await sql`
+          SELECT u.* FROM unprocessable_documents u
+          JOIN users usr ON u.user_id = usr.id
+          WHERE u.id = ${id} AND usr.client_id = ${user.clientId}
+        `;
+      } else {
+        doc = await sql`
+          SELECT * FROM unprocessable_documents
+          WHERE id = ${id} AND user_id = ${user.userId}
+        `;
+      }
 
       if (doc.rows.length === 0) {
         return res.status(404).json({
