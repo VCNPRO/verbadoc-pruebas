@@ -43,7 +43,7 @@ export interface SegmentationResult {
  */
 export async function segmentPDFWithGemini(
   pdfFile: File,
-  model: GeminiModel = 'gemini-2.5-flash'
+  model: GeminiModel = 'gemini-3-pro-preview'
 ): Promise<SegmentationResult> {
 
   const startTime = Date.now();
@@ -272,14 +272,14 @@ export function isPDFFile(file: File): boolean {
 /**
  * Estima el coste de segmentar un PDF
  */
-export function estimateSegmentationCost(numPages: number, model: GeminiModel = 'gemini-2.5-flash'): {
+export function estimateSegmentationCost(numPages: number, model: GeminiModel = 'gemini-3-pro-preview'): {
   estimatedCost: number;
   estimatedTime: number;
   currency: string;
 } {
 
   const COSTS_PER_PAGE = {
-    'gemini-2.5-flash': 0.0016,
+    'gemini-3-pro-preview': 0.0016,
     'gemini-2.5-pro': 0.008
   };
 

@@ -61,7 +61,7 @@ export const DocumentChat: React.FC<DocumentChatProps> = ({ result, isLightMode 
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3-pro-preview',
                     contents: {
                         role: 'user',
                         parts: [

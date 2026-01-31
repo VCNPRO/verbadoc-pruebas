@@ -18,7 +18,7 @@ interface SearchResult {
 export const ImageSearchPanel: React.FC<ImageSearchPanelProps> = ({ file, onSearch, isSearching }) => {
     const [referenceImage, setReferenceImage] = useState<File | null>(null);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-2.5-flash');
+    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-pro-preview');
     const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

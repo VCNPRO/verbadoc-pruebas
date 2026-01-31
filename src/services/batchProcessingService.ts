@@ -83,7 +83,7 @@ export async function createBatch(options: CreateBatchOptions): Promise<{ batchI
     userId,
     name,
     description,
-    modelUsed = 'gemini-2.5-flash',
+    modelUsed = 'gemini-3-pro-preview',
     promptTemplate,
     schemaConfig,
     files,

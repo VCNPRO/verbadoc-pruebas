@@ -132,7 +132,7 @@ Si NO hay códigos, devuelve:
 
     try {
       const result = await callVertexAIAPI('extract', {
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-pro-preview',
         contents: {
           role: 'user',
           parts: [
