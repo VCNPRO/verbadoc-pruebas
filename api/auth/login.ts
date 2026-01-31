@@ -105,6 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         email: user.email,
         name: user.name,
         role: user.role,
+        company_name: user.company_name || null,
         createdAt: user.created_at,
       },
     });

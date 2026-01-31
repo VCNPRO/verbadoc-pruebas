@@ -220,6 +220,9 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
                 </h3>
                 <div className={`p-4 rounded-lg space-y-2 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <strong>Empresa:</strong> {user?.company_name || 'Normadat'}
+                  </p>
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                     <strong>Usuario:</strong> {user?.email || '-'}
                   </p>
                   <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>

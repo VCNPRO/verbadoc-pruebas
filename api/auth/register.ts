@@ -32,7 +32,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, company_name } = req.body;
 
     // Basic validation
     if (!email || !password) {
@@ -60,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Create user in the database
-    const user = await UserDB.create(email, hashedPassword, name || undefined);
+    const user = await UserDB.create(email, hashedPassword, name || undefined, 'user', company_name || undefined);
 
     // Generate JWT
     const jwtSecret = process.env.JWT_SECRET;
@@ -93,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         email: user.email,
         name: user.name,
         role: user.role,
+        company_name: user.company_name || null,
         createdAt: user.created_at,
       },
     });

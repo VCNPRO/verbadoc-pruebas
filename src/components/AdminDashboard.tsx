@@ -73,6 +73,7 @@ export function AdminDashboard({ isLightMode }: { isLightMode: boolean }) {
           <thead>
             <tr className="bg-gray-700 text-gray-300 uppercase text-sm leading-normal">
               <th className="py-3 px-6 text-left">Nombre</th>
+              <th className="py-3 px-6 text-left">Empresa</th>
               <th className="py-3 px-6 text-left">Email</th>
               <th className="py-3 px-6 text-center">Rol</th>
               <th className="py-3 px-6 text-center">Fecha de Registro</th>
@@ -84,6 +85,9 @@ export function AdminDashboard({ isLightMode }: { isLightMode: boolean }) {
               <tr key={user.id} className="border-b border-gray-700 hover:bg-gray-600">
                 <td className="py-3 px-6 text-left whitespace-nowrap">
                   <span className="font-medium">{user.name || '-'}</span>
+                </td>
+                <td className="py-3 px-6 text-left whitespace-nowrap">
+                  <span>{user.company_name || '-'}</span>
                 </td>
                 <td className="py-3 px-6 text-left">
                   <span>{user.email}</span>

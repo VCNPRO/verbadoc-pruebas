@@ -1299,16 +1299,22 @@ function AppContent() {
                     <div className="flex items-center justify-between h-16">
                         <div className="flex items-baseline gap-3">
                             <h1
-                                className="text-2xl font-bold font-orbitron tracking-wider transition-colors duration-500"
+                                className="text-xl font-bold font-orbitron tracking-wider transition-colors duration-500"
                                 style={{ color: isLightMode ? '#1e3a8a' : '#f1f5f9' }}
                             >verbadoc pro europa</h1>
+                            <p
+                                className="text-xs font-sans transition-colors duration-500"
+                                style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
+                            >
+                                Extracción Inteligente de Datos
+                            </p>
                             <span className="text-xs px-2 py-1 rounded bg-amber-500 text-white font-semibold">
                                 REVIEWER
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm" style={{ color: isLightMode ? '#475569' : '#94a3b8' }}>
-                                {user?.email}
+                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong>
                             </span>
                             <button
                                 onClick={logout}
@@ -1328,9 +1334,28 @@ function AppContent() {
 
             <main className="flex-1 p-8">
                 <div className="max-w-4xl mx-auto">
-                    <h2 className={`text-2xl font-bold mb-6 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Panel de Revisión
+                    <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        Revisión
                     </h2>
+                    <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                        <h3 className={`text-sm font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            Totales
+                        </h3>
+                        <div className="flex gap-6">
+                            <div className="text-center">
+                                <span className={`text-2xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>{reviewCount}</span>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Pendientes revisión</p>
+                            </div>
+                            <div className="text-center">
+                                <span className={`text-2xl font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{masterExcelCount}</span>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Excel Master</p>
+                            </div>
+                            <div className="text-center">
+                                <span className={`text-2xl font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>{unprocessableCount}</span>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No procesables</p>
+                            </div>
+                        </div>
+                    </div>
                     <p className={`mb-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                         Selecciona una sección para comenzar a trabajar:
                     </p>
@@ -1441,19 +1466,27 @@ function AppContent() {
                     <div className="flex items-center justify-between h-16">
                         <div className="flex items-baseline gap-3">
                             <h1
-                                className="text-3xl font-bold font-orbitron tracking-wider transition-colors duration-500"
+                                className="text-xl font-bold font-orbitron tracking-wider transition-colors duration-500"
                                 style={{
                                     color: isLightMode ? '#1e3a8a' : '#f1f5f9'
                                 }}
                             >verbadoc pro europa</h1>
                             <p
-                                className="text-sm font-sans transition-colors duration-500"
+                                className="text-xs font-sans transition-colors duration-500"
                                 style={{
                                     color: isLightMode ? '#475569' : '#94a3b8'
                                 }}
                             >
                                 Extracción Inteligente de Datos
                             </p>
+                            <span
+                                className="text-xs font-sans transition-colors duration-500"
+                                style={{
+                                    color: isLightMode ? '#475569' : '#94a3b8'
+                                }}
+                            >
+                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong>
+                            </span>
                         </div>
                         <div className="flex items-center gap-4">
                             {/* Config Button - cuadrado */}
