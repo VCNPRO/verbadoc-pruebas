@@ -1313,8 +1313,8 @@ function AppContent() {
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-sm" style={{ color: isLightMode ? '#475569' : '#94a3b8' }}>
-                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong>
+                            <span className="text-sm" style={{ color: isLightMode ? '#334155' : '#e2e8f0' }}>
+                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong> por <strong>{user?.name || user?.email}</strong>
                             </span>
                             <button
                                 onClick={logout}
@@ -1482,10 +1482,10 @@ function AppContent() {
                             <span
                                 className="text-xs font-sans transition-colors duration-500"
                                 style={{
-                                    color: isLightMode ? '#475569' : '#94a3b8'
+                                    color: isLightMode ? '#334155' : '#e2e8f0'
                                 }}
                             >
-                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong>
+                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong> por <strong>{user?.name || user?.email}</strong>
                             </span>
                         </div>
                         <div className="flex items-center gap-4">
