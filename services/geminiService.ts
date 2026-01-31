@@ -744,24 +744,8 @@ export const extractWithHybridSystem = async (
   const threshold = options?.confidenceThreshold ?? 0.8;
   const enableEscalation = options?.enableModelEscalation ?? true;
 
-  // 🧠 PASO 0: Intentar extracción híbrida CV Judge si no se fuerza IA pura
-  if (!options?.forceAI && !options?.forceCoordinates) {
-    try {
-      console.log('🧠 Intentando extracción híbrida CV Judge + Gemini...');
-      const hybridResult = await extractWithHybridCVJudge(file, schema, prompt, modelId);
-      if (!hybridResult.usedFallback) {
-        console.log(`✅ Híbrido exitoso: ${hybridResult.confidencePercentage}% confianza`);
-        return hybridResult;
-      }
-      console.log(`⚠️ Híbrido usó fallback: ${hybridResult.fallbackReason}`);
-      // Si el fallback fue por error del endpoint (flag desactivado), continuar con IA directa
-    } catch (hybridError: any) {
-      console.log(`⚠️ Híbrido no disponible: ${hybridError.message}. Usando IA directa.`);
-    }
-  }
-
-  // 🔧 MODO PROCESAMIENTO MASIVO: Saltar coordenadas, ir directo a IA
-  if (SKIP_COORDINATES_SYSTEM || options?.forceAI) {
+  // 🚀 Ir directo a Gemini 3 Pro (CV Judge eliminado)
+  {
     console.log('🚀 MODO IA DIRECTA (coordenadas desactivadas para procesamiento masivo)');
 
     let currentModel: GeminiModel = 'gemini-3-pro-preview';
@@ -770,7 +754,7 @@ export const extractWithHybridSystem = async (
     let lastData: any = null;
     let lastConfidence = 0;
 
-    // INTENTO 1: gemini-2.5-flash (modelo rápido y económico)
+    // INTENTO 1: gemini-3-pro-preview
     try {
       attempts++;
       console.log(`🤖 Intento ${attempts}: Usando ${currentModel}...`);
