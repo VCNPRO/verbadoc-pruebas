@@ -1297,24 +1297,26 @@ function AppContent() {
             >
                 <div className="px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
-                        <div className="flex items-baseline gap-3">
-                            <h1
-                                className="text-xl font-bold font-orbitron tracking-wider transition-colors duration-500"
-                                style={{ color: isLightMode ? '#1e3a8a' : '#f1f5f9' }}
-                            >verbadoc pro europa</h1>
-                            <p
-                                className="text-xs font-sans transition-colors duration-500"
-                                style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
-                            >
-                                Extracción Inteligente de Datos
-                            </p>
+                        <div className="flex items-center gap-4">
+                            <div>
+                                <h1
+                                    className="text-xl font-bold font-orbitron tracking-wider transition-colors duration-500"
+                                    style={{ color: isLightMode ? '#1e3a8a' : '#f1f5f9' }}
+                                >verbadoc pro europa</h1>
+                                <p
+                                    className="text-[10px] font-sans transition-colors duration-500 tracking-wide"
+                                    style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}
+                                >
+                                    Extracción Inteligente de Datos
+                                </p>
+                            </div>
                             <span className="text-xs px-2 py-1 rounded bg-amber-500 text-white font-semibold">
                                 REVIEWER
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-sm" style={{ color: isLightMode ? '#334155' : '#e2e8f0' }}>
-                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong> por <strong>{user?.name || user?.email}</strong>
+                            <span className="text-sm" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
+                                trabajando para: &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || 'Normadat'}</strong>&nbsp; por &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
                             </span>
                             <button
                                 onClick={logout}
@@ -1464,28 +1466,30 @@ function AppContent() {
             >
                 <div className="px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
-                        <div className="flex items-baseline gap-3">
-                            <h1
-                                className="text-xl font-bold font-orbitron tracking-wider transition-colors duration-500"
-                                style={{
-                                    color: isLightMode ? '#1e3a8a' : '#f1f5f9'
-                                }}
-                            >verbadoc pro europa</h1>
-                            <p
-                                className="text-xs font-sans transition-colors duration-500"
-                                style={{
-                                    color: isLightMode ? '#475569' : '#94a3b8'
-                                }}
-                            >
-                                Extracción Inteligente de Datos
-                            </p>
+                        <div className="flex items-center gap-4">
+                            <div>
+                                <h1
+                                    className="text-xl font-bold font-orbitron tracking-wider transition-colors duration-500"
+                                    style={{
+                                        color: isLightMode ? '#1e3a8a' : '#f1f5f9'
+                                    }}
+                                >verbadoc pro europa</h1>
+                                <p
+                                    className="text-[10px] font-sans transition-colors duration-500 tracking-wide"
+                                    style={{
+                                        color: isLightMode ? '#64748b' : '#94a3b8'
+                                    }}
+                                >
+                                    Extracción Inteligente de Datos
+                                </p>
+                            </div>
                             <span
                                 className="text-xs font-sans transition-colors duration-500"
                                 style={{
-                                    color: isLightMode ? '#334155' : '#e2e8f0'
+                                    color: isLightMode ? '#64748b' : '#94a3b8'
                                 }}
                             >
-                                trabajando para: <strong>{user?.company_name || 'Normadat'}</strong> por <strong>{user?.name || user?.email}</strong>
+                                trabajando para: &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || 'Normadat'}</strong>&nbsp; por &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
                             </span>
                         </div>
                         <div className="flex items-center gap-4">
