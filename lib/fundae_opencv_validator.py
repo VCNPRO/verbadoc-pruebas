@@ -105,15 +105,15 @@ class FUNDAEValidator:
     # Configuración validada en pruebas con formularios reales
     CONFIG = {
         "roi_x_percent": 0.55,
-        "checkbox_min_size": 14,
-        "checkbox_max_size": 40,
-        "aspect_ratio_min": 0.8,
-        "aspect_ratio_max": 1.25,
-        "solidity_min": 0.75,           # filtra contornos irregulares (texto)
+        "checkbox_min_size": 12,
+        "checkbox_max_size": 45,
+        "aspect_ratio_min": 0.7,
+        "aspect_ratio_max": 1.35,
+        "solidity_min": 0.65,           # filtra contornos irregulares (texto)
         "binary_block_size": 21,
         "binary_c": 12,
         "row_tolerance_px": 20,
-        "min_checkboxes_per_row": 3,
+        "min_checkboxes_per_row": 2,
         "max_checkboxes_per_row": 6,    # FUNDAE tiene NC,1,2,3,4 = 5 columnas máx
         "interior_margin_percent": 0.28,
         "density_marked_threshold": 0.15,
@@ -218,6 +218,19 @@ class FUNDAEValidator:
                     confidence = 0.8
                 else:
                     # Múltiples marcas → NC
+                    opencv_value = "NC"
+                    confidence = 0.3
+            elif num_cbs == 4:
+                # Fila donde falta una casilla (probablemente NC no detectada)
+                # Asumimos: 1(0), 2(1), 3(2), 4(3)
+                if len(marked_positions) == 1:
+                    pos = marked_positions[0]
+                    opencv_value = str(pos + 1)  # 1,2,3,4
+                    confidence = row_checks[pos].confidence * 0.9  # ligeramente menor por incertidumbre
+                elif len(marked_positions) == 0:
+                    opencv_value = "NC"
+                    confidence = 0.7
+                else:
                     opencv_value = "NC"
                     confidence = 0.3
             elif num_cbs >= 8:
