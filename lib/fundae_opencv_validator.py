@@ -322,9 +322,12 @@ class FUNDAEValidator:
         five = [(max_idx, row_cbs[max_idx])] + [(i, cb) for i, cb in best_four]
         five.sort(key=lambda x: x[1]['x'])
         mark_pos = next(i for i, (idx, _) in enumerate(five) if idx == max_idx)
-        value = ["NC", "1", "2", "3", "4"][mark_pos] if mark_pos < 5 else "4"
+        # Mapear desde la DERECHA: la última casilla siempre es 4
+        # pos desde derecha: 0=4, 1=3, 2=2, 3=1, 4=NC
+        pos_from_right = len(five) - 1 - mark_pos
+        value = ["4", "3", "2", "1", "NC"][pos_from_right] if pos_from_right < 5 else "NC"
         centers_str = " ".join([f"{'*' if idx == max_idx else ''}{cb['x']}" for idx, cb in five])
-        print(f"[MAP] {field} (scale5): [{centers_str}] marca pos {mark_pos} cv={best_cv:.2f} -> {value}")
+        print(f"[MAP] {field} (scale5): [{centers_str}] marca pos {mark_pos} posR={pos_from_right} cv={best_cv:.2f} -> {value}")
         return value
 
     def _map_scale4x2(self, row_cbs, densities, row_idx, field, row_values):
