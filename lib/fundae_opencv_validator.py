@@ -204,24 +204,45 @@ class FUNDAEValidator:
 
     def _clean_row(self, row: List[Dict], max_count: int, row_y: int) -> List[Dict]:
         """
-        Limpia una fila con demasiados candidatos quedándose con los de tamaño
-        más cercano a la mediana. Las casillas reales son uniformes; texto/ruido varía.
+        Limpia una fila con demasiados candidatos.
+        Prueba subconjuntos de tamaños FUNDAE válidos (5, 8, 4, 2) tomando
+        los N más a la derecha, y elige el que tenga mejor regularidad de espaciado.
         """
         if len(row) <= max_count:
             return row
-        # Calcular tamaño (área) de cada candidato
-        areas = [(cb['w'] * cb['h'], i) for i, cb in enumerate(row)]
-        areas.sort(key=lambda x: x[0])
-        median_area = areas[len(areas) // 2][0]
-        # Ordenar por cercanía a la mediana
-        scored = [(abs(cb['w'] * cb['h'] - median_area), i, cb) for i, cb in enumerate(row)]
-        scored.sort(key=lambda x: x[0])
-        # Tomar los max_count más cercanos a la mediana
-        kept = sorted([s[2] for s in scored[:max_count]], key=lambda x: x['x'])
-        removed = len(row) - len(kept)
-        if removed > 0:
-            print(f"[DIAG] Fila y={row_y}: limpieza {len(row)} -> {len(kept)} (eliminados {removed} outliers de tamaño)")
-        return kept
+
+        best_row = None
+        best_score = float('inf')
+        best_n = 0
+
+        for n in [5, 8, 4, 2]:
+            if n > len(row):
+                continue
+            # Tomar los N más a la derecha
+            candidate = sorted(row, key=lambda cb: cb['x'], reverse=True)[:n]
+            candidate = sorted(candidate, key=lambda cb: cb['x'])
+            if len(candidate) < 2:
+                continue
+            # Evaluar regularidad del espaciado (CV más bajo = mejor)
+            centers = [cb['x'] + cb['w'] // 2 for cb in candidate]
+            gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
+            mean_gap = sum(gaps) / len(gaps) if gaps else 1
+            if mean_gap > 0:
+                gap_std = (sum((g - mean_gap)**2 for g in gaps) / len(gaps))**0.5
+                gap_cv = gap_std / mean_gap
+            else:
+                gap_cv = 999
+            if gap_cv < best_score:
+                best_score = gap_cv
+                best_row = candidate
+                best_n = n
+
+        if best_row:
+            print(f"[DIAG] Fila y={row_y}: limpieza {len(row)} -> {best_n} (gap_cv={best_score:.2f}, elegido mejor subconjunto)")
+            return best_row
+        # Fallback: los max_count más a la derecha
+        kept = sorted(row, key=lambda cb: cb['x'], reverse=True)[:max_count]
+        return sorted(kept, key=lambda cb: cb['x'])
 
     def _group_by_rows(self, candidates: List[Dict]) -> List[List[Dict]]:
         if not candidates:
