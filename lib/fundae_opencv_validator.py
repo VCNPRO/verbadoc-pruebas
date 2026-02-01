@@ -143,25 +143,59 @@ class FUNDAEValidator:
         candidates = self._filter_candidates(contours, roi_x)
         rows = self._group_by_rows(candidates)
 
-        # Enfoque directo: usar TODOS los candidatos de cada fila.
-        # Encontrar la marca (densidad máxima) y determinar su valor
-        # por posición relativa en la fila (no por subconjuntos).
-        checkboxes = []
-        row_values = []
-        for row_idx, row_cbs in enumerate(rows):
-            # Calcular densidades
+        # Paso 1: calcular densidades de todos los candidatos de cada fila
+        row_data = []  # [(row_cbs, densities)]
+        for row_cbs in rows:
             densities = []
             for cb in row_cbs:
                 _, _, density = self._classify(gray, cb)
                 densities.append(density)
+            row_data.append((row_cbs, densities))
 
-            # Encontrar la marca
+        # Paso 2: detectar posiciones X de las 5 columnas reales (NC,1,2,3,4)
+        # usando filas donde hay exactamente 1 marca clara entre 5 candidatos
+        col_x_samples = []  # lista de [x_nc, x_1, x_2, x_3, x_4]
+        for row_cbs, densities in row_data:
+            if len(row_cbs) < 5:
+                continue
+            # Buscar el mejor subconjunto de 5 consecutivos con 1 marca clara
+            for start in range(len(row_cbs) - 4):
+                sub_d = densities[start:start+5]
+                max_d = max(sub_d)
+                if max_d < 0.15:
+                    continue
+                others = sorted(sub_d, reverse=True)
+                if others[1] > 0.05:  # segunda casilla tiene algo de tinta → no limpio
+                    continue
+                # Subconjunto limpio: 1 marca, 4 vacías con densidad ~0
+                centers = [row_cbs[start+i]['x'] + row_cbs[start+i]['w'] // 2 for i in range(5)]
+                gaps = [centers[i+1] - centers[i] for i in range(4)]
+                mean_gap = sum(gaps) / 4
+                if mean_gap > 10:
+                    gap_std = (sum((g - mean_gap)**2 for g in gaps) / 4)**0.5
+                    if gap_std / mean_gap < 0.4:
+                        col_x_samples.append(centers)
+
+        if col_x_samples:
+            # Promediar posiciones de columna
+            col_positions = []
+            for i in range(5):
+                avg = sum(s[i] for s in col_x_samples) / len(col_x_samples)
+                col_positions.append(avg)
+            print(f"[COL] Columnas detectadas ({len(col_x_samples)} refs): NC={col_positions[0]:.0f} 1={col_positions[1]:.0f} 2={col_positions[2]:.0f} 3={col_positions[3]:.0f} 4={col_positions[4]:.0f}")
+        else:
+            col_positions = None
+            print(f"[COL] No se encontraron filas de referencia limpias")
+
+        # Paso 3: para cada fila, encontrar la marca y asignar valor por columna
+        checkboxes = []
+        row_values = []
+        for row_idx, (row_cbs, densities) in enumerate(row_data):
             max_d = max(densities) if densities else 0
             max_idx = densities.index(max_d) if densities else -1
             median_d = sorted(densities)[len(densities) // 2] if densities else 0
             max_is_marked = (max_d >= median_d * 1.5 and max_d > 0.15)
 
-            # Diagnóstico
             field_name = self.ROW_TO_FIELD[row_idx] if row_idx < len(self.ROW_TO_FIELD) else f"row_{row_idx}"
             dens_str = " ".join([f"{d:.3f}{'M' if i == max_idx and max_is_marked else 'E'}" for i, d in enumerate(densities)])
             print(f"[DENS] {field_name} ({len(row_cbs)}cb): {dens_str}")
@@ -179,71 +213,58 @@ class FUNDAEValidator:
                     state=state, confidence=confidence, ink_density=density
                 ))
 
-            # Determinar valor por posición relativa de la marca
             field = self.ROW_TO_FIELD[row_idx] if row_idx < len(self.ROW_TO_FIELD) else None
 
             if not max_is_marked:
-                # Sin marca → NC
                 row_values.append(RowValue(
                     row_index=row_idx, field=field, opencv_value="NC",
                     num_checkboxes=len(row_cbs), marked_positions=[], confidence=0.95
                 ))
                 continue
 
-            # Posición relativa de la marca: 0.0 = extremo izquierdo, 1.0 = extremo derecho
-            marked_cb = row_cbs[max_idx]
-            first_x = row_cbs[0]['x']
-            last_x = row_cbs[-1]['x']
-            span = last_x - first_x
-            if span > 0:
-                rel_pos = (marked_cb['x'] - first_x) / span
+            # Asignar valor por proximidad a columnas de referencia
+            marked_x = row_cbs[max_idx]['x'] + row_cbs[max_idx]['w'] // 2
+            value = "NC"  # default
+
+            if col_positions:
+                # Encontrar la columna más cercana
+                min_dist = float('inf')
+                for ci, cx in enumerate(col_positions):
+                    dist = abs(marked_x - cx)
+                    if dist < min_dist:
+                        min_dist = dist
+                        value = ["NC", "1", "2", "3", "4"][ci]
+                print(f"[MAP] {field}: marca x={marked_x}, col más cercana -> valor={value} (dist={min_dist:.0f}px)")
             else:
-                rel_pos = 0.5
+                # Fallback: posición relativa entre las 5 más a la derecha
+                rightmost = sorted(row_cbs, key=lambda cb: cb['x'])[-5:]
+                if marked_x >= rightmost[0]['x']:
+                    rm_centers = [cb['x'] + cb['w'] // 2 for cb in rightmost]
+                    min_d = float('inf')
+                    for ri, rx in enumerate(rm_centers):
+                        d = abs(marked_x - rx)
+                        if d < min_d:
+                            min_d = d
+                            value = ["NC", "1", "2", "3", "4"][ri]
+                print(f"[MAP] {field}: marca x={marked_x} (fallback) -> valor={value}")
 
-            # Mapear posición relativa a escala NC,1,2,3,4
-            # NC está a la izquierda (rel_pos ~0.0), 4 a la derecha (rel_pos ~1.0)
-            # Dividir en 5 zonas iguales
-            if rel_pos < 0.1:
-                value = "NC"
-            elif rel_pos < 0.3:
-                value = "1"
-            elif rel_pos < 0.5:
-                value = "2"
-            elif rel_pos < 0.7:
-                value = "3"
-            else:
-                value = "4"
-
-            print(f"[MAP] {field}: marca en pos {max_idx}/{len(row_cbs)}, rel_pos={rel_pos:.2f} -> valor={value}")
-
-            # Para formadores/tutores (4_1, 4_2): si hay 2 marcas, dividir en 2 grupos
-            if field and field.startswith("valoracion_4_") and len(row_cbs) >= 8:
-                # Buscar las 2 marcas más altas
+            # Formadores/tutores: buscar 2 marcas
+            if field and field.startswith("valoracion_4_") and col_positions:
                 sorted_by_dens = sorted(enumerate(densities), key=lambda x: x[1], reverse=True)
                 marks = [(i, d) for i, d in sorted_by_dens if d > 0.15][:2]
                 if len(marks) == 2:
-                    marks.sort(key=lambda x: x[0])  # ordenar por posición
-                    mid = len(row_cbs) // 2
-                    for mark_idx, (mi, md) in enumerate(marks):
-                        sub_field = field + ("_formadores" if mi < mid else "_tutores")
-                        sub_first = row_cbs[0 if mi < mid else mid]['x']
-                        sub_last = row_cbs[mid-1 if mi < mid else -1]['x']
-                        sub_span = sub_last - sub_first
-                        if sub_span > 0:
-                            sub_rel = (row_cbs[mi]['x'] - sub_first) / sub_span
-                        else:
-                            sub_rel = 0.5
-                        if sub_rel < 0.1:
-                            sub_val = "NC"
-                        elif sub_rel < 0.3:
-                            sub_val = "1"
-                        elif sub_rel < 0.5:
-                            sub_val = "2"
-                        elif sub_rel < 0.7:
-                            sub_val = "3"
-                        else:
-                            sub_val = "4"
-                        print(f"[MAP] {sub_field}: rel_pos={sub_rel:.2f} -> valor={sub_val}")
+                    marks.sort(key=lambda x: row_cbs[x[0]]['x'])
+                    for mi_idx, (mi, md) in enumerate(marks):
+                        sub_field = field + ("_formadores" if mi_idx == 0 else "_tutores")
+                        mx = row_cbs[mi]['x'] + row_cbs[mi]['w'] // 2
+                        sub_val = "NC"
+                        min_d2 = float('inf')
+                        for ci, cx in enumerate(col_positions):
+                            d = abs(mx - cx)
+                            if d < min_d2:
+                                min_d2 = d
+                                sub_val = ["NC", "1", "2", "3", "4"][ci]
+                        print(f"[MAP] {sub_field}: marca x={mx} -> valor={sub_val}")
                         row_values.append(RowValue(
                             row_index=row_idx, field=sub_field, opencv_value=sub_val,
                             num_checkboxes=len(row_cbs), marked_positions=[mi], confidence=min(0.95, 0.75 + md)
