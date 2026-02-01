@@ -68,18 +68,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const extractedData = extraction.rows[0].extracted_data;
           const opencvResult = await validateWithOpenCV(blob.url, extractedData);
           if (opencvResult.comparison) {
-            console.log(`[OpenCV] marcados=${opencvResult.opencv?.marked} uncertain=${opencvResult.opencv?.uncertain} gemini=${opencvResult.comparison.gemini_marked} diff=${opencvResult.comparison.discrepancy} rec=${opencvResult.comparison.recommendation}`);
-            // Guardar resultado OpenCV en la extracción
+            // Guardar resultado OpenCV campo por campo en la extracción
             await sql`
               UPDATE extraction_results
               SET extracted_data = jsonb_set(
                 COALESCE(extracted_data, '{}'::jsonb),
                 '{_opencv}',
                 ${JSON.stringify({
-                  marked: opencvResult.opencv?.marked,
-                  uncertain: opencvResult.opencv?.uncertain,
-                  gemini_marked: opencvResult.comparison.gemini_marked,
-                  discrepancy: opencvResult.comparison.discrepancy,
+                  total_compared: opencvResult.comparison.total_compared,
+                  matches: opencvResult.comparison.matches,
+                  discrepancies: opencvResult.comparison.discrepancies,
+                  discrepancy_fields: opencvResult.comparison.discrepancy_fields,
                   recommendation: opencvResult.comparison.recommendation,
                   mode: opencvResult.mode,
                 })}::jsonb

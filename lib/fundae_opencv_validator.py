@@ -46,6 +46,17 @@ class DetectedCheckbox:
 
 
 @dataclass
+class RowValue:
+    """Valor detectado por OpenCV para una fila de checkboxes."""
+    row_index: int
+    field: Optional[str]  # campo FUNDAE mapeado (None si no hay mapeo)
+    opencv_value: Optional[str]  # "1","2","3","4","NC" o None si no se detectó
+    num_checkboxes: int
+    marked_positions: List[int]  # posiciones marcadas (0-based dentro de la fila)
+    confidence: float
+
+
+@dataclass
 class ValidationResult:
     total_checkboxes: int
     total_rows: int
@@ -53,12 +64,44 @@ class ValidationResult:
     empty_count: int
     uncertain_count: int
     checkboxes: List[DetectedCheckbox]
+    row_values: List[RowValue]
     processing_time_ms: float
 
 
 class FUNDAEValidator:
     """Validador OpenCV para formularios FUNDAE."""
-    
+
+    # Mapeo fila (0-based) → campo FUNDAE en la página 2 del formulario.
+    # El orden es fijo porque el formulario FUNDAE siempre tiene la misma estructura.
+    # Filas con 5 casillas (NC,1,2,3,4) → valoraciones escala 1-4
+    # Filas con 2 casillas (Sí,No) → valoracion_8_x
+    # Filas de Formadores/Tutores tienen 8+ casillas → se gestionan aparte
+    ROW_TO_FIELD = [
+        "valoracion_1_1",           # fila 0
+        "valoracion_1_2",           # fila 1
+        "valoracion_2_1",           # fila 2
+        "valoracion_2_2",           # fila 3
+        "valoracion_3_1",           # fila 4
+        "valoracion_3_2",           # fila 5
+        # filas 6-7: Formadores/Tutores (4.1 y 4.2) - se gestionan en _compute_row_values
+        "valoracion_4_1",           # fila 6 (formadores + tutores)
+        "valoracion_4_2",           # fila 7 (formadores + tutores)
+        "valoracion_5_1",           # fila 8
+        "valoracion_5_2",           # fila 9
+        "valoracion_6_1",           # fila 10
+        "valoracion_6_2",           # fila 11
+        "valoracion_7_1",           # fila 12
+        "valoracion_7_2",           # fila 13
+        "valoracion_8_1",           # fila 14 (Sí/No)
+        "valoracion_8_2",           # fila 15 (Sí/No)
+        "valoracion_9_1",           # fila 16
+        "valoracion_9_2",           # fila 17
+        "valoracion_9_3",           # fila 18
+        "valoracion_9_4",           # fila 19
+        "valoracion_9_5",           # fila 20
+        "valoracion_10",            # fila 21
+    ]
+
     # Configuración validada en pruebas con formularios reales
     CONFIG = {
         "roi_x_percent": 0.55,
@@ -122,7 +165,9 @@ class FUNDAEValidator:
         marked = [c for c in checkboxes if c.state == CheckboxState.MARKED]
         empty = [c for c in checkboxes if c.state == CheckboxState.EMPTY]
         uncertain = [c for c in checkboxes if c.state == CheckboxState.UNCERTAIN]
-        
+
+        row_values = self._compute_row_values(rows, checkboxes)
+
         return ValidationResult(
             total_checkboxes=len(checkboxes),
             total_rows=len(rows),
@@ -130,9 +175,119 @@ class FUNDAEValidator:
             empty_count=len(empty),
             uncertain_count=len(uncertain),
             checkboxes=checkboxes,
+            row_values=row_values,
             processing_time_ms=(time.time() - start) * 1000
         )
     
+    def _compute_row_values(self, rows: List[List[Dict]], checkboxes: List[DetectedCheckbox]) -> List[RowValue]:
+        """Para cada fila, determina qué posición está marcada (1-4) o NC."""
+        row_values = []
+
+        for row_idx, row_cbs in enumerate(rows):
+            # Obtener checkboxes de esta fila, ordenados por X (ya lo están)
+            row_checks = [cb for cb in checkboxes if cb.row == row_idx]
+            row_checks.sort(key=lambda c: c.x)
+            num_cbs = len(row_checks)
+
+            # Buscar posiciones marcadas
+            marked_positions = [
+                i for i, cb in enumerate(row_checks)
+                if cb.state == CheckboxState.MARKED
+            ]
+
+            # Determinar el campo FUNDAE
+            field = None
+            if row_idx < len(self.ROW_TO_FIELD):
+                field = self.ROW_TO_FIELD[row_idx]
+
+            # Determinar el valor
+            opencv_value = None
+            confidence = 0.0
+
+            if num_cbs == 5:
+                # Fila estándar: NC(0), 1(1), 2(2), 3(3), 4(4)
+                if len(marked_positions) == 1:
+                    pos = marked_positions[0]
+                    if pos == 0:
+                        opencv_value = "NC"
+                    else:
+                        opencv_value = str(pos)  # 1,2,3,4
+                    confidence = row_checks[pos].confidence
+                elif len(marked_positions) == 0:
+                    opencv_value = "NC"
+                    confidence = 0.8
+                else:
+                    # Múltiples marcas → NC
+                    opencv_value = "NC"
+                    confidence = 0.3
+            elif num_cbs >= 8:
+                # Fila Formadores/Tutores: tiene 2 grupos de 4-5 casillas
+                # Primer grupo (formadores): primeras 4-5 casillas
+                # Segundo grupo (tutores): últimas 4-5 casillas
+                mid = num_cbs // 2
+                formadores_checks = row_checks[:mid]
+                tutores_checks = row_checks[mid:]
+
+                form_marked = [i for i, cb in enumerate(formadores_checks) if cb.state == CheckboxState.MARKED]
+                tut_marked = [i - mid for i, cb in enumerate(row_checks[mid:]) if cb.state == CheckboxState.MARKED]
+
+                # Valor formadores
+                form_value = "NC"
+                if len(form_marked) == 1:
+                    pos = form_marked[0]
+                    form_value = "NC" if pos == 0 else str(pos)
+
+                # Valor tutores
+                tut_value = "NC"
+                if len(tut_marked) == 1:
+                    pos = tut_marked[0]
+                    tut_value = "NC" if pos == 0 else str(pos)
+
+                # Para filas formadores/tutores, crear 2 RowValues
+                if field and field.startswith("valoracion_4_"):
+                    row_values.append(RowValue(
+                        row_index=row_idx,
+                        field=field.replace("valoracion_4_", "valoracion_4_") + "_formadores",
+                        opencv_value=form_value,
+                        num_checkboxes=len(formadores_checks),
+                        marked_positions=form_marked,
+                        confidence=max((cb.confidence for cb in formadores_checks), default=0.5),
+                    ))
+                    row_values.append(RowValue(
+                        row_index=row_idx,
+                        field=field.replace("valoracion_4_", "valoracion_4_") + "_tutores",
+                        opencv_value=tut_value,
+                        num_checkboxes=len(tutores_checks),
+                        marked_positions=tut_marked,
+                        confidence=max((cb.confidence for cb in tutores_checks), default=0.5),
+                    ))
+                    continue  # ya añadimos las 2, no añadir la fila genérica
+            elif num_cbs in (2, 3):
+                # Fila Sí/No (valoracion_8_x): 2-3 casillas (NC, Sí, No)
+                if len(marked_positions) == 1:
+                    pos = marked_positions[0]
+                    if num_cbs == 3:
+                        # NC(0), Sí(1), No(2)
+                        opencv_value = ["NC", "Si", "No"][pos] if pos < 3 else "NC"
+                    else:
+                        # Sí(0), No(1)
+                        opencv_value = ["Si", "No"][pos] if pos < 2 else "NC"
+                    confidence = row_checks[pos].confidence
+                else:
+                    opencv_value = "NC"
+                    confidence = 0.3
+
+            row_values.append(RowValue(
+                row_index=row_idx,
+                field=field,
+                opencv_value=opencv_value,
+                num_checkboxes=num_cbs,
+                marked_positions=marked_positions,
+                confidence=confidence,
+            ))
+
+        return row_values
+
     def _filter_candidates(self, contours, roi_x: int) -> List[Dict]:
         candidates = []
         for c in contours:
@@ -267,6 +422,17 @@ class FUNDAEValidator:
             "empty": result.empty_count,
             "uncertain": result.uncertain_count,
             "processing_time_ms": round(result.processing_time_ms, 1),
+            "row_values": [
+                {
+                    "row_index": rv.row_index,
+                    "field": rv.field,
+                    "opencv_value": rv.opencv_value,
+                    "num_checkboxes": rv.num_checkboxes,
+                    "marked_positions": rv.marked_positions,
+                    "confidence": round(rv.confidence, 3),
+                }
+                for rv in result.row_values
+            ],
             "checkboxes": [
                 {
                     "row": cb.row,
