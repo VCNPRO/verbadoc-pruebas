@@ -144,12 +144,33 @@ class FUNDAEValidator:
 
         checkboxes = []
         for row_idx, row_cbs in enumerate(rows):
-            for col_idx, cb in enumerate(row_cbs):
-                state, conf, density = self._classify(gray, cb)
+            # Calcular densidades de toda la fila primero
+            raw_densities = []
+            for cb in row_cbs:
+                _, _, density = self._classify(gray, cb)
+                raw_densities.append(density)
+
+            # Clasificación relativa: la casilla marcada destaca sobre la mediana
+            sorted_d = sorted(raw_densities)
+            median_d = sorted_d[len(sorted_d) // 2]
+
+            for col_idx, (cb, density) in enumerate(zip(row_cbs, raw_densities)):
+                # Una casilla está MARKED si su densidad es >= 2x la mediana
+                # Y además supera un mínimo absoluto de 0.10 (para evitar ruido puro)
+                if density >= max(median_d * 2.0, 0.10) and density > 0.15:
+                    state = CheckboxState.MARKED
+                    confidence = min(0.95, 0.75 + density)
+                elif density <= median_d * 1.2:
+                    state = CheckboxState.EMPTY
+                    confidence = min(0.95, 0.85)
+                else:
+                    state = CheckboxState.UNCERTAIN
+                    confidence = 0.50
+
                 checkboxes.append(DetectedCheckbox(
                     x=cb['x'], y=cb['y'], w=cb['w'], h=cb['h'],
                     row=row_idx, col=col_idx,
-                    state=state, confidence=conf, ink_density=density
+                    state=state, confidence=confidence, ink_density=density
                 ))
 
         marked = [c for c in checkboxes if c.state == CheckboxState.MARKED]
