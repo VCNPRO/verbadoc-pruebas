@@ -461,10 +461,10 @@ class FUNDAEValidator:
         elif len(marked) == 0:
             return "NC", 0.80
         else:
-            # Múltiples: la de mayor densidad gana si es claramente dominante
+            # Múltiples: la de mayor densidad gana si es dominante (30%+ más)
             best = max(marked, key=lambda i: cbs[i].ink_density)
             densities = sorted([cbs[i].ink_density for i in marked], reverse=True)
-            if len(densities) >= 2 and densities[0] > densities[1] * 1.8:
+            if len(densities) >= 2 and densities[0] > densities[1] * 1.3:
                 value = "NC" if best == 0 else str(best)
                 return value, 0.60
             return "NC", 0.30
@@ -479,7 +479,7 @@ class FUNDAEValidator:
         else:
             best = max(marked, key=lambda i: cbs[i].ink_density)
             densities = sorted([cbs[i].ink_density for i in marked], reverse=True)
-            if len(densities) >= 2 and densities[0] > densities[1] * 1.8:
+            if len(densities) >= 2 and densities[0] > densities[1] * 1.3:
                 return str(best + 1), 0.55
             return "NC", 0.30
 
