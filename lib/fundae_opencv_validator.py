@@ -325,75 +325,41 @@ class FUNDAEValidator:
 
     def _align_to_columns(self, rows: List[List[Dict]], gray: np.ndarray) -> List[List[Dict]]:
         """
-        Detecta posiciones X de columnas desde filas con 5 casillas bien espaciadas.
-        Luego para filas con >5 candidatos, selecciona los 5 más cercanos a esas columnas.
+        Para filas con >5 candidatos: tomar las 5 más a la derecha (las casillas
+        reales NC,1,2,3,4 están siempre en la zona derecha de la tabla).
+        Para filas con >8: tomar las 8 más a la derecha (formadores/tutores).
         """
-        # Paso 1: de cada fila, buscar el mejor subconjunto de 5 candidatos consecutivos
-        # con buen espaciado. Las filas con 5-9 candidatos tienen las 5 casillas reales
-        # en alguna posición.
-        col_centers_samples = []
-        for row in rows:
-            best_centers = None
-            best_cv = float('inf')
-            if len(row) >= 5:
-                # Probar todos los subconjuntos de 5 consecutivos
-                for start in range(len(row) - 4):
-                    sub = row[start:start+5]
-                    centers = [cb['x'] + cb['w'] // 2 for cb in sub]
-                    gaps = [centers[i+1] - centers[i] for i in range(4)]
-                    mean_gap = sum(gaps) / 4
-                    if mean_gap > 10:  # gaps mínimos razonables
-                        gap_std = (sum((g - mean_gap)**2 for g in gaps) / 4)**0.5
-                        cv = gap_std / mean_gap
-                        if cv < best_cv:
-                            best_cv = cv
-                            best_centers = centers
-            if best_centers and best_cv < 0.3:  # solo filas con buen espaciado
-                col_centers_samples.append(best_centers)
-
-        if not col_centers_samples:
-            print(f"[DIAG] No hay filas de referencia con 5 casillas bien espaciadas")
-            return rows
-
-        # Paso 2: promediar las posiciones de columna
-        n_samples = len(col_centers_samples)
-        col_positions = []
-        for col_idx in range(5):
-            avg_x = sum(s[col_idx] for s in col_centers_samples) / n_samples
-            col_positions.append(avg_x)
-        print(f"[DIAG] Columnas detectadas ({n_samples} refs): {[f'{x:.0f}' for x in col_positions]}")
-
-        # Paso 3: para TODAS las filas, seleccionar los candidatos más cercanos a las columnas
-        tolerance = 30  # píxeles de tolerancia
         aligned_rows = []
         for row in rows:
-            if len(row) < 5:
+            if len(row) <= 5:
                 aligned_rows.append(row)
                 continue
-            # Más de 5: elegir el candidato más cercano a cada columna
-            new_row = []
-            used = set()
-            for col_x in col_positions:
-                best_cb = None
-                best_dist = tolerance + 1
-                for i, cb in enumerate(row):
-                    if i in used:
-                        continue
-                    cx = cb['x'] + cb['w'] // 2
-                    dist = abs(cx - col_x)
-                    if dist < best_dist:
-                        best_dist = dist
-                        best_cb = i
-                if best_cb is not None and best_dist <= tolerance:
-                    new_row.append(row[best_cb])
-                    used.add(best_cb)
-            if len(new_row) >= 2:
-                new_row.sort(key=lambda cb: cb['x'])
-                if len(new_row) != len(row):
-                    print(f"[DIAG] Fila y={row[0]['y']}: alineada {len(row)} -> {len(new_row)} casillas")
-                aligned_rows.append(new_row)
+            # Elegir el mejor N (5 u 8) basado en las últimas N más a la derecha
+            rightmost_5 = sorted(row, key=lambda cb: cb['x'])[-5:]
+            rightmost_8 = sorted(row, key=lambda cb: cb['x'])[-8:] if len(row) >= 8 else None
+
+            # Evaluar gap_cv de cada subconjunto
+            def gap_cv(subset):
+                centers = [cb['x'] + cb['w'] // 2 for cb in subset]
+                gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
+                mg = sum(gaps) / len(gaps) if gaps else 1
+                if mg <= 0: return 999
+                gs = (sum((g - mg)**2 for g in gaps) / len(gaps))**0.5
+                return gs / mg
+
+            cv5 = gap_cv(rightmost_5)
+            cv8 = gap_cv(rightmost_8) if rightmost_8 else 999
+
+            # Preferir 5 (estándar), elegir 8 solo si tiene mejor espaciado
+            if rightmost_8 and cv8 + 0.30 < cv5:
+                chosen = rightmost_8
+                n = 8
             else:
-                aligned_rows.append(row)
+                chosen = rightmost_5
+                n = 5
+
+            print(f"[DIAG] Fila y={row[0]['y']}: {len(row)} -> {n} (cv5={cv5:.2f} cv8={cv8:.2f})")
+            aligned_rows.append(chosen)
         return aligned_rows
 
     def _classify(self, gray: np.ndarray, cb: Dict) -> Tuple[CheckboxState, float, float]:
