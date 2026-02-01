@@ -206,7 +206,7 @@ class FUNDAEValidator:
             else:
                 field, scale_type = None, "scale5"
 
-            dens_str = " ".join([f"{d:.3f}{'M' if i == max_idx and max_is_marked else 'E'}" for i, d in enumerate(densities)])
+            dens_str = " ".join([f"x{cb['x']}:{d:.3f}{'M' if i == max_idx and max_is_marked else 'E'}" for i, (cb, d) in enumerate(zip(row_cbs, densities))])
             print(f"[DENS] {field} ({len(row_cbs)}cb, {scale_type}): {dens_str}")
 
             for col_idx, (cb, density) in enumerate(zip(row_cbs, densities)):
