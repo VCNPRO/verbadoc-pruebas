@@ -150,22 +150,29 @@ class FUNDAEValidator:
                 _, _, density = self._classify(gray, cb)
                 raw_densities.append(density)
 
-            # Clasificación relativa: la casilla marcada destaca sobre la mediana
+            # FUNDAE: cada fila tiene exactamente 0 o 1 marca.
+            # Elegir la casilla con mayor densidad como candidata a MARKED,
+            # pero solo si destaca suficiente sobre las demás.
             sorted_d = sorted(raw_densities)
             median_d = sorted_d[len(sorted_d) // 2]
+            max_d = max(raw_densities)
+            max_idx = raw_densities.index(max_d)
+            # Segunda mayor densidad (excluyendo la máxima)
+            others = [d for i, d in enumerate(raw_densities) if i != max_idx]
+            second_d = max(others) if others else 0
+
+            # La máxima es MARKED si:
+            # 1) Es >= 1.5x la mediana (destaca sobre el ruido base)
+            # 2) Es > 0.15 absoluto (no es solo ruido)
+            max_is_marked = (max_d >= median_d * 1.5 and max_d > 0.15)
 
             for col_idx, (cb, density) in enumerate(zip(row_cbs, raw_densities)):
-                # Una casilla está MARKED si su densidad es >= 2x la mediana
-                # Y además supera un mínimo absoluto de 0.10 (para evitar ruido puro)
-                if density >= max(median_d * 2.0, 0.10) and density > 0.15:
+                if col_idx == max_idx and max_is_marked:
                     state = CheckboxState.MARKED
                     confidence = min(0.95, 0.75 + density)
-                elif density <= median_d * 1.2:
+                else:
                     state = CheckboxState.EMPTY
                     confidence = min(0.95, 0.85)
-                else:
-                    state = CheckboxState.UNCERTAIN
-                    confidence = 0.50
 
                 checkboxes.append(DetectedCheckbox(
                     x=cb['x'], y=cb['y'], w=cb['w'], h=cb['h'],
