@@ -15,6 +15,7 @@ import { AccessLogDB } from '../lib/access-log.js';
 import { calculateConfidenceScore } from '../_lib/confidenceService.js';
 import { verifyExtraction, mergeWithVerification, type VerificationResult } from '../_lib/doubleVerificationService.js';
 import { loadCityCodesCatalog } from '../_lib/cityCodes.js';
+import { runOpenCVValidation } from '../_lib/validationService.js';
 
 // Helper: Verificar autenticación y obtener client_id
 async function verifyAuth(req: VercelRequest): Promise<{ userId: string; role: string; clientId: number | null } | null> {
@@ -959,6 +960,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           extraction.id,
           dataObj
         );
+
+        // Validación OpenCV de checkboxes (log_only por defecto, no bloquea)
+        if (fileUrl) {
+          try {
+            const opencvResult = await runOpenCVValidation(fileUrl, dataObj);
+            if (opencvResult) {
+              console.log(`[OpenCV] Resultado: marcados=${opencvResult.opencv?.marked} rec=${opencvResult.comparison?.recommendation}`);
+            }
+          } catch (opencvError: any) {
+            console.error(`[OpenCV] Error (no bloqueante): ${opencvError.message}`);
+          }
+        }
 
         // Si falló la pre-validación de referencia, añadir ese error manualmente
         let finalCriticalCount = criticalCount;
