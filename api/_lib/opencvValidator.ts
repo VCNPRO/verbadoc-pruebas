@@ -107,20 +107,43 @@ async function callOpenCVService(pdfUrl: string, pageIndex: number): Promise<Ope
 }
 
 /**
- * Cuenta campos marcados en los datos extraídos por Gemini.
- * Excluye campos de texto libre y metadata.
+ * Campos de checkbox del formulario FUNDAE (página 2).
+ * Solo estos campos corresponden a casillas físicas que OpenCV puede detectar.
+ * Excluye campos de texto libre (sugerencias, denominacion, etc.) y numéricos (edad).
+ */
+const CHECKBOX_FIELDS = new Set([
+  // Sección II - Datos del participante (casillas de selección)
+  'sexo',
+  'titulacion_codigo',
+  'categoria_profesional',
+  'modalidad',
+  'horario_curso',
+  'porcentaje_jornada',
+  'tamano_empresa',
+  // Sección III - Valoraciones (escala 1-4, casillas)
+  'valoracion_1_1', 'valoracion_1_2',
+  'valoracion_2_1', 'valoracion_2_2',
+  'valoracion_3_1', 'valoracion_3_2',
+  'valoracion_4_1_formadores', 'valoracion_4_1_tutores',
+  'valoracion_4_2_formadores', 'valoracion_4_2_tutores',
+  'valoracion_5_1', 'valoracion_5_2',
+  'valoracion_6_1', 'valoracion_6_2',
+  'valoracion_7_1', 'valoracion_7_2',
+  'valoracion_8_1', 'valoracion_8_2',
+  'valoracion_9_1', 'valoracion_9_2', 'valoracion_9_3', 'valoracion_9_4', 'valoracion_9_5',
+  'valoracion_10',
+  'recomendaria_curso',
+]);
+
+/**
+ * Cuenta campos de checkbox marcados en los datos extraídos por Gemini.
+ * Solo cuenta campos que corresponden a casillas físicas en el formulario.
  */
 function countGeminiMarked(geminiData: Record<string, any>): number {
-  const EXCLUDE_FIELDS = new Set([
-    'observaciones', 'comentarios', 'sugerencias',
-    'csv_fundae', 'codigo_barras', 'registro_entrada',
-    'expediente', 'cif', 'denominacion_aaff',
-  ]);
-
   let count = 0;
   for (const [field, value] of Object.entries(geminiData)) {
-    if (EXCLUDE_FIELDS.has(field)) continue;
-    if (value && value !== 'NC' && value !== 'No contesta' && value !== null && value !== '') {
+    if (!CHECKBOX_FIELDS.has(field)) continue;
+    if (value && value !== 'NC' && value !== 'No contesta' && value !== 'NA' && value !== null && value !== '') {
       count++;
     }
   }
