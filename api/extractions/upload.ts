@@ -2,6 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { put } from '@vercel/blob';
 import jwt from 'jsonwebtoken';
 import { sql } from '@vercel/postgres';
+import { OPENCV_CONFIG, validateWithOpenCV, applyOpenCVResult } from '../_lib/opencvValidator.js';
 
 export const config = {
   api: {
@@ -55,8 +56,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn(`⚠️ No se encontró la extracción ${extractionId} para el usuario ${userId}`);
     }
 
-    return res.status(200).json({ 
-      success: true, 
+    // Validación OpenCV de checkboxes (no bloqueante)
+    if (OPENCV_CONFIG.enabled) {
+      try {
+        // Cargar datos extraídos para comparar
+        const extraction = await sql`
+          SELECT extracted_data FROM extraction_results
+          WHERE id = ${extractionId as string}::UUID
+        `;
+        if (extraction.rows[0]?.extracted_data) {
+          const extractedData = extraction.rows[0].extracted_data;
+          const opencvResult = await validateWithOpenCV(blob.url, extractedData);
+          if (opencvResult.comparison) {
+            console.log(`[OpenCV] marcados=${opencvResult.opencv?.marked} uncertain=${opencvResult.opencv?.uncertain} gemini=${opencvResult.comparison.gemini_marked} diff=${opencvResult.comparison.discrepancy} rec=${opencvResult.comparison.recommendation}`);
+            // Guardar resultado OpenCV en la extracción
+            await sql`
+              UPDATE extraction_results
+              SET extracted_data = jsonb_set(
+                COALESCE(extracted_data, '{}'::jsonb),
+                '{_opencv}',
+                ${JSON.stringify({
+                  marked: opencvResult.opencv?.marked,
+                  uncertain: opencvResult.opencv?.uncertain,
+                  gemini_marked: opencvResult.comparison.gemini_marked,
+                  discrepancy: opencvResult.comparison.discrepancy,
+                  recommendation: opencvResult.comparison.recommendation,
+                  mode: opencvResult.mode,
+                })}::jsonb
+              )
+              WHERE id = ${extractionId as string}::UUID
+            `;
+          }
+        }
+      } catch (opencvError: any) {
+        console.error(`[OpenCV] Error (no bloqueante): ${opencvError.message}`);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
       url: blob.url,
       updated: dbUpdate.rowCount > 0
     });
