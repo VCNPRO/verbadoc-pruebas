@@ -232,8 +232,14 @@ class FUNDAEValidator:
                 gap_cv = gap_std / mean_gap
             else:
                 gap_cv = 999
-            if gap_cv < best_score:
-                best_score = gap_cv
+            # Penalizar subconjuntos pequeños: 5 es el estándar FUNDAE
+            # 2 casillas siempre tienen gap_cv=0 pero es incorrecto para escalas
+            # Score = gap_cv + penalización por alejarse de 5
+            penalty = abs(n - 5) * 0.15
+            score = gap_cv + penalty
+            print(f"[DIAG]   subconjunto n={n}: gap_cv={gap_cv:.2f} penalty={penalty:.2f} score={score:.2f}")
+            if score < best_score:
+                best_score = score
                 best_row = candidate
                 best_n = n
 
