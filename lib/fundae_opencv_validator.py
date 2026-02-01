@@ -94,16 +94,16 @@ class FUNDAEValidator:
     # - Marcadas: 0.2143 - 0.4318
     CONFIG = {
         "roi_x_percent": 0.55,
-        "checkbox_min_size": 12,
-        "checkbox_max_size": 45,
-        "aspect_ratio_min": 0.7,
-        "aspect_ratio_max": 1.35,
-        "solidity_min": 0.65,
+        "checkbox_min_size": 14,
+        "checkbox_max_size": 40,
+        "aspect_ratio_min": 0.75,
+        "aspect_ratio_max": 1.30,
+        "solidity_min": 0.75,
         "binary_block_size": 21,
         "binary_c": 12,
         "row_tolerance_px": 20,
         "min_checkboxes_per_row": 2,
-        "max_checkboxes_per_row": 12,
+        "max_checkboxes_per_row": 10,
         "interior_margin_percent": 0.28,
         # Umbrales calibrados con gap natural
         "density_marked_threshold": 0.17,   # por encima = marcada (gap empieza en 0.1364)
@@ -184,6 +184,13 @@ class FUNDAEValidator:
             solidity = area / (w * h) if w * h > 0 else 0
             if solidity < self.config["solidity_min"]:
                 continue
+
+            # Rectangularidad: las casillas reales se aproximan a un polígono de ~4 vértices
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.04 * peri, True)
+            if len(approx) < 4 or len(approx) > 8:
+                continue
+
             candidates.append({'x': x + roi_x, 'y': y, 'w': w, 'h': h})
         return candidates
 
@@ -220,6 +227,16 @@ class FUNDAEValidator:
                 std_ratio = (sum((s - mean_size)**2 for s in sizes) / len(sizes))**0.5 / mean_size
                 if std_ratio > self.config["size_std_max_ratio"]:
                     continue
+            # Filtro de espaciado regular: casillas reales están equiespaciadas
+            if len(row) >= 3:
+                centers = [cb['x'] + cb['w'] // 2 for cb in row]
+                gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
+                mean_gap = sum(gaps) / len(gaps)
+                if mean_gap > 0:
+                    gap_std = (sum((g - mean_gap)**2 for g in gaps) / len(gaps))**0.5
+                    gap_cv = gap_std / mean_gap  # coeficiente de variación
+                    if gap_cv > 0.5:  # más de 50% de variación = no equiespaciado
+                        continue
             valid_rows.append(row)
 
         valid_rows.sort(key=lambda row: row[0]['y'])
