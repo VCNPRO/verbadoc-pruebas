@@ -2,18 +2,10 @@
  * opencvValidator.ts
  *
  * Integración OpenCV para validación de checkboxes en formularios FUNDAE.
- * Capa de validación complementaria a Gemini (no reemplazo).
+ * Llama al microservicio OpenCV en La Bestia via Cloudflare Tunnel.
  *
  * ROLLBACK: Desactivar con OPENCV_CONFIG.enabled = false
  */
-
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import fs from 'fs';
-import os from 'os';
-
-const execFileAsync = promisify(execFile);
 
 // ============================================================================
 // CONFIGURACIÓN
@@ -28,9 +20,9 @@ export interface OpenCVConfig {
   mode: OpenCVMode;
   /** Umbral de discrepancia para marcar revisión humana */
   discrepancyThreshold: number;
-  /** Ruta al intérprete Python */
-  pythonPath: string;
-  /** Timeout en ms para el proceso Python */
+  /** URL del microservicio OpenCV (Cloudflare Tunnel) */
+  serviceUrl: string;
+  /** Timeout en ms para la llamada HTTP */
   timeoutMs: number;
 }
 
@@ -38,8 +30,8 @@ export const OPENCV_CONFIG: OpenCVConfig = {
   enabled: false,
   mode: 'log_only',
   discrepancyThreshold: 5,
-  pythonPath: process.env.OPENCV_PYTHON_PATH || 'python',
-  timeoutMs: 15_000,
+  serviceUrl: process.env.OPENCV_SERVICE_URL || 'https://wit-why-lyrics-ensure.trycloudflare.com',
+  timeoutMs: 30_000,
 };
 
 // ============================================================================
@@ -86,57 +78,32 @@ export interface OpenCVValidationOutput {
 // FUNCIONES
 // ============================================================================
 
-const SCRIPT_PATH = path.resolve(__dirname, '..', '..', 'lib', 'fundae_opencv_validator.py');
-
 /**
- * Convierte una página de un PDF a PNG usando pymupdf (fitz).
- * Devuelve la ruta al archivo temporal PNG creado.
+ * Llama al microservicio OpenCV en La Bestia.
  */
-async function pdfPageToPng(pdfPath: string, pageIndex: number, dpi = 200): Promise<string> {
-  const tmpDir = os.tmpdir();
-  const outPath = path.join(tmpDir, `fundae_opencv_${Date.now()}_p${pageIndex}.png`);
+async function callOpenCVService(pdfUrl: string, pageIndex: number): Promise<OpenCVResult> {
+  const url = `${OPENCV_CONFIG.serviceUrl}/validate`;
 
-  const script = `
-import fitz, sys
-doc = fitz.open(sys.argv[1])
-page = doc[int(sys.argv[2])]
-pix = page.get_pixmap(dpi=int(sys.argv[3]))
-pix.save(sys.argv[4])
-doc.close()
-`.trim();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), OPENCV_CONFIG.timeoutMs);
 
-  await execFileAsync(
-    OPENCV_CONFIG.pythonPath,
-    ['-c', script, pdfPath, String(pageIndex), String(dpi), outPath],
-    { timeout: OPENCV_CONFIG.timeoutMs }
-  );
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pdf_url: pdfUrl, page_index: pageIndex }),
+      signal: controller.signal,
+    });
 
-  return outPath;
-}
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`OpenCV service error ${response.status}: ${errorBody}`);
+    }
 
-/**
- * Ejecuta el validador OpenCV sobre una imagen de página de formulario.
- */
-async function runOpenCVScript(imagePath: string): Promise<OpenCVResult> {
-  const { stdout } = await execFileAsync(
-    OPENCV_CONFIG.pythonPath,
-    [SCRIPT_PATH, imagePath],
-    { timeout: OPENCV_CONFIG.timeoutMs }
-  );
-
-  // El script imprime texto informativo y luego JSON después del separador
-  const jsonMatch = stdout.split('JSON Output:').pop();
-  if (!jsonMatch) {
-    throw new Error('No se encontró salida JSON del script OpenCV');
+    return await response.json() as OpenCVResult;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  // Extraer solo el JSON válido (entre llaves)
-  const braceStart = jsonMatch.indexOf('{');
-  if (braceStart === -1) {
-    throw new Error('JSON inválido en salida OpenCV');
-  }
-
-  return JSON.parse(jsonMatch.slice(braceStart));
 }
 
 /**
@@ -167,7 +134,6 @@ function countGeminiMarked(geminiData: Record<string, any>): number {
 function compareResults(opencvResult: OpenCVResult, geminiMarked: number, threshold: number): ComparisonResult {
   const opencvMarked = opencvResult.marked;
   const opencvMax = opencvResult.marked + opencvResult.uncertain;
-  // Si Gemini cae dentro del rango [marked, marked+uncertain], es plausible
   const diff = (geminiMarked >= opencvMarked && geminiMarked <= opencvMax)
     ? 0
     : Math.min(Math.abs(opencvMarked - geminiMarked), Math.abs(opencvMax - geminiMarked));
@@ -193,22 +159,23 @@ function compareResults(opencvResult: OpenCVResult, geminiMarked: number, thresh
 }
 
 /**
- * Validación principal: ejecuta OpenCV y compara con Gemini.
+ * Validación principal: llama al microservicio OpenCV y compara con Gemini.
  *
- * @param imagePath - Ruta a la imagen PNG de la página del formulario
+ * @param pdfUrl - URL pública del PDF en Vercel Blob Storage
  * @param geminiData - Datos extraídos por Gemini
- * @returns Resultado de validación con flag de revisión humana
+ * @param pageIndex - Página a analizar (0-based), default 1
  */
 export async function validateWithOpenCV(
-  imagePath: string,
-  geminiData: Record<string, any>
+  pdfUrl: string,
+  geminiData: Record<string, any>,
+  pageIndex = 1
 ): Promise<OpenCVValidationOutput> {
   if (!OPENCV_CONFIG.enabled) {
     return { enabled: false, mode: OPENCV_CONFIG.mode, requiresHumanReview: false };
   }
 
   try {
-    const opencvResult = await runOpenCVScript(imagePath);
+    const opencvResult = await callOpenCVService(pdfUrl, pageIndex);
     const geminiMarked = countGeminiMarked(geminiData);
     const comparison = compareResults(
       opencvResult,
@@ -226,7 +193,6 @@ export async function validateWithOpenCV(
       requiresHumanReview,
     };
 
-    // Log siempre cuando está habilitado
     console.log(`[OpenCV] marcados=${opencvResult.marked} gemini=${geminiMarked} ` +
       `diff=${comparison.discrepancy} rec=${comparison.recommendation} ` +
       `time=${opencvResult.processing_time_ms.toFixed(0)}ms`);
@@ -248,37 +214,18 @@ export async function validateWithOpenCV(
 }
 
 /**
- * Validación completa desde PDF: convierte página a PNG, ejecuta OpenCV, compara con Gemini.
- *
- * @param pdfPath - Ruta al archivo PDF
- * @param pageIndex - Índice de página (0-based), por defecto la segunda página (1)
- * @param geminiData - Datos extraídos por Gemini
+ * Wrapper que acepta pdf_blob_url directamente (alias de validateWithOpenCV).
  */
 export async function validatePdfWithOpenCV(
-  pdfPath: string,
+  pdfUrl: string,
   geminiData: Record<string, any>,
   pageIndex = 1
 ): Promise<OpenCVValidationOutput> {
-  if (!OPENCV_CONFIG.enabled) {
-    return { enabled: false, mode: OPENCV_CONFIG.mode, requiresHumanReview: false };
-  }
-
-  let tmpPng: string | undefined;
-  try {
-    tmpPng = await pdfPageToPng(pdfPath, pageIndex);
-    return await validateWithOpenCV(tmpPng, geminiData);
-  } finally {
-    if (tmpPng) {
-      fs.unlink(tmpPng, () => {});
-    }
-  }
+  return validateWithOpenCV(pdfUrl, geminiData, pageIndex);
 }
 
 /**
  * Aplica el resultado OpenCV al resultado de extracción según el modo configurado.
- *
- * @param extractionResult - Objeto resultado que se modifica in-place
- * @param opencvOutput - Resultado de validateWithOpenCV
  */
 export function applyOpenCVResult(
   extractionResult: Record<string, any>,
@@ -286,9 +233,9 @@ export function applyOpenCVResult(
 ): void {
   if (!opencvOutput.enabled || !opencvOutput.comparison) return;
 
-  // Siempre adjuntar metadata OpenCV
   extractionResult._opencv = {
     marked: opencvOutput.opencv?.marked,
+    uncertain: opencvOutput.opencv?.uncertain,
     gemini_marked: opencvOutput.comparison.gemini_marked,
     discrepancy: opencvOutput.comparison.discrepancy,
     recommendation: opencvOutput.comparison.recommendation,
@@ -297,7 +244,6 @@ export function applyOpenCVResult(
 
   switch (opencvOutput.mode) {
     case 'log_only':
-      // No modifica nada, solo se logueó arriba
       break;
 
     case 'flag_only':

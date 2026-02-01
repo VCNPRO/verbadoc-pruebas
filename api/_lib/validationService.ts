@@ -670,19 +670,19 @@ export async function validateFundaeBatch(
  * Ejecuta validación OpenCV sobre un PDF y aplica resultado según modo configurado.
  * No-op si OPENCV_CONFIG.enabled = false.
  *
- * @param pdfPath - Ruta al PDF del formulario
+ * @param pdfBlobUrl - URL pública del PDF en Vercel Blob Storage
  * @param extractedData - Datos extraídos por Gemini (se modifica in-place)
  * @param pageIndex - Página a analizar (0-based), default 1 (segunda página)
  * @returns Resultado de la validación OpenCV, o null si deshabilitado
  */
 export async function runOpenCVValidation(
-  pdfPath: string,
+  pdfBlobUrl: string,
   extractedData: Record<string, any>,
   pageIndex = 1
 ): Promise<OpenCVValidationOutput | null> {
   if (!OPENCV_CONFIG.enabled) return null;
 
-  const opencvResult = await validatePdfWithOpenCV(pdfPath, extractedData, pageIndex);
+  const opencvResult = await validatePdfWithOpenCV(pdfBlobUrl, extractedData, pageIndex);
   applyOpenCVResult(extractedData, opencvResult);
   return opencvResult;
 }
