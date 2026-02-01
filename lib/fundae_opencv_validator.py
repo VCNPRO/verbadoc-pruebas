@@ -98,7 +98,7 @@ class FUNDAEValidator:
         "checkbox_max_size": 40,
         "aspect_ratio_min": 0.75,
         "aspect_ratio_max": 1.30,
-        "solidity_min": 0.75,
+        "solidity_min": 0.70,
         "binary_block_size": 21,
         "binary_c": 12,
         "row_tolerance_px": 20,
@@ -185,10 +185,10 @@ class FUNDAEValidator:
             if solidity < self.config["solidity_min"]:
                 continue
 
-            # Rectangularidad: las casillas reales se aproximan a un polígono de ~4 vértices
+            # Rectangularidad: las casillas reales se aproximan a un polígono de 4+ vértices
             peri = cv2.arcLength(c, True)
-            approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-            if len(approx) < 4 or len(approx) > 8:
+            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+            if len(approx) < 4 or len(approx) > 12:
                 continue
 
             candidates.append({'x': x + roi_x, 'y': y, 'w': w, 'h': h})
@@ -228,14 +228,15 @@ class FUNDAEValidator:
                 if std_ratio > self.config["size_std_max_ratio"]:
                     continue
             # Filtro de espaciado regular: casillas reales están equiespaciadas
-            if len(row) >= 3:
+            # Solo aplicar a filas con 4+ casillas (las de 2-3 pueden tener gaps irregulares)
+            if len(row) >= 4:
                 centers = [cb['x'] + cb['w'] // 2 for cb in row]
                 gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
                 mean_gap = sum(gaps) / len(gaps)
                 if mean_gap > 0:
                     gap_std = (sum((g - mean_gap)**2 for g in gaps) / len(gaps))**0.5
                     gap_cv = gap_std / mean_gap  # coeficiente de variación
-                    if gap_cv > 0.5:  # más de 50% de variación = no equiespaciado
+                    if gap_cv > 0.8:  # más de 80% = claramente no equiespaciado
                         continue
             valid_rows.append(row)
 
