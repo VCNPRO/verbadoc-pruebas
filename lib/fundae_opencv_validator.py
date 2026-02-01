@@ -104,7 +104,7 @@ class FUNDAEValidator:
         "row_tolerance_px": 20,
         "min_checkboxes_per_row": 2,
         "max_checkboxes_per_row": 8,
-        "interior_margin_percent": 0.28,
+        "interior_margin_percent": 0.35,
         # Umbrales calibrados con gap natural
         "density_marked_threshold": 0.17,   # por encima = marcada (gap empieza en 0.1364)
         "density_empty_threshold": 0.14,    # por debajo = vacía (ruido máx 0.1364)
@@ -375,17 +375,9 @@ class FUNDAEValidator:
         if interior.size == 0:
             return CheckboxState.UNCERTAIN, 0.5, 0.0
 
-        _, bin_interior = cv2.threshold(interior, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-        # Eliminar líneas de bordes de tabla dentro del checkbox
-        ih, iw = bin_interior.shape
-        if ih >= 3 and iw >= 3:
-            h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (iw, 1))
-            v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, ih))
-            h_lines = cv2.morphologyEx(bin_interior, cv2.MORPH_OPEN, h_kernel)
-            v_lines = cv2.morphologyEx(bin_interior, cv2.MORPH_OPEN, v_kernel)
-            lines_mask = cv2.bitwise_or(h_lines, v_lines)
-            bin_interior = cv2.subtract(bin_interior, lines_mask)
+        # Umbral fijo en vez de Otsu: más conservador, evita amplificar ruido
+        # Píxeles < 160 son tinta real (negro/gris oscuro), > 160 es fondo/ruido
+        _, bin_interior = cv2.threshold(interior, 160, 255, cv2.THRESH_BINARY_INV)
 
         dark_pixels = np.sum(bin_interior == 255)
         ink_density = dark_pixels / bin_interior.size
