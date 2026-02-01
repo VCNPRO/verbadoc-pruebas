@@ -309,39 +309,16 @@ class FUNDAEValidator:
                 rows_dict[cy].append(c)
 
         min_per_row = self.config["min_checkboxes_per_row"]
-        max_per_row = self.config["max_checkboxes_per_row"]
         valid_rows = []
-        rejected_rows = {"count": 0, "size_uniformity": 0}
         total_rows = len(rows_dict)
         for key, v in sorted(rows_dict.items()):
             if len(v) < min_per_row:
-                rejected_rows["count"] += 1
                 print(f"[DIAG] Fila y={key}: {len(v)} candidatos -> RECHAZADA (< {min_per_row})")
                 continue
             row = sorted(v, key=lambda x: x['x'])
-
-            # Limpieza intra-fila: si hay demasiados candidatos, quedarnos con los de tamaño
-            # más uniforme (casillas reales son del mismo tamaño, texto/ruido varía)
-            if len(row) > max_per_row:
-                row = self._clean_row(row, max_per_row, key)
-                if len(row) < min_per_row:
-                    rejected_rows["count"] += 1
-                    print(f"[DIAG] Fila y={key}: tras limpieza quedan {len(row)} -> RECHAZADA")
-                    continue
-
-            # Filtro de uniformidad de tamaño
-            sizes = [cb['w'] * cb['h'] for cb in row]
-            mean_size = sum(sizes) / len(sizes)
-            if mean_size > 0:
-                std_ratio = (sum((s - mean_size)**2 for s in sizes) / len(sizes))**0.5 / mean_size
-                if std_ratio > self.config["size_std_max_ratio"]:
-                    rejected_rows["size_uniformity"] += 1
-                    print(f"[DIAG] Fila y={key}: {len(row)} candidatos -> RECHAZADA (size_std={std_ratio:.2f})")
-                    continue
-
-            print(f"[DIAG] Fila y={key}: {len(row)} casillas -> ACEPTADA")
+            print(f"[DIAG] Fila y={key}: {len(row)} candidatos raw -> ACEPTADA")
             valid_rows.append(row)
-        print(f"[DIAG] Filas agrupadas: {total_rows} | Válidas: {len(valid_rows)} | Rechazadas: count={rejected_rows['count']} size={rejected_rows['size_uniformity']}")
+        print(f"[DIAG] Filas agrupadas: {total_rows} | Válidas: {len(valid_rows)}")
 
         valid_rows.sort(key=lambda row: row[0]['y'])
         return valid_rows
@@ -351,18 +328,28 @@ class FUNDAEValidator:
         Detecta posiciones X de columnas desde filas con 5 casillas bien espaciadas.
         Luego para filas con >5 candidatos, selecciona los 5 más cercanos a esas columnas.
         """
-        # Paso 1: recoger centros X de filas con exactamente 5 candidatos
+        # Paso 1: de cada fila, buscar el mejor subconjunto de 5 candidatos consecutivos
+        # con buen espaciado. Las filas con 5-9 candidatos tienen las 5 casillas reales
+        # en alguna posición.
         col_centers_samples = []
         for row in rows:
-            if len(row) == 5:
-                centers = [cb['x'] + cb['w'] // 2 for cb in row]
-                # Verificar espaciado razonable (CV < 0.5)
-                gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
-                mean_gap = sum(gaps) / len(gaps)
-                if mean_gap > 0:
-                    gap_std = (sum((g - mean_gap)**2 for g in gaps) / len(gaps))**0.5
-                    if gap_std / mean_gap < 0.5:
-                        col_centers_samples.append(centers)
+            best_centers = None
+            best_cv = float('inf')
+            if len(row) >= 5:
+                # Probar todos los subconjuntos de 5 consecutivos
+                for start in range(len(row) - 4):
+                    sub = row[start:start+5]
+                    centers = [cb['x'] + cb['w'] // 2 for cb in sub]
+                    gaps = [centers[i+1] - centers[i] for i in range(4)]
+                    mean_gap = sum(gaps) / 4
+                    if mean_gap > 10:  # gaps mínimos razonables
+                        gap_std = (sum((g - mean_gap)**2 for g in gaps) / 4)**0.5
+                        cv = gap_std / mean_gap
+                        if cv < best_cv:
+                            best_cv = cv
+                            best_centers = centers
+            if best_centers and best_cv < 0.3:  # solo filas con buen espaciado
+                col_centers_samples.append(best_centers)
 
         if not col_centers_samples:
             print(f"[DIAG] No hay filas de referencia con 5 casillas bien espaciadas")
@@ -376,15 +363,11 @@ class FUNDAEValidator:
             col_positions.append(avg_x)
         print(f"[DIAG] Columnas detectadas ({n_samples} refs): {[f'{x:.0f}' for x in col_positions]}")
 
-        # Paso 3: para filas con != 5, seleccionar los candidatos más cercanos a las columnas
+        # Paso 3: para TODAS las filas, seleccionar los candidatos más cercanos a las columnas
         tolerance = 30  # píxeles de tolerancia
         aligned_rows = []
         for row in rows:
-            if len(row) == 5:
-                aligned_rows.append(row)
-                continue
             if len(row) < 5:
-                # Pocas casillas: intentar alinear las que hay
                 aligned_rows.append(row)
                 continue
             # Más de 5: elegir el candidato más cercano a cada columna
