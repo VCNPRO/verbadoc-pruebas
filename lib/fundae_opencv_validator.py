@@ -171,27 +171,35 @@ class FUNDAEValidator:
 
     def _filter_candidates(self, contours, roi_x: int) -> List[Dict]:
         candidates = []
+        rejected = {"size": 0, "aspect": 0, "solidity": 0, "rectangularity": 0}
+        total = len(contours)
         for c in contours:
             x, y, w, h = cv2.boundingRect(c)
             if not (self.config["checkbox_min_size"] <= w <= self.config["checkbox_max_size"]):
+                rejected["size"] += 1
                 continue
             if not (self.config["checkbox_min_size"] <= h <= self.config["checkbox_max_size"]):
+                rejected["size"] += 1
                 continue
             aspect = w / h
             if not (self.config["aspect_ratio_min"] <= aspect <= self.config["aspect_ratio_max"]):
+                rejected["aspect"] += 1
                 continue
             area = cv2.contourArea(c)
             solidity = area / (w * h) if w * h > 0 else 0
             if solidity < self.config["solidity_min"]:
+                rejected["solidity"] += 1
                 continue
 
             # Rectangularidad: las casillas reales se aproximan a un polígono de 4+ vértices
             peri = cv2.arcLength(c, True)
             approx = cv2.approxPolyDP(c, 0.02 * peri, True)
             if len(approx) < 4 or len(approx) > 12:
+                rejected["rectangularity"] += 1
                 continue
 
             candidates.append({'x': x + roi_x, 'y': y, 'w': w, 'h': h})
+        print(f"[DIAG] Contornos totales: {total} | Pasan filtros: {len(candidates)} | Rechazados: size={rejected['size']} aspect={rejected['aspect']} solidity={rejected['solidity']} rect={rejected['rectangularity']}")
         return candidates
 
     def _group_by_rows(self, candidates: List[Dict]) -> List[List[Dict]]:
@@ -216,8 +224,12 @@ class FUNDAEValidator:
         min_per_row = self.config["min_checkboxes_per_row"]
         max_per_row = self.config["max_checkboxes_per_row"]
         valid_rows = []
-        for v in rows_dict.values():
+        rejected_rows = {"count": 0, "size_uniformity": 0, "spacing": 0}
+        total_rows = len(rows_dict)
+        for key, v in sorted(rows_dict.items()):
             if len(v) < min_per_row or len(v) > max_per_row:
+                rejected_rows["count"] += 1
+                print(f"[DIAG] Fila y={key}: {len(v)} candidatos -> RECHAZADA (fuera rango {min_per_row}-{max_per_row})")
                 continue
             row = sorted(v, key=lambda x: x['x'])
             # Filtro de uniformidad de tamaño
@@ -226,19 +238,24 @@ class FUNDAEValidator:
             if mean_size > 0:
                 std_ratio = (sum((s - mean_size)**2 for s in sizes) / len(sizes))**0.5 / mean_size
                 if std_ratio > self.config["size_std_max_ratio"]:
+                    rejected_rows["size_uniformity"] += 1
+                    print(f"[DIAG] Fila y={key}: {len(v)} candidatos -> RECHAZADA (size_std={std_ratio:.2f})")
                     continue
-            # Filtro de espaciado regular: casillas reales están equiespaciadas
-            # Solo aplicar a filas con 4+ casillas (las de 2-3 pueden tener gaps irregulares)
+            # Filtro de espaciado regular (solo informativo, NO rechaza)
             if len(row) >= 4:
                 centers = [cb['x'] + cb['w'] // 2 for cb in row]
                 gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
                 mean_gap = sum(gaps) / len(gaps)
                 if mean_gap > 0:
                     gap_std = (sum((g - mean_gap)**2 for g in gaps) / len(gaps))**0.5
-                    gap_cv = gap_std / mean_gap  # coeficiente de variación
-                    if gap_cv > 0.8:  # más de 80% = claramente no equiespaciado
-                        continue
+                    gap_cv = gap_std / mean_gap
+                    print(f"[DIAG] Fila y={key}: {len(row)} casillas, gap_cv={gap_cv:.2f} -> ACEPTADA")
+                else:
+                    print(f"[DIAG] Fila y={key}: {len(row)} casillas -> ACEPTADA")
+            else:
+                print(f"[DIAG] Fila y={key}: {len(row)} casillas -> ACEPTADA")
             valid_rows.append(row)
+        print(f"[DIAG] Filas agrupadas: {total_rows} | Válidas: {len(valid_rows)} | Rechazadas: count={rejected_rows['count']} size={rejected_rows['size_uniformity']}")
 
         valid_rows.sort(key=lambda row: row[0]['y'])
         return valid_rows
