@@ -143,101 +143,125 @@ class FUNDAEValidator:
         candidates = self._filter_candidates(contours, roi_x)
         rows = self._group_by_rows(candidates)
 
-        # Para cada fila: calcular densidades de TODOS los candidatos,
-        # luego seleccionar el mejor subconjunto de 5 (o 10 para formadores/tutores)
-        # basado en densidades (el que tenga 1 marca clara)
-        final_rows = []
-        for row in rows:
-            # Calcular densidades de todos los candidatos
-            all_densities = []
-            for cb in row:
-                _, _, density = self._classify(gray, cb)
-                all_densities.append(density)
-
-            if len(row) <= 5:
-                final_rows.append((row, all_densities))
-                continue
-
-            # Probar subconjuntos de 5 consecutivos, elegir el que tenga
-            # la distribución más clara (1 alta, resto bajas)
-            best_sub = None
-            best_dens = None
-            best_score = -1
-
-            for start in range(len(row) - 4):
-                sub = row[start:start+5]
-                dens = all_densities[start:start+5]
-                max_d = max(dens)
-                others = sorted(dens, reverse=True)[1:]  # todas menos la máxima
-                second_d = others[0] if others else 0
-                # Score: ratio entre la máxima y la segunda (más alto = más claro)
-                if second_d > 0:
-                    score = max_d / second_d
-                elif max_d > 0:
-                    score = 100  # perfecto: solo 1 con tinta
-                else:
-                    score = 0  # todas vacías
-                if score > best_score:
-                    best_score = score
-                    best_sub = sub
-                    best_dens = dens
-
-            # También probar subconjuntos de 10 (formadores/tutores: 2 grupos de 5)
-            if len(row) >= 10:
-                for start in range(len(row) - 9):
-                    sub = row[start:start+10]
-                    dens = all_densities[start:start+10]
-                    # Para 10: debería haber 2 marcas (1 por grupo de 5)
-                    sorted_dens = sorted(dens, reverse=True)
-                    if len(sorted_dens) >= 3 and sorted_dens[1] > 0.1:
-                        # 2 marcas claras
-                        score_10 = sorted_dens[1] / sorted_dens[2] if sorted_dens[2] > 0 else 100
-                        if score_10 > best_score * 0.5:  # dar preferencia a 10 si hay 2 marcas
-                            best_sub = sub
-                            best_dens = dens
-                            best_score = score_10
-                            print(f"[DIAG] Fila y={row[0]['y']}: elegido subconjunto de 10 (formadores/tutores)")
-
-            if best_sub:
-                print(f"[DIAG] Fila y={row[0]['y']}: {len(row)} -> {len(best_sub)} (score={best_score:.1f})")
-                final_rows.append((best_sub, best_dens))
-            else:
-                final_rows.append((row, all_densities))
-
+        # Enfoque directo: usar TODOS los candidatos de cada fila.
+        # Encontrar la marca (densidad máxima) y determinar su valor
+        # por posición relativa en la fila (no por subconjuntos).
         checkboxes = []
-        for row_idx, (row_cbs, raw_densities) in enumerate(final_rows):
-            # FUNDAE: cada fila (o grupo de 5) tiene exactamente 0 o 1 marca
-            sorted_d = sorted(raw_densities)
-            median_d = sorted_d[len(sorted_d) // 2]
-            max_d = max(raw_densities)
-            max_idx = raw_densities.index(max_d)
+        row_values = []
+        for row_idx, row_cbs in enumerate(rows):
+            # Calcular densidades
+            densities = []
+            for cb in row_cbs:
+                _, _, density = self._classify(gray, cb)
+                densities.append(density)
 
+            # Encontrar la marca
+            max_d = max(densities) if densities else 0
+            max_idx = densities.index(max_d) if densities else -1
+            median_d = sorted(densities)[len(densities) // 2] if densities else 0
             max_is_marked = (max_d >= median_d * 1.5 and max_d > 0.15)
 
-            for col_idx, (cb, density) in enumerate(zip(row_cbs, raw_densities)):
+            # Diagnóstico
+            field_name = self.ROW_TO_FIELD[row_idx] if row_idx < len(self.ROW_TO_FIELD) else f"row_{row_idx}"
+            dens_str = " ".join([f"{d:.3f}{'M' if i == max_idx and max_is_marked else 'E'}" for i, d in enumerate(densities)])
+            print(f"[DENS] {field_name} ({len(row_cbs)}cb): {dens_str}")
+
+            for col_idx, (cb, density) in enumerate(zip(row_cbs, densities)):
                 if col_idx == max_idx and max_is_marked:
                     state = CheckboxState.MARKED
                     confidence = min(0.95, 0.75 + density)
                 else:
                     state = CheckboxState.EMPTY
                     confidence = min(0.95, 0.85)
-
                 checkboxes.append(DetectedCheckbox(
                     x=cb['x'], y=cb['y'], w=cb['w'], h=cb['h'],
                     row=row_idx, col=col_idx,
                     state=state, confidence=confidence, ink_density=density
                 ))
 
+            # Determinar valor por posición relativa de la marca
+            field = self.ROW_TO_FIELD[row_idx] if row_idx < len(self.ROW_TO_FIELD) else None
+
+            if not max_is_marked:
+                # Sin marca → NC
+                row_values.append(RowValue(
+                    row_index=row_idx, field=field, opencv_value="NC",
+                    num_checkboxes=len(row_cbs), marked_positions=[], confidence=0.95
+                ))
+                continue
+
+            # Posición relativa de la marca: 0.0 = extremo izquierdo, 1.0 = extremo derecho
+            marked_cb = row_cbs[max_idx]
+            first_x = row_cbs[0]['x']
+            last_x = row_cbs[-1]['x']
+            span = last_x - first_x
+            if span > 0:
+                rel_pos = (marked_cb['x'] - first_x) / span
+            else:
+                rel_pos = 0.5
+
+            # Mapear posición relativa a escala NC,1,2,3,4
+            # NC está a la izquierda (rel_pos ~0.0), 4 a la derecha (rel_pos ~1.0)
+            # Dividir en 5 zonas iguales
+            if rel_pos < 0.1:
+                value = "NC"
+            elif rel_pos < 0.3:
+                value = "1"
+            elif rel_pos < 0.5:
+                value = "2"
+            elif rel_pos < 0.7:
+                value = "3"
+            else:
+                value = "4"
+
+            print(f"[MAP] {field}: marca en pos {max_idx}/{len(row_cbs)}, rel_pos={rel_pos:.2f} -> valor={value}")
+
+            # Para formadores/tutores (4_1, 4_2): si hay 2 marcas, dividir en 2 grupos
+            if field and field.startswith("valoracion_4_") and len(row_cbs) >= 8:
+                # Buscar las 2 marcas más altas
+                sorted_by_dens = sorted(enumerate(densities), key=lambda x: x[1], reverse=True)
+                marks = [(i, d) for i, d in sorted_by_dens if d > 0.15][:2]
+                if len(marks) == 2:
+                    marks.sort(key=lambda x: x[0])  # ordenar por posición
+                    mid = len(row_cbs) // 2
+                    for mark_idx, (mi, md) in enumerate(marks):
+                        sub_field = field + ("_formadores" if mi < mid else "_tutores")
+                        sub_first = row_cbs[0 if mi < mid else mid]['x']
+                        sub_last = row_cbs[mid-1 if mi < mid else -1]['x']
+                        sub_span = sub_last - sub_first
+                        if sub_span > 0:
+                            sub_rel = (row_cbs[mi]['x'] - sub_first) / sub_span
+                        else:
+                            sub_rel = 0.5
+                        if sub_rel < 0.1:
+                            sub_val = "NC"
+                        elif sub_rel < 0.3:
+                            sub_val = "1"
+                        elif sub_rel < 0.5:
+                            sub_val = "2"
+                        elif sub_rel < 0.7:
+                            sub_val = "3"
+                        else:
+                            sub_val = "4"
+                        print(f"[MAP] {sub_field}: rel_pos={sub_rel:.2f} -> valor={sub_val}")
+                        row_values.append(RowValue(
+                            row_index=row_idx, field=sub_field, opencv_value=sub_val,
+                            num_checkboxes=len(row_cbs), marked_positions=[mi], confidence=min(0.95, 0.75 + md)
+                        ))
+                    continue
+
+            row_values.append(RowValue(
+                row_index=row_idx, field=field, opencv_value=value,
+                num_checkboxes=len(row_cbs), marked_positions=[max_idx], confidence=min(0.95, 0.75 + max_d)
+            ))
+
         marked = [c for c in checkboxes if c.state == CheckboxState.MARKED]
         empty = [c for c in checkboxes if c.state == CheckboxState.EMPTY]
         uncertain = [c for c in checkboxes if c.state == CheckboxState.UNCERTAIN]
 
-        final_row_cbs = [r for r, _ in final_rows]
-        row_values = self._compute_row_values(final_row_cbs, checkboxes)
-
         return ValidationResult(
             total_checkboxes=len(checkboxes),
-            total_rows=len(final_rows),
+            total_rows=len(rows),
             marked_count=len(marked),
             empty_count=len(empty),
             uncertain_count=len(uncertain),
