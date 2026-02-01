@@ -66,7 +66,8 @@ class FUNDAEValidator:
     # Mapeo fila → (campo, tipo_escala)
     # "scale5" = NC,1,2,3,4 (5 casillas en columnas fijas)
     # "nc_si_no" = NC,Sí,No (3 casillas)
-    # 24 filas reales en la página 2 del formulario FUNDAE
+    # 25 filas reales en la página 2 del formulario FUNDAE
+    # 4_1 y 4_2 tienen filas separadas para formadores y tutores (5 casillas cada una)
     ROW_TO_FIELD = [
         ("valoracion_1_1", "scale5"),           # fila 0
         ("valoracion_1_2", "scale5"),           # fila 1
@@ -76,22 +77,23 @@ class FUNDAEValidator:
         ("valoracion_3_2", "scale5"),           # fila 5
         ("valoracion_4_1_formadores", "scale5"),# fila 6 - fila separada
         ("valoracion_4_1_tutores", "scale5"),   # fila 7 - fila separada
-        ("valoracion_4_2", "scale5"),           # fila 8
-        ("valoracion_5_1", "scale5"),           # fila 9
-        ("valoracion_5_2", "scale5"),           # fila 10
-        ("valoracion_6_1", "scale5"),           # fila 11
-        ("valoracion_6_2", "scale5"),           # fila 12
-        ("valoracion_7_1", "scale5"),           # fila 13
-        ("valoracion_7_2", "scale5"),           # fila 14
-        ("valoracion_8_1", "nc_si_no"),         # fila 15
-        ("valoracion_8_2", "nc_si_no"),         # fila 16
-        ("valoracion_9_1", "scale5"),           # fila 17
-        ("valoracion_9_2", "scale5"),           # fila 18
-        ("valoracion_9_3", "scale5"),           # fila 19
-        ("valoracion_9_4", "scale5"),           # fila 20
-        ("valoracion_9_5", "scale5"),           # fila 21
-        ("valoracion_10", "scale5"),            # fila 22 - NC,1,2,3,4
-        ("recomendaria_curso", "nc_si_no"),     # fila 23 - 10.1 NC,Sí,No
+        ("valoracion_4_2_formadores", "scale5"),# fila 8 - fila separada
+        ("valoracion_4_2_tutores", "scale5"),   # fila 9 - fila separada
+        ("valoracion_5_1", "scale5"),           # fila 10
+        ("valoracion_5_2", "scale5"),           # fila 11
+        ("valoracion_6_1", "scale5"),           # fila 12
+        ("valoracion_6_2", "scale5"),           # fila 13
+        ("valoracion_7_1", "scale5"),           # fila 14
+        ("valoracion_7_2", "scale5"),           # fila 15
+        ("valoracion_8_1", "nc_si_no"),         # fila 16
+        ("valoracion_8_2", "nc_si_no"),         # fila 17
+        ("valoracion_9_1", "scale5"),           # fila 18
+        ("valoracion_9_2", "scale5"),           # fila 19
+        ("valoracion_9_3", "scale5"),           # fila 20
+        ("valoracion_9_4", "scale5"),           # fila 21
+        ("valoracion_9_5", "scale5"),           # fila 22
+        ("valoracion_10", "scale5"),            # fila 23 - NC,1,2,3,4
+        ("recomendaria_curso", "nc_si_no"),     # fila 24 - 10.1 NC,Sí,No
     ]
 
     # Calibrado con datos reales:
@@ -256,6 +258,17 @@ class FUNDAEValidator:
                 row_values.append(RowValue(
                     row_index=row_idx, field=field, opencv_value="NC",
                     num_checkboxes=len(row_cbs), marked_positions=[], confidence=0.95
+                ))
+                continue
+
+            # Multi-marca → NC: si 2+ casillas tienen densidad significativa
+            # (>= 0.15 y >= 50% de la max), el alumno marcó 2 o es ruido → NC
+            marked_indices = [i for i, d in enumerate(densities) if d >= 0.15 and d >= max_d * 0.50]
+            if len(marked_indices) >= 2:
+                print(f"[MAP] {field}: MULTI-MARCA ({len(marked_indices)} casillas marcadas) -> NC")
+                row_values.append(RowValue(
+                    row_index=row_idx, field=field, opencv_value="NC",
+                    num_checkboxes=len(row_cbs), marked_positions=marked_indices, confidence=0.70
                 ))
                 continue
 
