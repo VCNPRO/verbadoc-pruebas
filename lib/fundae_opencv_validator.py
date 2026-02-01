@@ -189,31 +189,23 @@ class FUNDAEValidator:
             row_data.append((row_cbs, densities))
 
         # Paso 2: detectar posiciones X de las 5 columnas reales (NC,1,2,3,4)
-        # usando filas donde hay exactamente 1 marca clara entre 5 candidatos
+        # Solo usar filas con EXACTAMENTE 5 checkboxes (las más fiables)
         col_x_samples = []  # lista de [x_nc, x_1, x_2, x_3, x_4]
         for row_cbs, densities in row_data:
-            if len(row_cbs) < 5:
+            if len(row_cbs) != 5:
                 continue
-            # Buscar el mejor subconjunto de 5 consecutivos con 1 marca clara
-            for start in range(len(row_cbs) - 4):
-                sub_d = densities[start:start+5]
-                max_d = max(sub_d)
-                if max_d < 0.15:
-                    continue
-                others = sorted(sub_d, reverse=True)
-                if others[1] > 0.05:  # segunda casilla tiene algo de tinta → no limpio
-                    continue
-                # Subconjunto limpio: 1 marca, 4 vacías con densidad ~0
-                centers = [row_cbs[start+i]['x'] + row_cbs[start+i]['w'] // 2 for i in range(5)]
-                gaps = [centers[i+1] - centers[i] for i in range(4)]
-                mean_gap = sum(gaps) / 4
-                if mean_gap > 10:
-                    gap_std = (sum((g - mean_gap)**2 for g in gaps) / 4)**0.5
-                    if gap_std / mean_gap < 0.4:
-                        col_x_samples.append(centers)
+            # Verificar que el espaciado es regular
+            centers = [cb['x'] + cb['w'] // 2 for cb in row_cbs]
+            gaps = [centers[i+1] - centers[i] for i in range(4)]
+            mean_gap = sum(gaps) / 4
+            if mean_gap < 10:
+                continue
+            gap_std = (sum((g - mean_gap)**2 for g in gaps) / 4)**0.5
+            if gap_std / mean_gap < 0.4:
+                col_x_samples.append(centers)
+                print(f"[COL-REF] y={row_cbs[0]['y']}: {' '.join(f'{c:.0f}' for c in centers)} gap={mean_gap:.0f}±{gap_std:.0f}")
 
         if col_x_samples:
-            # Promediar posiciones de columna
             col_positions = []
             for i in range(5):
                 avg = sum(s[i] for s in col_x_samples) / len(col_x_samples)
@@ -305,21 +297,41 @@ class FUNDAEValidator:
         mark_cb = row_cbs[max_idx]
         mark_center = mark_cb['x'] + mark_cb['w'] // 2
 
-        # Método principal: usar columnas detectadas para mapear por proximidad
+        # Para filas con >5cb (formadores/tutores mezclados en 1 fila detectada):
+        # Las columnas globales aplican tanto a la mitad izquierda como a la derecha,
+        # porque ambas mitades tienen las mismas 5 columnas (NC,1,2,3,4).
+        # Usar columnas directamente con la X de la marca.
         if col_positions:
             col_labels = ["NC", "1", "2", "3", "4"]
             best_col = min(range(5), key=lambda i: abs(mark_center - col_positions[i]))
             dist = abs(mark_center - col_positions[best_col])
+            # Si la distancia es >50px, la marca está fuera de las columnas estándar
+            # (probablemente en la mitad izquierda de una fila formadores/tutores)
+            if dist > 50 and len(row_cbs) > 5:
+                # Recalcular columnas locales para la mitad donde está la marca
+                mid_x = (row_cbs[0]['x'] + row_cbs[-1]['x']) / 2
+                if mark_center < mid_x:
+                    half_cbs = [cb for cb in row_cbs if cb['x'] + cb['w']//2 < mid_x]
+                else:
+                    half_cbs = [cb for cb in row_cbs if cb['x'] + cb['w']//2 >= mid_x]
+                if len(half_cbs) >= 5:
+                    half_cbs.sort(key=lambda cb: cb['x'])
+                    half_cbs = half_cbs[-5:]  # 5 más a la derecha de la mitad
+                    local_centers = [cb['x'] + cb['w']//2 for cb in half_cbs]
+                    best_local = min(range(len(local_centers)), key=lambda i: abs(mark_center - local_centers[i]))
+                    pos_from_right = len(local_centers) - 1 - best_local
+                    value = ["4", "3", "2", "1", "NC"][pos_from_right] if pos_from_right < 5 else "NC"
+                    print(f"[MAP] {field} (scale5-local): mark_x={mark_center} half={len(half_cbs)}cb posR={pos_from_right} -> {value}")
+                    return value
             value = col_labels[best_col]
             print(f"[MAP] {field} (scale5-col): mark_x={mark_center} -> col {value} (dist={dist:.0f}px)")
             return value
 
         # Fallback: posición relativa (rightmost = 4)
         sorted_cbs = sorted(enumerate(row_cbs), key=lambda x: x[1]['x'])
-        # Usar solo los 5 más a la derecha si hay más
         if len(sorted_cbs) > 5:
             sorted_cbs = sorted_cbs[-5:]
-        mark_pos = next(i for i, (idx, _) in enumerate(sorted_cbs) if idx == max_idx)
+        mark_pos = next((i for i, (idx, _) in enumerate(sorted_cbs) if idx == max_idx), len(sorted_cbs)-1)
         pos_from_right = len(sorted_cbs) - 1 - mark_pos
         value = ["4", "3", "2", "1", "NC"][pos_from_right] if pos_from_right < 5 else "NC"
         print(f"[MAP] {field} (scale5-rel): mark_x={mark_center} posR={pos_from_right} -> {value}")
