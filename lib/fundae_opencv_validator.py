@@ -116,8 +116,8 @@ class FUNDAEValidator:
         "min_checkboxes_per_row": 3,
         "max_checkboxes_per_row": 6,    # FUNDAE tiene NC,1,2,3,4 = 5 columnas máx
         "interior_margin_percent": 0.28,
-        "density_marked_threshold": 0.07,
-        "density_empty_threshold": 0.035,
+        "density_marked_threshold": 0.15,
+        "density_empty_threshold": 0.06,
         "size_std_max_ratio": 0.3,      # uniformidad: checkboxes tienen tamaño similar
     }
     
@@ -383,7 +383,7 @@ class FUNDAEValidator:
             num_labels, _, stats, _ = cv2.connectedComponentsWithStats(bin_interior, connectivity=8)
             big_components = sum(1 for i in range(1, num_labels) if stats[i, cv2.CC_STAT_AREA] > 15)
 
-            if big_components >= 2 and ink_density > 0.05:
+            if big_components >= 2 and ink_density > 0.10:
                 return CheckboxState.MARKED, 0.65, ink_density
             return CheckboxState.UNCERTAIN, 0.50, ink_density
     
