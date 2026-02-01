@@ -523,6 +523,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Asegurar que extractedData sea un objeto
       const dataObj = typeof extractedData === 'string' ? JSON.parse(extractedData) : extractedData;
 
+      // Validación OpenCV de checkboxes (no bloqueante, se ejecuta siempre)
+      if (fileUrl) {
+        try {
+          const opencvResult = await runOpenCVValidation(fileUrl, dataObj);
+          if (opencvResult && opencvResult.comparison) {
+            console.log(`[OpenCV] marcados=${opencvResult.opencv?.marked} uncertain=${opencvResult.opencv?.uncertain} gemini=${opencvResult.comparison.gemini_marked} diff=${opencvResult.comparison.discrepancy} rec=${opencvResult.comparison.recommendation} time=${opencvResult.opencv?.processing_time_ms?.toFixed(0)}ms`);
+          }
+        } catch (opencvError: any) {
+          console.error(`[OpenCV] Error (no bloqueante): ${opencvError.message}`);
+        }
+      }
+
       // 🔥 NORMALIZACIÓN DE CAMPOS: Buscar campos por múltiples patrones
       // Esto permite que plantillas con nombres como "1. Nº expediente" funcionen
       const findFieldValue = (obj: any, patterns: string[]): string => {
@@ -960,18 +972,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           extraction.id,
           dataObj
         );
-
-        // Validación OpenCV de checkboxes (log_only por defecto, no bloquea)
-        if (fileUrl) {
-          try {
-            const opencvResult = await runOpenCVValidation(fileUrl, dataObj);
-            if (opencvResult) {
-              console.log(`[OpenCV] Resultado: marcados=${opencvResult.opencv?.marked} rec=${opencvResult.comparison?.recommendation}`);
-            }
-          } catch (opencvError: any) {
-            console.error(`[OpenCV] Error (no bloqueante): ${opencvError.message}`);
-          }
-        }
 
         // Si falló la pre-validación de referencia, añadir ese error manualmente
         let finalCriticalCount = criticalCount;
