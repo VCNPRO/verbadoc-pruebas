@@ -143,6 +143,10 @@ class FUNDAEValidator:
         candidates = self._filter_candidates(contours, roi_x)
         rows = self._group_by_rows(candidates)
 
+        # Detectar posiciones X de columnas desde filas con exactamente 5 candidatos
+        # (las más fiables) y realinear las demás filas
+        rows = self._align_to_columns(rows, gray)
+
         checkboxes = []
         for row_idx, row_cbs in enumerate(rows):
             # Calcular densidades de toda la fila primero
@@ -341,6 +345,73 @@ class FUNDAEValidator:
 
         valid_rows.sort(key=lambda row: row[0]['y'])
         return valid_rows
+
+    def _align_to_columns(self, rows: List[List[Dict]], gray: np.ndarray) -> List[List[Dict]]:
+        """
+        Detecta posiciones X de columnas desde filas con 5 casillas bien espaciadas.
+        Luego para filas con >5 candidatos, selecciona los 5 más cercanos a esas columnas.
+        """
+        # Paso 1: recoger centros X de filas con exactamente 5 candidatos
+        col_centers_samples = []
+        for row in rows:
+            if len(row) == 5:
+                centers = [cb['x'] + cb['w'] // 2 for cb in row]
+                # Verificar espaciado razonable (CV < 0.5)
+                gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
+                mean_gap = sum(gaps) / len(gaps)
+                if mean_gap > 0:
+                    gap_std = (sum((g - mean_gap)**2 for g in gaps) / len(gaps))**0.5
+                    if gap_std / mean_gap < 0.5:
+                        col_centers_samples.append(centers)
+
+        if not col_centers_samples:
+            print(f"[DIAG] No hay filas de referencia con 5 casillas bien espaciadas")
+            return rows
+
+        # Paso 2: promediar las posiciones de columna
+        n_samples = len(col_centers_samples)
+        col_positions = []
+        for col_idx in range(5):
+            avg_x = sum(s[col_idx] for s in col_centers_samples) / n_samples
+            col_positions.append(avg_x)
+        print(f"[DIAG] Columnas detectadas ({n_samples} refs): {[f'{x:.0f}' for x in col_positions]}")
+
+        # Paso 3: para filas con != 5, seleccionar los candidatos más cercanos a las columnas
+        tolerance = 30  # píxeles de tolerancia
+        aligned_rows = []
+        for row in rows:
+            if len(row) == 5:
+                aligned_rows.append(row)
+                continue
+            if len(row) < 5:
+                # Pocas casillas: intentar alinear las que hay
+                aligned_rows.append(row)
+                continue
+            # Más de 5: elegir el candidato más cercano a cada columna
+            new_row = []
+            used = set()
+            for col_x in col_positions:
+                best_cb = None
+                best_dist = tolerance + 1
+                for i, cb in enumerate(row):
+                    if i in used:
+                        continue
+                    cx = cb['x'] + cb['w'] // 2
+                    dist = abs(cx - col_x)
+                    if dist < best_dist:
+                        best_dist = dist
+                        best_cb = i
+                if best_cb is not None and best_dist <= tolerance:
+                    new_row.append(row[best_cb])
+                    used.add(best_cb)
+            if len(new_row) >= 2:
+                new_row.sort(key=lambda cb: cb['x'])
+                if len(new_row) != len(row):
+                    print(f"[DIAG] Fila y={row[0]['y']}: alineada {len(row)} -> {len(new_row)} casillas")
+                aligned_rows.append(new_row)
+            else:
+                aligned_rows.append(row)
+        return aligned_rows
 
     def _classify(self, gray: np.ndarray, cb: Dict) -> Tuple[CheckboxState, float, float]:
         x, y, w, h = cb['x'], cb['y'], cb['w'], cb['h']
