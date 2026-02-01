@@ -147,6 +147,34 @@ class FUNDAEValidator:
         candidates = self._filter_candidates(contours, roi_x)
         rows = self._group_by_rows(candidates)
 
+        # Deduplicar contornos dobles: cada casilla genera 2 contornos
+        # (borde exterior + interior) que están a <15px de distancia en X.
+        # Fusionar quedándonos con el más grande (el exterior).
+        deduped_rows = []
+        for row in rows:
+            merged = []
+            used = set()
+            for i, cb in enumerate(row):
+                if i in used:
+                    continue
+                best = cb
+                for j, cb2 in enumerate(row):
+                    if j <= i or j in used:
+                        continue
+                    if abs(cb['x'] - cb2['x']) < 15 and abs(cb['y'] - cb2['y']) < 15:
+                        # Duplicado: quedarse con el más grande
+                        if cb2['w'] * cb2['h'] > best['w'] * best['h']:
+                            best = cb2
+                        used.add(j)
+                merged.append(best)
+                used.add(i)
+            if len(merged) >= 2:
+                merged.sort(key=lambda x: x['x'])
+                deduped_rows.append(merged)
+                if len(merged) != len(row):
+                    print(f"[DIAG] Fila y={row[0]['y']}: dedup {len(row)} -> {len(merged)}")
+        rows = deduped_rows
+
         # Paso 1: calcular densidades de todos los candidatos de cada fila
         row_data = []  # [(row_cbs, densities)]
         for row_cbs in rows:
