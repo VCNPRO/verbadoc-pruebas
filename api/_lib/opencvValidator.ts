@@ -27,7 +27,7 @@ export interface OpenCVConfig {
 }
 
 export const OPENCV_CONFIG: OpenCVConfig = {
-  enabled: false,
+  enabled: true,
   mode: 'log_only',
   discrepancyThreshold: 5,
   serviceUrl: process.env.OPENCV_SERVICE_URL || 'https://wit-why-lyrics-ensure.trycloudflare.com',
