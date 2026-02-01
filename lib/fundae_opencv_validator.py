@@ -1,10 +1,10 @@
 """
-FUNDAE OpenCV Validator - Módulo de Producción v3
+FUNDAE OpenCV Validator - Módulo de Producción v1.1
 Validación determinista de checkboxes para formularios FUNDAE.
 
-v3: Enfoque GRID FIJO. El formulario FUNDAE siempre tiene el mismo layout.
-    En vez de detectar contornos (frágil), localizamos la tabla de valoraciones
-    por las cabeceras "NC 1 2 3 4" y muestreamos densidad en posiciones fijas.
+v1.1: Umbrales calibrados con datos reales.
+      Gap natural entre ruido (max 0.1364) y marca real (min 0.2143).
+      Corte en 0.17 para máxima separación.
 
 Requisitos:
     pip install opencv-python-headless numpy
@@ -12,7 +12,8 @@ Requisitos:
 
 import cv2
 import numpy as np
-from dataclasses import dataclass, field
+from collections import defaultdict
+from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional
 from enum import Enum
 import json
@@ -60,64 +61,61 @@ class ValidationResult:
 
 
 class FUNDAEValidator:
-    """Validador OpenCV para formularios FUNDAE v3 - Grid fijo."""
+    """Validador OpenCV para formularios FUNDAE v1.1 - Calibrado."""
 
-    # Campos FUNDAE en orden de aparición en la página 2
-    FIELDS = [
-        # Sección 1: Organización
-        {"field": "valoracion_1_1", "type": "scale"},
-        {"field": "valoracion_1_2", "type": "scale"},
-        # Sección 2: Contenidos
-        {"field": "valoracion_2_1", "type": "scale"},
-        {"field": "valoracion_2_2", "type": "scale"},
-        # Sección 3: Duración
-        {"field": "valoracion_3_1", "type": "scale"},
-        {"field": "valoracion_3_2", "type": "scale"},
-        # Sección 4: Formadores/Tutores (doble)
-        {"field": "valoracion_4_1_formadores", "type": "scale"},
-        {"field": "valoracion_4_1_tutores", "type": "scale"},
-        {"field": "valoracion_4_2_formadores", "type": "scale"},
-        {"field": "valoracion_4_2_tutores", "type": "scale"},
-        # Sección 5: Medios
-        {"field": "valoracion_5_1", "type": "scale"},
-        {"field": "valoracion_5_2", "type": "scale"},
-        # Sección 6: Instalaciones
-        {"field": "valoracion_6_1", "type": "scale"},
-        {"field": "valoracion_6_2", "type": "scale"},
-        # Sección 7: Teleformación
-        {"field": "valoracion_7_1", "type": "scale"},
-        {"field": "valoracion_7_2", "type": "scale"},
-        # Sección 8: Evaluación (Sí/No)
-        {"field": "valoracion_8_1", "type": "yesno"},
-        {"field": "valoracion_8_2", "type": "yesno"},
-        # Sección 9: Valoración general
-        {"field": "valoracion_9_1", "type": "scale"},
-        {"field": "valoracion_9_2", "type": "scale"},
-        {"field": "valoracion_9_3", "type": "scale"},
-        {"field": "valoracion_9_4", "type": "scale"},
-        {"field": "valoracion_9_5", "type": "scale"},
-        # Sección 10: Satisfacción
-        {"field": "valoracion_10", "type": "scale"},
+    ROW_TO_FIELD = [
+        "valoracion_1_1",
+        "valoracion_1_2",
+        "valoracion_2_1",
+        "valoracion_2_2",
+        "valoracion_3_1",
+        "valoracion_3_2",
+        "valoracion_4_1",           # formadores + tutores
+        "valoracion_4_2",           # formadores + tutores
+        "valoracion_5_1",
+        "valoracion_5_2",
+        "valoracion_6_1",
+        "valoracion_6_2",
+        "valoracion_7_1",
+        "valoracion_7_2",
+        "valoracion_8_1",           # Sí/No
+        "valoracion_8_2",           # Sí/No
+        "valoracion_9_1",
+        "valoracion_9_2",
+        "valoracion_9_3",
+        "valoracion_9_4",
+        "valoracion_9_5",
+        "valoracion_10",
     ]
 
+    # Calibrado con datos reales:
+    # - Vacías: 0.0165 - 0.1364
+    # - Gap:    0.1364 - 0.2143
+    # - Marcadas: 0.2143 - 0.4318
     CONFIG = {
-        # Tamaño de la zona de muestreo para cada casilla (en píxeles)
-        "sample_size": 16,
-        # Margen interior para evitar bordes
-        "sample_margin": 4,
-        # Umbral para considerar marcada (densidad relativa vs fila)
-        "marked_ratio_threshold": 2.5,
-        # Umbral absoluto mínimo para marcada
-        "marked_abs_threshold": 0.08,
-        # Umbral para empty absoluto
-        "empty_abs_threshold": 0.03,
+        "roi_x_percent": 0.55,
+        "checkbox_min_size": 12,
+        "checkbox_max_size": 45,
+        "aspect_ratio_min": 0.7,
+        "aspect_ratio_max": 1.35,
+        "solidity_min": 0.65,
+        "binary_block_size": 21,
+        "binary_c": 12,
+        "row_tolerance_px": 20,
+        "min_checkboxes_per_row": 2,
+        "max_checkboxes_per_row": 12,
+        "interior_margin_percent": 0.28,
+        # Umbrales calibrados con gap natural
+        "density_marked_threshold": 0.17,   # por encima = marcada (gap empieza en 0.1364)
+        "density_empty_threshold": 0.14,    # por debajo = vacía (ruido máx 0.1364)
+        # Zona uncertain: 0.14 - 0.17 (muy estrecha, solo 0.03 de margen)
+        "size_std_max_ratio": 0.4,
     }
 
     def __init__(self, config: Optional[Dict] = None):
         self.config = {**self.CONFIG, **(config or {})}
 
     def validate_page(self, image_path: str) -> ValidationResult:
-        """Valida una página de formulario FUNDAE usando detección de grid."""
         import time
         start = time.time()
 
@@ -128,41 +126,41 @@ class FUNDAEValidator:
         h, w = image.shape[:2]
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Paso 1: Encontrar las filas de casillas usando detección de líneas horizontales
-        rows_info = self._find_checkbox_rows(gray, w, h)
+        roi_x = int(w * self.config["roi_x_percent"])
 
-        if not rows_info:
-            # Fallback: no se encontraron filas
-            return ValidationResult(
-                total_checkboxes=0, total_rows=0,
-                marked_count=0, empty_count=0, uncertain_count=0,
-                checkboxes=[], row_values=[],
-                processing_time_ms=(time.time() - start) * 1000
-            )
+        binary = cv2.adaptiveThreshold(
+            gray, 255,
+            cv2.ADAPTIVE_THRESH_MEAN_C,
+            cv2.THRESH_BINARY_INV,
+            self.config["binary_block_size"],
+            self.config["binary_c"]
+        )
 
-        # Paso 2: Para cada fila, encontrar las casillas por espaciado regular
+        roi_binary = binary[:, roi_x:]
+        contours, _ = cv2.findContours(roi_binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+        candidates = self._filter_candidates(contours, roi_x)
+        rows = self._group_by_rows(candidates)
+
         checkboxes = []
-        all_row_densities = []
-
-        for row_idx, row_info in enumerate(rows_info):
-            row_cbs, densities = self._sample_row(gray, row_info, row_idx)
-            checkboxes.extend(row_cbs)
-            all_row_densities.append(densities)
-
-        # Paso 3: Clasificar usando densidad relativa
-        for row_idx, densities in enumerate(all_row_densities):
-            row_cbs = [cb for cb in checkboxes if cb.row == row_idx]
-            self._classify_row(row_cbs, densities)
+        for row_idx, row_cbs in enumerate(rows):
+            for col_idx, cb in enumerate(row_cbs):
+                state, conf, density = self._classify(gray, cb)
+                checkboxes.append(DetectedCheckbox(
+                    x=cb['x'], y=cb['y'], w=cb['w'], h=cb['h'],
+                    row=row_idx, col=col_idx,
+                    state=state, confidence=conf, ink_density=density
+                ))
 
         marked = [c for c in checkboxes if c.state == CheckboxState.MARKED]
         empty = [c for c in checkboxes if c.state == CheckboxState.EMPTY]
         uncertain = [c for c in checkboxes if c.state == CheckboxState.UNCERTAIN]
 
-        row_values = self._compute_row_values(checkboxes, rows_info)
+        row_values = self._compute_row_values(rows, checkboxes)
 
         return ValidationResult(
             total_checkboxes=len(checkboxes),
-            total_rows=len(rows_info),
+            total_rows=len(rows),
             marked_count=len(marked),
             empty_count=len(empty),
             uncertain_count=len(uncertain),
@@ -171,333 +169,205 @@ class FUNDAEValidator:
             processing_time_ms=(time.time() - start) * 1000
         )
 
-    def _find_checkbox_rows(self, gray: np.ndarray, w: int, h: int) -> List[Dict]:
-        """
-        Encuentra las filas de casillas buscando líneas horizontales de la tabla.
-        Retorna lista de dicts con: y_center, x_start, x_end, num_cols
-        """
-        # Binarizar
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    def _filter_candidates(self, contours, roi_x: int) -> List[Dict]:
+        candidates = []
+        for c in contours:
+            x, y, w, h = cv2.boundingRect(c)
+            if not (self.config["checkbox_min_size"] <= w <= self.config["checkbox_max_size"]):
+                continue
+            if not (self.config["checkbox_min_size"] <= h <= self.config["checkbox_max_size"]):
+                continue
+            aspect = w / h
+            if not (self.config["aspect_ratio_min"] <= aspect <= self.config["aspect_ratio_max"]):
+                continue
+            area = cv2.contourArea(c)
+            solidity = area / (w * h) if w * h > 0 else 0
+            if solidity < self.config["solidity_min"]:
+                continue
+            candidates.append({'x': x + roi_x, 'y': y, 'w': w, 'h': h})
+        return candidates
 
-        # Detectar líneas horizontales largas (> 30% del ancho)
-        h_len = int(w * 0.25)
-        h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (h_len, 1))
-        h_lines = cv2.morphologyEx(binary, cv2.MORPH_OPEN, h_kernel)
-
-        # Encontrar posiciones Y de las líneas horizontales
-        h_projection = np.sum(h_lines, axis=1) / 255
-        line_ys = []
-        in_line = False
-        line_start = 0
-
-        for y in range(len(h_projection)):
-            if h_projection[y] > w * 0.1:  # línea significativa
-                if not in_line:
-                    line_start = y
-                    in_line = True
-            else:
-                if in_line:
-                    line_ys.append((line_start + y) // 2)
-                    in_line = False
-
-        if len(line_ys) < 3:
+    def _group_by_rows(self, candidates: List[Dict]) -> List[List[Dict]]:
+        if not candidates:
             return []
 
-        # Detectar líneas verticales en la zona derecha (donde están las casillas)
-        # Las casillas están típicamente en el 55% derecho
-        roi_x = int(w * 0.50)
-        roi_binary = binary[:, roi_x:]
-        roi_w = roi_binary.shape[1]
+        rows_dict = defaultdict(list)
+        tolerance = self.config["row_tolerance_px"]
 
-        v_len = int(h * 0.02)  # líneas verticales cortas (entre filas)
-        v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, v_len))
-        v_lines = cv2.morphologyEx(roi_binary, cv2.MORPH_OPEN, v_kernel)
+        for c in candidates:
+            cy = c['y'] + c['h'] // 2
+            # Buscar fila existente cercana
+            placed = False
+            for key in list(rows_dict.keys()):
+                if abs(cy - key) <= tolerance:
+                    rows_dict[key].append(c)
+                    placed = True
+                    break
+            if not placed:
+                rows_dict[cy].append(c)
 
-        # Para cada par de líneas horizontales consecutivas, buscar columnas verticales
-        rows_info = []
-        for i in range(len(line_ys) - 1):
-            y_top = line_ys[i]
-            y_bot = line_ys[i + 1]
-            row_height = y_bot - y_top
-
-            # Filas demasiado altas o bajas no son de checkboxes
-            if row_height < 15 or row_height > 80:
+        min_per_row = self.config["min_checkboxes_per_row"]
+        max_per_row = self.config["max_checkboxes_per_row"]
+        valid_rows = []
+        for v in rows_dict.values():
+            if len(v) < min_per_row or len(v) > max_per_row:
                 continue
+            row = sorted(v, key=lambda x: x['x'])
+            # Filtro de uniformidad de tamaño
+            sizes = [cb['w'] * cb['h'] for cb in row]
+            mean_size = sum(sizes) / len(sizes)
+            if mean_size > 0:
+                std_ratio = (sum((s - mean_size)**2 for s in sizes) / len(sizes))**0.5 / mean_size
+                if std_ratio > self.config["size_std_max_ratio"]:
+                    continue
+            valid_rows.append(row)
 
-            y_center = (y_top + y_bot) // 2
+        valid_rows.sort(key=lambda row: row[0]['y'])
+        return valid_rows
 
-            # Proyección vertical en esta franja para encontrar columnas
-            row_strip = v_lines[y_top:y_bot, :]
-            v_projection = np.sum(row_strip, axis=0) / 255
+    def _classify(self, gray: np.ndarray, cb: Dict) -> Tuple[CheckboxState, float, float]:
+        x, y, w, h = cb['x'], cb['y'], cb['w'], cb['h']
+        margin = max(3, int(self.config["interior_margin_percent"] * min(w, h)))
+        y1, y2 = y + margin, y + h - margin
+        x1, x2 = x + margin, x + w - margin
 
-            # Encontrar posiciones X de separadores verticales
-            col_xs = []
-            in_col = False
-            col_start = 0
-            for x in range(len(v_projection)):
-                if v_projection[x] > row_height * 0.3:
-                    if not in_col:
-                        col_start = x
-                        in_col = True
-                else:
-                    if in_col:
-                        col_xs.append(roi_x + (col_start + x) // 2)
-                        in_col = False
+        if y2 <= y1 or x2 <= x1:
+            return CheckboxState.UNCERTAIN, 0.5, 0.0
 
-            # Necesitamos al menos 4 separadores para tener 3+ casillas
-            if len(col_xs) >= 4:
-                # Calcular centros de casillas (entre separadores)
-                cell_centers = []
-                for j in range(len(col_xs) - 1):
-                    cx = (col_xs[j] + col_xs[j + 1]) // 2
-                    cw = col_xs[j + 1] - col_xs[j]
-                    if 8 < cw < 60:  # ancho razonable para casilla
-                        cell_centers.append({"x": cx, "w": cw})
+        interior = gray[y1:y2, x1:x2]
+        if interior.size == 0:
+            return CheckboxState.UNCERTAIN, 0.5, 0.0
 
-                if len(cell_centers) >= 2:
-                    rows_info.append({
-                        "y_center": y_center,
-                        "y_top": y_top,
-                        "y_bot": y_bot,
-                        "cells": cell_centers,
-                        "num_cols": len(cell_centers),
-                    })
+        _, bin_interior = cv2.threshold(interior, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
 
-        return rows_info
+        # Eliminar líneas de bordes de tabla dentro del checkbox
+        ih, iw = bin_interior.shape
+        if ih >= 3 and iw >= 3:
+            h_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (iw, 1))
+            v_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, ih))
+            h_lines = cv2.morphologyEx(bin_interior, cv2.MORPH_OPEN, h_kernel)
+            v_lines = cv2.morphologyEx(bin_interior, cv2.MORPH_OPEN, v_kernel)
+            lines_mask = cv2.bitwise_or(h_lines, v_lines)
+            bin_interior = cv2.subtract(bin_interior, lines_mask)
 
-    def _sample_row(self, gray: np.ndarray, row_info: Dict, row_idx: int) -> Tuple[List[DetectedCheckbox], List[float]]:
-        """Muestrea la densidad de tinta en cada casilla de la fila."""
-        checkboxes = []
-        densities = []
+        dark_pixels = np.sum(bin_interior == 255)
+        ink_density = dark_pixels / bin_interior.size
 
-        y_center = row_info["y_center"]
-        y_top = row_info["y_top"]
-        y_bot = row_info["y_bot"]
-        row_h = y_bot - y_top
-        margin = self.config["sample_margin"]
+        if ink_density >= self.config["density_marked_threshold"]:
+            confidence = min(0.95, 0.75 + ink_density)
+            return CheckboxState.MARKED, confidence, ink_density
+        elif ink_density <= self.config["density_empty_threshold"]:
+            confidence = min(0.95, 0.80 + (self.config["density_empty_threshold"] - ink_density))
+            return CheckboxState.EMPTY, confidence, ink_density
+        else:
+            # Zona uncertain muy estrecha (0.14-0.17)
+            return CheckboxState.UNCERTAIN, 0.50, ink_density
 
-        for col_idx, cell in enumerate(row_info["cells"]):
-            cx = cell["x"]
-            cw = cell["w"]
-
-            # Zona de muestreo: interior de la celda
-            sample_h = max(4, row_h - margin * 2)
-            sample_w = max(4, cw - margin * 2)
-            x1 = cx - sample_w // 2
-            x2 = cx + sample_w // 2
-            y1 = y_center - sample_h // 2
-            y2 = y_center + sample_h // 2
-
-            # Clamp
-            y1 = max(0, y1)
-            y2 = min(gray.shape[0], y2)
-            x1 = max(0, x1)
-            x2 = min(gray.shape[1], x2)
-
-            if y2 <= y1 or x2 <= x1:
-                densities.append(0.0)
-                checkboxes.append(DetectedCheckbox(
-                    x=x1, y=y1, w=x2-x1, h=y2-y1,
-                    row=row_idx, col=col_idx,
-                    state=CheckboxState.UNCERTAIN, confidence=0.0, ink_density=0.0
-                ))
-                continue
-
-            roi = gray[y1:y2, x1:x2]
-            _, bin_roi = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-
-            # Eliminar líneas dentro de la celda
-            rh, rw = bin_roi.shape
-            if rh >= 3 and rw >= 3:
-                hl = max(3, int(rw * 0.8))
-                vl = max(3, int(rh * 0.8))
-                h_k = cv2.getStructuringElement(cv2.MORPH_RECT, (hl, 1))
-                v_k = cv2.getStructuringElement(cv2.MORPH_RECT, (1, vl))
-                h_l = cv2.morphologyEx(bin_roi, cv2.MORPH_OPEN, h_k)
-                v_l = cv2.morphologyEx(bin_roi, cv2.MORPH_OPEN, v_k)
-                mask = cv2.bitwise_or(h_l, v_l)
-                bin_roi = cv2.subtract(bin_roi, mask)
-
-            density = np.sum(bin_roi == 255) / max(bin_roi.size, 1)
-            densities.append(density)
-
-            checkboxes.append(DetectedCheckbox(
-                x=x1, y=y1, w=x2-x1, h=y2-y1,
-                row=row_idx, col=col_idx,
-                state=CheckboxState.UNCERTAIN,  # se clasifica después
-                confidence=0.0, ink_density=density
-            ))
-
-        return checkboxes, densities
-
-    def _classify_row(self, row_cbs: List[DetectedCheckbox], densities: List[float]):
-        """Clasifica casillas usando densidad relativa dentro de la fila."""
-        if not densities or not row_cbs:
-            return
-
-        sorted_d = sorted(densities)
-        # Mediana = densidad típica de casilla vacía
-        median = sorted_d[len(sorted_d) // 2]
-        max_d = sorted_d[-1]
-
-        for cb in row_cbs:
-            d = cb.ink_density
-
-            # Absoluto: claramente marcada
-            if d > self.config["marked_abs_threshold"] and d > median * self.config["marked_ratio_threshold"]:
-                cb.state = CheckboxState.MARKED
-                cb.confidence = min(0.95, 0.70 + d)
-            elif d < self.config["empty_abs_threshold"]:
-                cb.state = CheckboxState.EMPTY
-                cb.confidence = 0.90
-            elif median > 0 and d < median * 1.3:
-                # Cerca de la mediana = vacía
-                cb.state = CheckboxState.EMPTY
-                cb.confidence = 0.75
-            elif median > 0 and d > median * self.config["marked_ratio_threshold"] and d > 0.06:
-                cb.state = CheckboxState.MARKED
-                cb.confidence = 0.70
-            else:
-                cb.state = CheckboxState.UNCERTAIN
-                cb.confidence = 0.50
-
-    def _compute_row_values(self, checkboxes: List[DetectedCheckbox], rows_info: List[Dict]) -> List[RowValue]:
-        """Determina el valor de cada fila basado en las casillas clasificadas."""
+    def _compute_row_values(self, rows: List[List[Dict]], checkboxes: List[DetectedCheckbox]) -> List[RowValue]:
         row_values = []
-        field_idx = 0
 
-        for row_idx, row_info in enumerate(rows_info):
-            row_cbs = sorted(
-                [cb for cb in checkboxes if cb.row == row_idx],
-                key=lambda c: c.x
-            )
-            num_cbs = len(row_cbs)
+        for row_idx, row_cbs in enumerate(rows):
+            row_checks = [cb for cb in checkboxes if cb.row == row_idx]
+            row_checks.sort(key=lambda c: c.x)
+            num_cbs = len(row_checks)
 
-            marked_positions = [i for i, cb in enumerate(row_cbs) if cb.state == CheckboxState.MARKED]
+            marked_positions = [
+                i for i, cb in enumerate(row_checks)
+                if cb.state == CheckboxState.MARKED
+            ]
 
-            # Determinar campo
             field = None
-            if field_idx < len(self.FIELDS):
-                field_info = self.FIELDS[field_idx]
-                field = field_info["field"]
-                field_type = field_info.get("type", "scale")
-            else:
-                field_type = "scale"
+            if row_idx < len(self.ROW_TO_FIELD):
+                field = self.ROW_TO_FIELD[row_idx]
 
-            # Determinar valor según tipo y número de casillas
             opencv_value = None
             confidence = 0.0
 
-            if num_cbs >= 8:
-                # Formadores/Tutores: dos grupos
+            if num_cbs == 5:
+                opencv_value, confidence = self._resolve_scale_5(row_checks, marked_positions)
+            elif num_cbs == 4:
+                opencv_value, confidence = self._resolve_scale_4(row_checks, marked_positions)
+            elif num_cbs >= 8:
+                # Formadores/Tutores
                 mid = num_cbs // 2
-                form_cbs = row_cbs[:mid]
-                tut_cbs = row_cbs[mid:]
+                form_checks = row_checks[:mid]
+                tut_checks = row_checks[mid:]
+                form_marked = [i for i, cb in enumerate(form_checks) if cb.state == CheckboxState.MARKED]
+                tut_marked = [i for i, cb in enumerate(tut_checks) if cb.state == CheckboxState.MARKED]
 
-                form_marked = [i for i, cb in enumerate(form_cbs) if cb.state == CheckboxState.MARKED]
-                tut_marked = [i for i, cb in enumerate(tut_cbs) if cb.state == CheckboxState.MARKED]
+                if len(form_checks) == 5:
+                    form_val, form_conf = self._resolve_scale_5(form_checks, form_marked)
+                else:
+                    form_val, form_conf = self._resolve_scale_4(form_checks, form_marked)
 
-                form_value, form_conf = self._resolve_scale(form_cbs, form_marked)
-                tut_value, tut_conf = self._resolve_scale(tut_cbs, tut_marked)
+                if len(tut_checks) == 5:
+                    tut_val, tut_conf = self._resolve_scale_5(tut_checks, tut_marked)
+                else:
+                    tut_val, tut_conf = self._resolve_scale_4(tut_checks, tut_marked)
 
-                # Formadores
-                form_field = field + "_formadores" if field and not field.endswith("_formadores") else field
-                if field and "_formadores" in field:
-                    form_field = field
-                elif field:
-                    form_field = field.replace(field.split("_")[-1], "") + "formadores" if "formadores" not in field else field
-
-                # Usar los campos del FIELDS directamente
-                if field_idx < len(self.FIELDS):
+                if field and field.startswith("valoracion_4_"):
                     row_values.append(RowValue(
-                        row_index=row_idx,
-                        field=self.FIELDS[field_idx]["field"],
-                        opencv_value=form_value,
-                        num_checkboxes=len(form_cbs),
-                        marked_positions=form_marked,
-                        confidence=form_conf,
+                        row_index=row_idx, field=field + "_formadores",
+                        opencv_value=form_val, num_checkboxes=len(form_checks),
+                        marked_positions=form_marked, confidence=form_conf,
                     ))
-                    field_idx += 1
-
-                if field_idx < len(self.FIELDS):
                     row_values.append(RowValue(
-                        row_index=row_idx,
-                        field=self.FIELDS[field_idx]["field"],
-                        opencv_value=tut_value,
-                        num_checkboxes=len(tut_cbs),
-                        marked_positions=tut_marked,
-                        confidence=tut_conf,
+                        row_index=row_idx, field=field + "_tutores",
+                        opencv_value=tut_val, num_checkboxes=len(tut_checks),
+                        marked_positions=tut_marked, confidence=tut_conf,
                     ))
-                    field_idx += 1
-                continue
-
-            elif field_type == "yesno" or num_cbs in (2, 3):
+                    continue
+            elif num_cbs in (2, 3):
+                # Sí/No
                 if len(marked_positions) == 1:
                     pos = marked_positions[0]
                     if num_cbs == 3:
                         opencv_value = ["NC", "Si", "No"][pos] if pos < 3 else "NC"
-                    elif num_cbs == 2:
-                        opencv_value = ["Si", "No"][pos] if pos < 2 else "NC"
                     else:
-                        opencv_value = "NC"
-                    confidence = row_cbs[pos].confidence if pos < len(row_cbs) else 0.3
+                        opencv_value = ["Si", "No"][pos] if pos < 2 else "NC"
+                    confidence = row_checks[pos].confidence
                 else:
                     opencv_value = "NC"
-                    confidence = 0.3
-            else:
-                # Escala 1-4 (con posible NC)
-                opencv_value, confidence = self._resolve_scale(row_cbs, marked_positions)
+                    confidence = 0.4
 
             row_values.append(RowValue(
-                row_index=row_idx,
-                field=field,
-                opencv_value=opencv_value,
-                num_checkboxes=num_cbs,
-                marked_positions=marked_positions,
-                confidence=confidence,
+                row_index=row_idx, field=field,
+                opencv_value=opencv_value, num_checkboxes=num_cbs,
+                marked_positions=marked_positions, confidence=confidence,
             ))
-            field_idx += 1
 
         return row_values
 
-    def _resolve_scale(self, cbs: List[DetectedCheckbox], marked: List[int]) -> Tuple[Optional[str], float]:
-        """Resuelve el valor para una escala NC,1,2,3,4."""
-        num = len(cbs)
-        if num == 0:
-            return None, 0.0
-
+    def _resolve_scale_5(self, cbs: List[DetectedCheckbox], marked: List[int]) -> Tuple[Optional[str], float]:
+        """NC(0), 1(1), 2(2), 3(3), 4(4)"""
         if len(marked) == 1:
             pos = marked[0]
-            if num == 5:
-                # NC(0), 1(1), 2(2), 3(3), 4(4)
-                value = "NC" if pos == 0 else str(pos)
-            elif num == 4:
-                # Probablemente 1(0), 2(1), 3(2), 4(3)
-                value = str(pos + 1)
-            elif num == 3:
-                # Podría ser parcial
-                value = str(pos + 1) if pos < 4 else "NC"
-            else:
-                value = str(pos + 1) if pos < 4 else "NC"
+            value = "NC" if pos == 0 else str(pos)
             return value, cbs[pos].confidence
         elif len(marked) == 0:
-            return "NC", 0.8
+            return "NC", 0.80
         else:
-            # Múltiples marcas: elegir la de mayor densidad si es claramente dominante
-            best_idx = max(marked, key=lambda i: cbs[i].ink_density)
-            best_d = cbs[best_idx].ink_density
-            second_best = sorted([cbs[i].ink_density for i in marked])[-2] if len(marked) > 1 else 0
+            # Múltiples: la de mayor densidad gana si es claramente dominante
+            best = max(marked, key=lambda i: cbs[i].ink_density)
+            densities = sorted([cbs[i].ink_density for i in marked], reverse=True)
+            if len(densities) >= 2 and densities[0] > densities[1] * 1.8:
+                value = "NC" if best == 0 else str(best)
+                return value, 0.60
+            return "NC", 0.30
 
-            if best_d > second_best * 2.0 and best_d > 0.10:
-                pos = best_idx
-                if num == 5:
-                    value = "NC" if pos == 0 else str(pos)
-                elif num == 4:
-                    value = str(pos + 1)
-                else:
-                    value = str(pos + 1) if pos < 4 else "NC"
-                return value, 0.55
-            return "NC", 0.3
+    def _resolve_scale_4(self, cbs: List[DetectedCheckbox], marked: List[int]) -> Tuple[Optional[str], float]:
+        """1(0), 2(1), 3(2), 4(3) — falta NC"""
+        if len(marked) == 1:
+            pos = marked[0]
+            return str(pos + 1), cbs[pos].confidence * 0.90
+        elif len(marked) == 0:
+            return "NC", 0.75
+        else:
+            best = max(marked, key=lambda i: cbs[i].ink_density)
+            densities = sorted([cbs[i].ink_density for i in marked], reverse=True)
+            if len(densities) >= 2 and densities[0] > densities[1] * 1.8:
+                return str(best + 1), 0.55
+            return "NC", 0.30
 
     def to_json(self, result: ValidationResult) -> str:
         return json.dumps({
@@ -533,6 +403,10 @@ class FUNDAEValidator:
 
     def generate_debug_image(self, image_path: str, result: ValidationResult, output_path: str):
         image = cv2.imread(image_path)
+        h, w = image.shape[:2]
+
+        roi_x = int(w * self.config["roi_x_percent"])
+        cv2.line(image, (roi_x, 0), (roi_x, h), (128, 128, 128), 1)
 
         for cb in result.checkboxes:
             if cb.state == CheckboxState.MARKED:
@@ -543,7 +417,7 @@ class FUNDAEValidator:
                 color = (0, 165, 255)
 
             cv2.rectangle(image, (cb.x, cb.y), (cb.x + cb.w, cb.y + cb.h), color, 2)
-            label = f"{cb.ink_density:.3f}"
+            label = f"R{cb.row}C{cb.col} {cb.ink_density:.3f}"
             cv2.putText(image, label, (cb.x, cb.y - 3), cv2.FONT_HERSHEY_SIMPLEX, 0.3, color, 1)
 
         for rv in result.row_values:
@@ -560,7 +434,6 @@ class FUNDAEValidator:
 
 
 def validate_fundae_page(image_path: str) -> Dict:
-    """Función simple para validar una página FUNDAE."""
     validator = FUNDAEValidator()
     result = validator.validate_page(image_path)
     return json.loads(validator.to_json(result))
@@ -577,7 +450,7 @@ if __name__ == "__main__":
     debug_mode = "--debug" in sys.argv
 
     print(f"\n{'='*60}")
-    print("FUNDAE OpenCV Validator v3 - Grid Detection")
+    print("FUNDAE OpenCV Validator v1.1 - Calibrated")
     print(f"{'='*60}")
 
     validator = FUNDAEValidator()
@@ -585,7 +458,7 @@ if __name__ == "__main__":
 
     print(f"\nResultados: {image_path}")
     print(f"  Filas: {result.total_rows}")
-    print(f"  Total checkboxes: {result.total_checkboxes}")
+    print(f"  Total: {result.total_checkboxes}")
     print(f"  Marcados: {result.marked_count}")
     print(f"  Vacios: {result.empty_count}")
     print(f"  Inciertos: {result.uncertain_count}")
@@ -597,7 +470,7 @@ if __name__ == "__main__":
         print(f"  [{status}] {rv.field or '???'}: {rv.opencv_value} (cbs={rv.num_checkboxes}, conf={rv.confidence:.0%})")
 
     if debug_mode:
-        debug_path = image_path.replace('.png', '_opencv_debug_v3.png')
+        debug_path = image_path.replace('.png', '_debug.png')
         validator.generate_debug_image(image_path, result, debug_path)
         print(f"\nDebug: {debug_path}")
 
