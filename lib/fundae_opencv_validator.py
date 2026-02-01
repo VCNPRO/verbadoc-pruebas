@@ -93,7 +93,7 @@ class FUNDAEValidator:
     # - Gap:    0.1364 - 0.2143
     # - Marcadas: 0.2143 - 0.4318
     CONFIG = {
-        "roi_x_percent": 0.55,
+        "roi_x_percent": 0.62,
         "checkbox_min_size": 14,
         "checkbox_max_size": 40,
         "aspect_ratio_min": 0.75,
@@ -127,6 +127,7 @@ class FUNDAEValidator:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         roi_x = int(w * self.config["roi_x_percent"])
+        print(f"[DIAG] Imagen: {w}x{h}, ROI desde x={roi_x} ({self.config['roi_x_percent']*100:.0f}%)")
 
         binary = cv2.adaptiveThreshold(
             gray, 255,
