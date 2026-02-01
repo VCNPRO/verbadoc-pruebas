@@ -133,15 +133,10 @@ REGLA 2 - MARCAS MÚLTIPLES = NC:
 - Si hay DOS o MÁS marcas en la misma fila de opciones → devuelve "NC"
 - Ejemplo: Si casilla 3 Y casilla 4 tienen marca → "NC"
 
-REGLA 3 - VERIFICACIÓN VISUAL OBLIGATORIA (ERRORES FRECUENTES EN POSICIÓN):
+REGLA 3 - VERIFICACIÓN VISUAL OBLIGATORIA:
 - Para cada valoración, MIRA físicamente la fila de casillas
-- Las columnas están etiquetadas "NC 1 2 3 4" en la cabecera de cada sección
-- IGNORA la columna NC (es la primera, más a la izquierda)
-- Las 4 casillas de puntuación son: 1 (izquierda) → 2 → 3 → 4 (derecha)
-- CUENTA desde la izquierda: la PRIMERA casilla de puntuación = 1, la SEGUNDA = 2, la TERCERA = 3, la CUARTA = 4
-- ⚠️ ERROR COMÚN: confundir posición 3 con 4. La casilla 3 es la PENÚLTIMA, la 4 es la ÚLTIMA (más a la derecha)
-- Si la marca está en la PENÚLTIMA casilla → es 3, NO 4
-- Si la marca está en la ÚLTIMA casilla (pegada al borde derecho) → es 4
+- CUENTA las casillas de izquierda a derecha: 1, 2, 3, 4
+- IDENTIFICA cuál casilla tiene la marca
 - El número de la POSICIÓN es el valor (no lo que parezca escrito cerca)
 
 REGLA 4 - CASILLAS VACÍAS EN SECCIONES:
@@ -240,29 +235,13 @@ SECCIÓN III - VALORACIONES (escala 1-4)
 
 ⚠️ MÉTODO DE LECTURA OBLIGATORIO PARA VALORACIONES (1, 2, 3, 4):
 
-ESTRUCTURA VISUAL DE CADA FILA DE VALORACIÓN:
-    ┌────┬────┬────┬────┬────┐
-    │ NC │  1 │  2 │  3 │  4 │
-    └────┴────┴────┴────┴────┘
-    izq                    der
+PASO 1 - Examina CADA casilla individualmente:
+- Casilla 1: ¿qué ves? (vacía / marca clara / marca dudosa / sombra)
+- Casilla 2: ¿qué ves?
+- Casilla 3: ¿qué ves?
+- Casilla 4: ¿qué ves?
 
-⚠️ ATENCIÓN: La columna NC está a la izquierda del todo. NO la cuentes como posición 1.
-Las posiciones de puntuación son las 4 casillas A LA DERECHA de NC.
-
-PASO 1 - Localiza la casilla marcada contando desde la IZQUIERDA:
-- ¿Es la 1ª casilla después de NC? → valor = 1
-- ¿Es la 2ª casilla después de NC? → valor = 2
-- ¿Es la 3ª casilla después de NC (PENÚLTIMA)? → valor = 3
-- ¿Es la 4ª casilla después de NC (ÚLTIMA, borde derecho)? → valor = 4
-
-PASO 2 - VERIFICACIÓN CRUZADA OBLIGATORIA:
-- Cuenta cuántas casillas VACÍAS hay A LA DERECHA de la marca
-- Si hay 1 casilla vacía a la derecha → la marca está en posición 3
-- Si hay 0 casillas vacías a la derecha (es la última) → la marca está en posición 4
-- Si hay 2 casillas vacías a la derecha → la marca está en posición 2
-- Si hay 3 casillas vacías a la derecha → la marca está en posición 1
-
-PASO 3 - Decide:
+PASO 2 - Decide:
 - Si UNA sola casilla tiene "marca clara" → ese número
 - Si NINGUNA tiene marca clara → NC
 - Si MÁS DE UNA parece marcada → NC
@@ -271,8 +250,8 @@ PASO 3 - Decide:
 ESCALA:
   • Posición 1 (izquierda) = Completamente en desacuerdo
   • Posición 2 = En desacuerdo
-  • Posición 3 = De acuerdo (PENÚLTIMA casilla)
-  • Posición 4 (derecha) = Completamente de acuerdo (ÚLTIMA casilla)
+  • Posición 3 = De acuerdo
+  • Posición 4 (derecha) = Completamente de acuerdo
 
 ORGANIZACIÓN (valoracion_1_X):
 - valoracion_1_1: "El curso ha estado bien organizado"
