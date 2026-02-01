@@ -236,35 +236,42 @@ class FUNDAEValidator:
                         value = ["NC", "1", "2", "3", "4"][ci]
                 print(f"[MAP] {field}: marca x={marked_x}, col más cercana -> valor={value} (dist={min_dist:.0f}px)")
             else:
-                # Fallback: posición relativa entre las 5 más a la derecha
-                rightmost = sorted(row_cbs, key=lambda cb: cb['x'])[-5:]
-                if marked_x >= rightmost[0]['x']:
-                    rm_centers = [cb['x'] + cb['w'] // 2 for cb in rightmost]
-                    min_d = float('inf')
-                    for ri, rx in enumerate(rm_centers):
-                        d = abs(marked_x - rx)
-                        if d < min_d:
-                            min_d = d
-                            value = ["NC", "1", "2", "3", "4"][ri]
-                print(f"[MAP] {field}: marca x={marked_x} (fallback) -> valor={value}")
+                # Fallback: tomar 4 casillas vacías más a la derecha + la marca
+                # La marca puede estar en cualquier posición, no necesariamente entre las 5 últimas
+                empty_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if densities[i] < 0.05]
+                # Las 4 vacías más a la derecha son las columnas sin marca
+                empty_rightmost = sorted(empty_cbs, key=lambda x: x[1]['x'])[-4:]
+                # Juntar con la marca y ordenar por X
+                five = [(max_idx, row_cbs[max_idx])] + [(i, cb) for i, cb in empty_rightmost]
+                five.sort(key=lambda x: x[1]['x'])
+                # La posición de la marca dentro de estas 5 da el valor
+                mark_pos_in_five = next(i for i, (idx, _) in enumerate(five) if idx == max_idx)
+                value = ["NC", "1", "2", "3", "4"][mark_pos_in_five]
+                centers_str = " ".join([f"{'*' if idx == max_idx else ''}{cb['x']}" for idx, cb in five])
+                print(f"[MAP] {field}: 5 casillas [{centers_str}] marca en pos {mark_pos_in_five} -> valor={value}")
 
             # Formadores/tutores: buscar 2 marcas
-            if field and field.startswith("valoracion_4_") and col_positions:
+            if field and field.startswith("valoracion_4_"):
                 sorted_by_dens = sorted(enumerate(densities), key=lambda x: x[1], reverse=True)
                 marks = [(i, d) for i, d in sorted_by_dens if d > 0.15][:2]
                 if len(marks) == 2:
                     marks.sort(key=lambda x: row_cbs[x[0]]['x'])
+                    mid_x = (row_cbs[0]['x'] + row_cbs[-1]['x']) / 2
                     for mi_idx, (mi, md) in enumerate(marks):
-                        sub_field = field + ("_formadores" if mi_idx == 0 else "_tutores")
-                        mx = row_cbs[mi]['x'] + row_cbs[mi]['w'] // 2
-                        sub_val = "NC"
-                        min_d2 = float('inf')
-                        for ci, cx in enumerate(col_positions):
-                            d = abs(mx - cx)
-                            if d < min_d2:
-                                min_d2 = d
-                                sub_val = ["NC", "1", "2", "3", "4"][ci]
-                        print(f"[MAP] {sub_field}: marca x={mx} -> valor={sub_val}")
+                        is_first = row_cbs[mi]['x'] < mid_x
+                        sub_field = field + ("_formadores" if is_first else "_tutores")
+                        # Buscar las casillas vacías del mismo grupo
+                        if is_first:
+                            group_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if cb['x'] < mid_x]
+                        else:
+                            group_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if cb['x'] >= mid_x]
+                        group_empty = [(i, cb) for i, cb in group_cbs if densities[i] < 0.05]
+                        group_empty_right = sorted(group_empty, key=lambda x: x[1]['x'])[-4:]
+                        five = [(mi, row_cbs[mi])] + [(i, cb) for i, cb in group_empty_right]
+                        five.sort(key=lambda x: x[1]['x'])
+                        mark_pos = next((j for j, (idx, _) in enumerate(five) if idx == mi), 0)
+                        sub_val = ["NC", "1", "2", "3", "4"][mark_pos] if mark_pos < 5 else "4"
+                        print(f"[MAP] {sub_field}: marca pos {mark_pos}/5 -> valor={sub_val}")
                         row_values.append(RowValue(
                             row_index=row_idx, field=sub_field, opencv_value=sub_val,
                             num_checkboxes=len(row_cbs), marked_positions=[mi], confidence=min(0.95, 0.75 + md)
