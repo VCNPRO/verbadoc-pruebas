@@ -359,6 +359,11 @@ class FUNDAEValidator:
             row_checks.sort(key=lambda c: c.x)
             num_cbs = len(row_checks)
 
+            # Diagnóstico: densidades por casilla
+            densities_str = " ".join([f"{cb.ink_density:.3f}{'M' if cb.state == CheckboxState.MARKED else 'E' if cb.state == CheckboxState.EMPTY else '?'}" for cb in row_checks])
+            field_name = self.ROW_TO_FIELD[row_idx] if row_idx < len(self.ROW_TO_FIELD) else f"row_{row_idx}"
+            print(f"[DENS] {field_name} ({num_cbs}cb): {densities_str}")
+
             marked_positions = [
                 i for i, cb in enumerate(row_checks)
                 if cb.state == CheckboxState.MARKED
