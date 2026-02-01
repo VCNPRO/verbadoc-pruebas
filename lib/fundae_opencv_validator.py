@@ -274,7 +274,7 @@ class FUNDAEValidator:
 
             # --- Mapeo según tipo de escala ---
             if scale_type == "scale5":
-                value = self._map_scale5(row_cbs, densities, max_idx, field)
+                value = self._map_scale5(row_cbs, densities, max_idx, field, col_positions)
             elif scale_type == "nc_si_no":
                 value = self._map_nc_si_no(row_cbs, densities, max_idx, field)
             else:
@@ -300,47 +300,29 @@ class FUNDAEValidator:
             processing_time_ms=(time.time() - start) * 1000
         )
 
-    def _map_scale5(self, row_cbs, densities, max_idx, field) -> str:
-        """Mapea marca a NC,1,2,3,4 usando marca + 4 vacías mejor equiespaciadas."""
-        empty_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if densities[i] < 0.05 and i != max_idx]
-        if len(empty_cbs) < 4:
-            # Fallback: las 4 con menor densidad
-            empty_cbs = sorted(
-                [(i, cb) for i, cb in enumerate(row_cbs) if i != max_idx],
-                key=lambda x: densities[x[0]]
-            )[:4]
+    def _map_scale5(self, row_cbs, densities, max_idx, field, col_positions=None) -> str:
+        """Mapea marca a NC,1,2,3,4 usando columnas detectadas o posición relativa."""
+        mark_cb = row_cbs[max_idx]
+        mark_center = mark_cb['x'] + mark_cb['w'] // 2
 
-        # Buscar las 4 vacías que junto con la marca formen el grupo más equiespaciado
-        from itertools import combinations
-        best_four = None
-        best_cv = float('inf')
-        candidates_to_try = list(combinations(empty_cbs, 4)) if len(empty_cbs) <= 12 else [sorted(empty_cbs, key=lambda x: x[1]['x'])[-4:]]
+        # Método principal: usar columnas detectadas para mapear por proximidad
+        if col_positions:
+            col_labels = ["NC", "1", "2", "3", "4"]
+            best_col = min(range(5), key=lambda i: abs(mark_center - col_positions[i]))
+            dist = abs(mark_center - col_positions[best_col])
+            value = col_labels[best_col]
+            print(f"[MAP] {field} (scale5-col): mark_x={mark_center} -> col {value} (dist={dist:.0f}px)")
+            return value
 
-        for four_combo in candidates_to_try:
-            five = [(max_idx, row_cbs[max_idx])] + [(i, cb) for i, cb in four_combo]
-            five.sort(key=lambda x: x[1]['x'])
-            centers = [cb['x'] + cb['w'] // 2 for _, cb in five]
-            gaps = [centers[j+1] - centers[j] for j in range(4)]
-            mean_gap = sum(gaps) / 4
-            if mean_gap > 5:
-                gap_std = (sum((g - mean_gap)**2 for g in gaps) / 4)**0.5
-                cv = gap_std / mean_gap
-                if cv < best_cv:
-                    best_cv = cv
-                    best_four = four_combo
-
-        if best_four is None:
-            best_four = sorted(empty_cbs, key=lambda x: x[1]['x'])[-4:]
-
-        five = [(max_idx, row_cbs[max_idx])] + [(i, cb) for i, cb in best_four]
-        five.sort(key=lambda x: x[1]['x'])
-        mark_pos = next(i for i, (idx, _) in enumerate(five) if idx == max_idx)
-        # Mapear desde la DERECHA: la última casilla siempre es 4
-        # pos desde derecha: 0=4, 1=3, 2=2, 3=1, 4=NC
-        pos_from_right = len(five) - 1 - mark_pos
+        # Fallback: posición relativa (rightmost = 4)
+        sorted_cbs = sorted(enumerate(row_cbs), key=lambda x: x[1]['x'])
+        # Usar solo los 5 más a la derecha si hay más
+        if len(sorted_cbs) > 5:
+            sorted_cbs = sorted_cbs[-5:]
+        mark_pos = next(i for i, (idx, _) in enumerate(sorted_cbs) if idx == max_idx)
+        pos_from_right = len(sorted_cbs) - 1 - mark_pos
         value = ["4", "3", "2", "1", "NC"][pos_from_right] if pos_from_right < 5 else "NC"
-        centers_str = " ".join([f"{'*' if idx == max_idx else ''}{cb['x']}" for idx, cb in five])
-        print(f"[MAP] {field} (scale5): [{centers_str}] marca pos {mark_pos} posR={pos_from_right} cv={best_cv:.2f} -> {value}")
+        print(f"[MAP] {field} (scale5-rel): mark_x={mark_center} posR={pos_from_right} -> {value}")
         return value
 
     def _map_scale4x2(self, row_cbs, densities, row_idx, field, row_values):
