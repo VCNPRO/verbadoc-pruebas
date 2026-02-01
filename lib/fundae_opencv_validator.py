@@ -65,31 +65,33 @@ class FUNDAEValidator:
 
     # Mapeo fila → (campo, tipo_escala)
     # "scale5" = NC,1,2,3,4 (5 casillas en columnas fijas)
-    # "scale4x2" = 1,2,3,4 formadores + 1,2,3,4 tutores (8 casillas, 2 grupos de 4)
-    # "nc_si_no" = NC,Sí,No (3 casillas, posiciones diferentes)
+    # "nc_si_no" = NC,Sí,No (3 casillas)
+    # 24 filas reales en la página 2 del formulario FUNDAE
     ROW_TO_FIELD = [
-        ("valoracion_1_1", "scale5"),
-        ("valoracion_1_2", "scale5"),
-        ("valoracion_2_1", "scale5"),
-        ("valoracion_2_2", "scale5"),
-        ("valoracion_3_1", "scale5"),
-        ("valoracion_3_2", "scale5"),
-        ("valoracion_4_1", "scale4x2"),
-        ("valoracion_4_2", "scale4x2"),
-        ("valoracion_5_1", "scale5"),
-        ("valoracion_5_2", "scale5"),
-        ("valoracion_6_1", "scale5"),
-        ("valoracion_6_2", "scale5"),
-        ("valoracion_7_1", "scale5"),
-        ("valoracion_7_2", "scale5"),
-        ("valoracion_8_1", "nc_si_no"),
-        ("valoracion_8_2", "nc_si_no"),
-        ("valoracion_9_1", "scale5"),
-        ("valoracion_9_2", "scale5"),
-        ("valoracion_9_3", "scale5"),
-        ("valoracion_9_4", "scale5"),
-        ("valoracion_9_5", "scale5"),
-        ("valoracion_10", "nc_si_no"),
+        ("valoracion_1_1", "scale5"),           # fila 0
+        ("valoracion_1_2", "scale5"),           # fila 1
+        ("valoracion_2_1", "scale5"),           # fila 2
+        ("valoracion_2_2", "scale5"),           # fila 3
+        ("valoracion_3_1", "scale5"),           # fila 4
+        ("valoracion_3_2", "scale5"),           # fila 5
+        ("valoracion_4_1_formadores", "scale5"),# fila 6 - fila separada
+        ("valoracion_4_1_tutores", "scale5"),   # fila 7 - fila separada
+        ("valoracion_4_2", "scale5"),           # fila 8
+        ("valoracion_5_1", "scale5"),           # fila 9
+        ("valoracion_5_2", "scale5"),           # fila 10
+        ("valoracion_6_1", "scale5"),           # fila 11
+        ("valoracion_6_2", "scale5"),           # fila 12
+        ("valoracion_7_1", "scale5"),           # fila 13
+        ("valoracion_7_2", "scale5"),           # fila 14
+        ("valoracion_8_1", "nc_si_no"),         # fila 15
+        ("valoracion_8_2", "nc_si_no"),         # fila 16
+        ("valoracion_9_1", "scale5"),           # fila 17
+        ("valoracion_9_2", "scale5"),           # fila 18
+        ("valoracion_9_3", "scale5"),           # fila 19
+        ("valoracion_9_4", "scale5"),           # fila 20
+        ("valoracion_9_5", "scale5"),           # fila 21
+        ("valoracion_10", "scale5"),            # fila 22 - NC,1,2,3,4
+        ("recomendaria_curso", "nc_si_no"),     # fila 23 - 10.1 NC,Sí,No
     ]
 
     # Calibrado con datos reales:
@@ -259,24 +261,16 @@ class FUNDAEValidator:
 
             # --- Mapeo según tipo de escala ---
             if scale_type == "scale5":
-                # NC,1,2,3,4 — marca + 4 vacías más a la derecha
                 value = self._map_scale5(row_cbs, densities, max_idx, field)
-                row_values.append(RowValue(
-                    row_index=row_idx, field=field, opencv_value=value,
-                    num_checkboxes=len(row_cbs), marked_positions=[max_idx], confidence=min(0.95, 0.75 + max_d)
-                ))
-
-            elif scale_type == "scale4x2":
-                # Formadores + Tutores: 2 grupos de 4 (1,2,3,4 cada uno, sin NC)
-                self._map_scale4x2(row_cbs, densities, row_idx, field, row_values)
-
             elif scale_type == "nc_si_no":
-                # 3 casillas: NC, Sí, No
                 value = self._map_nc_si_no(row_cbs, densities, max_idx, field)
-                row_values.append(RowValue(
-                    row_index=row_idx, field=field, opencv_value=value,
-                    num_checkboxes=len(row_cbs), marked_positions=[max_idx], confidence=min(0.95, 0.75 + max_d)
-                ))
+            else:
+                value = "NC"
+
+            row_values.append(RowValue(
+                row_index=row_idx, field=field, opencv_value=value,
+                num_checkboxes=len(row_cbs), marked_positions=[max_idx], confidence=min(0.95, 0.75 + max_d)
+            ))
 
         marked_list = [c for c in checkboxes if c.state == CheckboxState.MARKED]
         empty_list = [c for c in checkboxes if c.state == CheckboxState.EMPTY]
