@@ -237,7 +237,7 @@ class FUNDAEValidator:
             if n == 2:
                 penalty = 1.5  # solo gana si no hay otra opción viable
             elif n == 4:
-                penalty = 0.15
+                penalty = 0.35  # n=4 es subconjunto de n=5 con mejor CV artificial
             elif n == 8:
                 penalty = 0.30
             else:  # n == 5, el estándar FUNDAE
