@@ -63,29 +63,33 @@ class ValidationResult:
 class FUNDAEValidator:
     """Validador OpenCV para formularios FUNDAE v1.1 - Calibrado."""
 
+    # Mapeo fila → (campo, tipo_escala)
+    # "scale5" = NC,1,2,3,4 (5 casillas en columnas fijas)
+    # "scale4x2" = 1,2,3,4 formadores + 1,2,3,4 tutores (8 casillas, 2 grupos de 4)
+    # "nc_si_no" = NC,Sí,No (3 casillas, posiciones diferentes)
     ROW_TO_FIELD = [
-        "valoracion_1_1",
-        "valoracion_1_2",
-        "valoracion_2_1",
-        "valoracion_2_2",
-        "valoracion_3_1",
-        "valoracion_3_2",
-        "valoracion_4_1",           # formadores + tutores
-        "valoracion_4_2",           # formadores + tutores
-        "valoracion_5_1",
-        "valoracion_5_2",
-        "valoracion_6_1",
-        "valoracion_6_2",
-        "valoracion_7_1",
-        "valoracion_7_2",
-        "valoracion_8_1",           # Sí/No
-        "valoracion_8_2",           # Sí/No
-        "valoracion_9_1",
-        "valoracion_9_2",
-        "valoracion_9_3",
-        "valoracion_9_4",
-        "valoracion_9_5",
-        "valoracion_10",
+        ("valoracion_1_1", "scale5"),
+        ("valoracion_1_2", "scale5"),
+        ("valoracion_2_1", "scale5"),
+        ("valoracion_2_2", "scale5"),
+        ("valoracion_3_1", "scale5"),
+        ("valoracion_3_2", "scale5"),
+        ("valoracion_4_1", "scale4x2"),
+        ("valoracion_4_2", "scale4x2"),
+        ("valoracion_5_1", "scale5"),
+        ("valoracion_5_2", "scale5"),
+        ("valoracion_6_1", "scale5"),
+        ("valoracion_6_2", "scale5"),
+        ("valoracion_7_1", "scale5"),
+        ("valoracion_7_2", "scale5"),
+        ("valoracion_8_1", "nc_si_no"),
+        ("valoracion_8_2", "nc_si_no"),
+        ("valoracion_9_1", "scale5"),
+        ("valoracion_9_2", "scale5"),
+        ("valoracion_9_3", "scale5"),
+        ("valoracion_9_4", "scale5"),
+        ("valoracion_9_5", "scale5"),
+        ("valoracion_10", "nc_si_no"),
     ]
 
     # Calibrado con datos reales:
@@ -196,9 +200,14 @@ class FUNDAEValidator:
             median_d = sorted(densities)[len(densities) // 2] if densities else 0
             max_is_marked = (max_d >= median_d * 1.5 and max_d > 0.15)
 
-            field_name = self.ROW_TO_FIELD[row_idx] if row_idx < len(self.ROW_TO_FIELD) else f"row_{row_idx}"
+            # Obtener campo y tipo de escala
+            if row_idx < len(self.ROW_TO_FIELD):
+                field, scale_type = self.ROW_TO_FIELD[row_idx]
+            else:
+                field, scale_type = None, "scale5"
+
             dens_str = " ".join([f"{d:.3f}{'M' if i == max_idx and max_is_marked else 'E'}" for i, d in enumerate(densities)])
-            print(f"[DENS] {field_name} ({len(row_cbs)}cb): {dens_str}")
+            print(f"[DENS] {field} ({len(row_cbs)}cb, {scale_type}): {dens_str}")
 
             for col_idx, (cb, density) in enumerate(zip(row_cbs, densities)):
                 if col_idx == max_idx and max_is_marked:
@@ -213,8 +222,6 @@ class FUNDAEValidator:
                     state=state, confidence=confidence, ink_density=density
                 ))
 
-            field = self.ROW_TO_FIELD[row_idx] if row_idx < len(self.ROW_TO_FIELD) else None
-
             if not max_is_marked:
                 row_values.append(RowValue(
                     row_index=row_idx, field=field, opencv_value="NC",
@@ -222,81 +229,132 @@ class FUNDAEValidator:
                 ))
                 continue
 
-            # Asignar valor por proximidad a columnas de referencia
-            marked_x = row_cbs[max_idx]['x'] + row_cbs[max_idx]['w'] // 2
-            value = "NC"  # default
+            # --- Mapeo según tipo de escala ---
+            if scale_type == "scale5":
+                # NC,1,2,3,4 — marca + 4 vacías más a la derecha
+                value = self._map_scale5(row_cbs, densities, max_idx, field)
+                row_values.append(RowValue(
+                    row_index=row_idx, field=field, opencv_value=value,
+                    num_checkboxes=len(row_cbs), marked_positions=[max_idx], confidence=min(0.95, 0.75 + max_d)
+                ))
 
-            if col_positions:
-                # Encontrar la columna más cercana
-                min_dist = float('inf')
-                for ci, cx in enumerate(col_positions):
-                    dist = abs(marked_x - cx)
-                    if dist < min_dist:
-                        min_dist = dist
-                        value = ["NC", "1", "2", "3", "4"][ci]
-                print(f"[MAP] {field}: marca x={marked_x}, col más cercana -> valor={value} (dist={min_dist:.0f}px)")
-            else:
-                # Fallback: tomar 4 casillas vacías más a la derecha + la marca
-                # La marca puede estar en cualquier posición, no necesariamente entre las 5 últimas
-                empty_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if densities[i] < 0.05]
-                # Las 4 vacías más a la derecha son las columnas sin marca
-                empty_rightmost = sorted(empty_cbs, key=lambda x: x[1]['x'])[-4:]
-                # Juntar con la marca y ordenar por X
-                five = [(max_idx, row_cbs[max_idx])] + [(i, cb) for i, cb in empty_rightmost]
-                five.sort(key=lambda x: x[1]['x'])
-                # La posición de la marca dentro de estas 5 da el valor
-                mark_pos_in_five = next(i for i, (idx, _) in enumerate(five) if idx == max_idx)
-                value = ["NC", "1", "2", "3", "4"][mark_pos_in_five]
-                centers_str = " ".join([f"{'*' if idx == max_idx else ''}{cb['x']}" for idx, cb in five])
-                print(f"[MAP] {field}: 5 casillas [{centers_str}] marca en pos {mark_pos_in_five} -> valor={value}")
+            elif scale_type == "scale4x2":
+                # Formadores + Tutores: 2 grupos de 4 (1,2,3,4 cada uno, sin NC)
+                self._map_scale4x2(row_cbs, densities, row_idx, field, row_values)
 
-            # Formadores/tutores: buscar 2 marcas
-            if field and field.startswith("valoracion_4_"):
-                sorted_by_dens = sorted(enumerate(densities), key=lambda x: x[1], reverse=True)
-                marks = [(i, d) for i, d in sorted_by_dens if d > 0.15][:2]
-                if len(marks) == 2:
-                    marks.sort(key=lambda x: row_cbs[x[0]]['x'])
-                    mid_x = (row_cbs[0]['x'] + row_cbs[-1]['x']) / 2
-                    for mi_idx, (mi, md) in enumerate(marks):
-                        is_first = row_cbs[mi]['x'] < mid_x
-                        sub_field = field + ("_formadores" if is_first else "_tutores")
-                        # Buscar las casillas vacías del mismo grupo
-                        if is_first:
-                            group_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if cb['x'] < mid_x]
-                        else:
-                            group_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if cb['x'] >= mid_x]
-                        group_empty = [(i, cb) for i, cb in group_cbs if densities[i] < 0.05]
-                        group_empty_right = sorted(group_empty, key=lambda x: x[1]['x'])[-4:]
-                        five = [(mi, row_cbs[mi])] + [(i, cb) for i, cb in group_empty_right]
-                        five.sort(key=lambda x: x[1]['x'])
-                        mark_pos = next((j for j, (idx, _) in enumerate(five) if idx == mi), 0)
-                        sub_val = ["NC", "1", "2", "3", "4"][mark_pos] if mark_pos < 5 else "4"
-                        print(f"[MAP] {sub_field}: marca pos {mark_pos}/5 -> valor={sub_val}")
-                        row_values.append(RowValue(
-                            row_index=row_idx, field=sub_field, opencv_value=sub_val,
-                            num_checkboxes=len(row_cbs), marked_positions=[mi], confidence=min(0.95, 0.75 + md)
-                        ))
-                    continue
+            elif scale_type == "nc_si_no":
+                # 3 casillas: NC, Sí, No
+                value = self._map_nc_si_no(row_cbs, densities, max_idx, field)
+                row_values.append(RowValue(
+                    row_index=row_idx, field=field, opencv_value=value,
+                    num_checkboxes=len(row_cbs), marked_positions=[max_idx], confidence=min(0.95, 0.75 + max_d)
+                ))
 
-            row_values.append(RowValue(
-                row_index=row_idx, field=field, opencv_value=value,
-                num_checkboxes=len(row_cbs), marked_positions=[max_idx], confidence=min(0.95, 0.75 + max_d)
-            ))
-
-        marked = [c for c in checkboxes if c.state == CheckboxState.MARKED]
-        empty = [c for c in checkboxes if c.state == CheckboxState.EMPTY]
-        uncertain = [c for c in checkboxes if c.state == CheckboxState.UNCERTAIN]
+        marked_list = [c for c in checkboxes if c.state == CheckboxState.MARKED]
+        empty_list = [c for c in checkboxes if c.state == CheckboxState.EMPTY]
+        uncertain_list = [c for c in checkboxes if c.state == CheckboxState.UNCERTAIN]
 
         return ValidationResult(
             total_checkboxes=len(checkboxes),
             total_rows=len(rows),
-            marked_count=len(marked),
-            empty_count=len(empty),
-            uncertain_count=len(uncertain),
+            marked_count=len(marked_list),
+            empty_count=len(empty_list),
+            uncertain_count=len(uncertain_list),
             checkboxes=checkboxes,
             row_values=row_values,
             processing_time_ms=(time.time() - start) * 1000
         )
+
+    def _map_scale5(self, row_cbs, densities, max_idx, field) -> str:
+        """Mapea marca a NC,1,2,3,4 usando marca + 4 vacías más a la derecha."""
+        empty_cbs = [(i, cb) for i, cb in enumerate(row_cbs) if densities[i] < 0.05]
+        empty_rightmost = sorted(empty_cbs, key=lambda x: x[1]['x'])[-4:]
+        if len(empty_rightmost) < 4:
+            # No hay suficientes vacías claras, usar las 4 con menor densidad
+            sorted_by_dens = sorted(
+                [(i, cb) for i, cb in enumerate(row_cbs) if i != max_idx],
+                key=lambda x: densities[x[0]]
+            )[:4]
+            empty_rightmost = sorted_by_dens
+        five = [(max_idx, row_cbs[max_idx])] + [(i, cb) for i, cb in empty_rightmost]
+        five.sort(key=lambda x: x[1]['x'])
+        mark_pos = next(i for i, (idx, _) in enumerate(five) if idx == max_idx)
+        value = ["NC", "1", "2", "3", "4"][mark_pos] if mark_pos < 5 else "4"
+        centers_str = " ".join([f"{'*' if idx == max_idx else ''}{cb['x']}" for idx, cb in five])
+        print(f"[MAP] {field} (scale5): [{centers_str}] marca pos {mark_pos} -> {value}")
+        return value
+
+    def _map_scale4x2(self, row_cbs, densities, row_idx, field, row_values):
+        """Mapea 2 marcas a 1,2,3,4 para formadores y tutores (2 grupos de 4, sin NC)."""
+        sorted_by_dens = sorted(enumerate(densities), key=lambda x: x[1], reverse=True)
+        marks = [(i, d) for i, d in sorted_by_dens if d > 0.15][:2]
+        if len(marks) < 2:
+            # Solo 1 o 0 marcas
+            if len(marks) == 1:
+                mi, md = marks[0]
+                # Determinar si es formadores o tutores por posición
+                mid_x = (row_cbs[0]['x'] + row_cbs[-1]['x']) / 2
+                is_form = row_cbs[mi]['x'] < mid_x
+                sub_field = field + ("_formadores" if is_form else "_tutores")
+                val = self._map_group_of_4(row_cbs, densities, mi, mid_x, is_form)
+                print(f"[MAP] {sub_field} (scale4x2): -> {val}")
+                row_values.append(RowValue(
+                    row_index=row_idx, field=sub_field, opencv_value=val,
+                    num_checkboxes=len(row_cbs), marked_positions=[mi], confidence=min(0.95, 0.75 + md)
+                ))
+                # El otro grupo es NC
+                other_field = field + ("_tutores" if is_form else "_formadores")
+                row_values.append(RowValue(
+                    row_index=row_idx, field=other_field, opencv_value="NC",
+                    num_checkboxes=len(row_cbs), marked_positions=[], confidence=0.80
+                ))
+            else:
+                for suffix in ["_formadores", "_tutores"]:
+                    row_values.append(RowValue(
+                        row_index=row_idx, field=field + suffix, opencv_value="NC",
+                        num_checkboxes=len(row_cbs), marked_positions=[], confidence=0.80
+                    ))
+            return
+
+        marks.sort(key=lambda x: row_cbs[x[0]]['x'])
+        mid_x = (row_cbs[0]['x'] + row_cbs[-1]['x']) / 2
+        for mi_idx, (mi, md) in enumerate(marks):
+            is_form = row_cbs[mi]['x'] < mid_x
+            sub_field = field + ("_formadores" if is_form else "_tutores")
+            val = self._map_group_of_4(row_cbs, densities, mi, mid_x, is_form)
+            print(f"[MAP] {sub_field} (scale4x2): -> {val}")
+            row_values.append(RowValue(
+                row_index=row_idx, field=sub_field, opencv_value=val,
+                num_checkboxes=len(row_cbs), marked_positions=[mi], confidence=min(0.95, 0.75 + md)
+            ))
+
+    def _map_group_of_4(self, row_cbs, densities, mark_idx, mid_x, is_first_half) -> str:
+        """Mapea marca dentro de un grupo de 4 (1,2,3,4 sin NC)."""
+        if is_first_half:
+            group = [(i, cb) for i, cb in enumerate(row_cbs) if cb['x'] < mid_x]
+        else:
+            group = [(i, cb) for i, cb in enumerate(row_cbs) if cb['x'] >= mid_x]
+        # Marca + 3 vacías con menor densidad del grupo
+        others = sorted([(i, cb) for i, cb in group if i != mark_idx], key=lambda x: densities[x[0]])[:3]
+        four = [(mark_idx, row_cbs[mark_idx])] + [(i, cb) for i, cb in others]
+        four.sort(key=lambda x: x[1]['x'])
+        mark_pos = next(i for i, (idx, _) in enumerate(four) if idx == mark_idx)
+        value = ["1", "2", "3", "4"][mark_pos] if mark_pos < 4 else "4"
+        return value
+
+    def _map_nc_si_no(self, row_cbs, densities, max_idx, field) -> str:
+        """Mapea marca a NC, Sí, No (3 casillas)."""
+        # Marca + 2 vacías con menor densidad
+        others = sorted(
+            [(i, cb) for i, cb in enumerate(row_cbs) if i != max_idx],
+            key=lambda x: densities[x[0]]
+        )[:2]
+        three = [(max_idx, row_cbs[max_idx])] + [(i, cb) for i, cb in others]
+        three.sort(key=lambda x: x[1]['x'])
+        mark_pos = next(i for i, (idx, _) in enumerate(three) if idx == max_idx)
+        value = ["NC", "Si", "No"][mark_pos] if mark_pos < 3 else "No"
+        print(f"[MAP] {field} (nc_si_no): marca pos {mark_pos} -> {value}")
+        return value
 
     def _filter_candidates(self, contours, roi_x: int) -> List[Dict]:
         candidates = []
