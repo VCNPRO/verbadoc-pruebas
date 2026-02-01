@@ -103,7 +103,7 @@ class FUNDAEValidator:
         "binary_c": 12,
         "row_tolerance_px": 20,
         "min_checkboxes_per_row": 2,
-        "max_checkboxes_per_row": 10,
+        "max_checkboxes_per_row": 8,
         "interior_margin_percent": 0.28,
         # Umbrales calibrados con gap natural
         "density_marked_threshold": 0.17,   # por encima = marcada (gap empieza en 0.1364)
@@ -202,6 +202,27 @@ class FUNDAEValidator:
         print(f"[DIAG] Contornos totales: {total} | Pasan filtros: {len(candidates)} | Rechazados: size={rejected['size']} aspect={rejected['aspect']} solidity={rejected['solidity']} rect={rejected['rectangularity']}")
         return candidates
 
+    def _clean_row(self, row: List[Dict], max_count: int, row_y: int) -> List[Dict]:
+        """
+        Limpia una fila con demasiados candidatos quedándose con los de tamaño
+        más cercano a la mediana. Las casillas reales son uniformes; texto/ruido varía.
+        """
+        if len(row) <= max_count:
+            return row
+        # Calcular tamaño (área) de cada candidato
+        areas = [(cb['w'] * cb['h'], i) for i, cb in enumerate(row)]
+        areas.sort(key=lambda x: x[0])
+        median_area = areas[len(areas) // 2][0]
+        # Ordenar por cercanía a la mediana
+        scored = [(abs(cb['w'] * cb['h'] - median_area), i, cb) for i, cb in enumerate(row)]
+        scored.sort(key=lambda x: x[0])
+        # Tomar los max_count más cercanos a la mediana
+        kept = sorted([s[2] for s in scored[:max_count]], key=lambda x: x['x'])
+        removed = len(row) - len(kept)
+        if removed > 0:
+            print(f"[DIAG] Fila y={row_y}: limpieza {len(row)} -> {len(kept)} (eliminados {removed} outliers de tamaño)")
+        return kept
+
     def _group_by_rows(self, candidates: List[Dict]) -> List[List[Dict]]:
         if not candidates:
             return []
@@ -224,14 +245,24 @@ class FUNDAEValidator:
         min_per_row = self.config["min_checkboxes_per_row"]
         max_per_row = self.config["max_checkboxes_per_row"]
         valid_rows = []
-        rejected_rows = {"count": 0, "size_uniformity": 0, "spacing": 0}
+        rejected_rows = {"count": 0, "size_uniformity": 0}
         total_rows = len(rows_dict)
         for key, v in sorted(rows_dict.items()):
-            if len(v) < min_per_row or len(v) > max_per_row:
+            if len(v) < min_per_row:
                 rejected_rows["count"] += 1
-                print(f"[DIAG] Fila y={key}: {len(v)} candidatos -> RECHAZADA (fuera rango {min_per_row}-{max_per_row})")
+                print(f"[DIAG] Fila y={key}: {len(v)} candidatos -> RECHAZADA (< {min_per_row})")
                 continue
             row = sorted(v, key=lambda x: x['x'])
+
+            # Limpieza intra-fila: si hay demasiados candidatos, quedarnos con los de tamaño
+            # más uniforme (casillas reales son del mismo tamaño, texto/ruido varía)
+            if len(row) > max_per_row:
+                row = self._clean_row(row, max_per_row, key)
+                if len(row) < min_per_row:
+                    rejected_rows["count"] += 1
+                    print(f"[DIAG] Fila y={key}: tras limpieza quedan {len(row)} -> RECHAZADA")
+                    continue
+
             # Filtro de uniformidad de tamaño
             sizes = [cb['w'] * cb['h'] for cb in row]
             mean_size = sum(sizes) / len(sizes)
@@ -239,21 +270,10 @@ class FUNDAEValidator:
                 std_ratio = (sum((s - mean_size)**2 for s in sizes) / len(sizes))**0.5 / mean_size
                 if std_ratio > self.config["size_std_max_ratio"]:
                     rejected_rows["size_uniformity"] += 1
-                    print(f"[DIAG] Fila y={key}: {len(v)} candidatos -> RECHAZADA (size_std={std_ratio:.2f})")
+                    print(f"[DIAG] Fila y={key}: {len(row)} candidatos -> RECHAZADA (size_std={std_ratio:.2f})")
                     continue
-            # Filtro de espaciado regular (solo informativo, NO rechaza)
-            if len(row) >= 4:
-                centers = [cb['x'] + cb['w'] // 2 for cb in row]
-                gaps = [centers[i+1] - centers[i] for i in range(len(centers) - 1)]
-                mean_gap = sum(gaps) / len(gaps)
-                if mean_gap > 0:
-                    gap_std = (sum((g - mean_gap)**2 for g in gaps) / len(gaps))**0.5
-                    gap_cv = gap_std / mean_gap
-                    print(f"[DIAG] Fila y={key}: {len(row)} casillas, gap_cv={gap_cv:.2f} -> ACEPTADA")
-                else:
-                    print(f"[DIAG] Fila y={key}: {len(row)} casillas -> ACEPTADA")
-            else:
-                print(f"[DIAG] Fila y={key}: {len(row)} casillas -> ACEPTADA")
+
+            print(f"[DIAG] Fila y={key}: {len(row)} casillas -> ACEPTADA")
             valid_rows.append(row)
         print(f"[DIAG] Filas agrupadas: {total_rows} | Válidas: {len(valid_rows)} | Rechazadas: count={rejected_rows['count']} size={rejected_rows['size_uniformity']}")
 
