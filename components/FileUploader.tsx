@@ -213,6 +213,8 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
         if (e.target.files && e.target.files.length > 0) {
             handleFiles(e.target.files);
         }
+        // Reset para permitir re-seleccionar el mismo archivo
+        e.target.value = '';
     };
     
     const onRemoveFile = (id: string, e: React.MouseEvent) => {
@@ -287,6 +289,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                     type="file"
                                     multiple
                                     onChange={onFileChange}
+                                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                                     className="hidden"
                                     accept=".pdf,.jpg,.jpeg,.png,.tiff,.txt,.json"
                                 />
@@ -298,6 +301,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                     directory=""
                                     multiple
                                     onChange={onFileChange}
+                                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                                     className="hidden"
                                 />
                                 <UploadCloudIcon className="w-10 h-10 mb-2" style={{ color: isLightMode ? '#93c5fd' : '#94a3b8' }} />
