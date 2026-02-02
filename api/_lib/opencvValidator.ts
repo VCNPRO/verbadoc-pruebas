@@ -289,15 +289,17 @@ export function applyOpenCVResult(
       break;
 
     case 'validate':
-      // Estrategia: OpenCV manda para checkboxes, Gemini solo para ambiguos
-      // - Confianza >= 0.85 → OpenCV gana siempre (detección binaria clara)
-      // - Confianza >= 0.70 → OpenCV gana, pero si difiere de Gemini → flag review
-      // - Confianza < 0.70  → Gemini gana (caso ambiguo, OpenCV no está seguro)
-      // - Regla de oro: OpenCV dice vacío con alta confianza → NC, sin consultar Gemini
+      // Estrategia: OpenCV primero, Gemini para desempate
+      // - conf >= 0.95 → OpenCV gana sin consultar Gemini
+      // - conf < 0.95  → comparar con Gemini y resolver:
+      //     - Si coinciden → usar ese valor (ambos de acuerdo)
+      //     - Si difieren → OpenCV gana si conf >= 0.70, Gemini si < 0.70
+      // - Regla de oro: OpenCV dice vacío con conf >= 0.95 → NC, punto final
       if (opencvOutput.opencv?.row_values) {
-        let mergedCount = 0;
-        let ambiguousCount = 0;
-        const fieldDetails: Array<{ field: string; source: string; value: string; conf: number }> = [];
+        let ocvWins = 0;
+        let geminiWins = 0;
+        let consensusCount = 0;
+        const fieldDetails: Array<{ field: string; source: string; ocv: string; gemini: string; final: string; conf: number }> = [];
 
         for (const rv of opencvOutput.opencv.row_values) {
           if (!rv.field || rv.opencv_value === null || rv.opencv_value === undefined) continue;
@@ -306,40 +308,50 @@ export function applyOpenCVResult(
           const ocvValue = rv.opencv_value;
           const conf = rv.confidence;
 
-          // Normalizar Gemini para comparar
-          const geminiNorm = (!geminiValue || geminiValue === 'No contesta' || geminiValue === 'NC') ? 'NC' : String(geminiValue);
+          // Normalizar para comparar
+          const geminiNorm = (!geminiValue || geminiValue === 'No contesta' || geminiValue === 'NC') ? 'NC' : String(geminiValue).replace('Sí', 'Si');
           const ocvNorm = ocvValue === 'NC' ? 'NC' : String(ocvValue);
           const match = geminiNorm === ocvNorm;
 
-          if (conf >= 0.85) {
-            // Alta confianza: OpenCV gana siempre
-            extractionResult[rv.field] = ocvValue;
-            mergedCount++;
-            fieldDetails.push({ field: rv.field, source: 'opencv', value: ocvValue, conf });
+          let finalValue: string;
+          let source: string;
+
+          if (conf >= 0.95) {
+            // OpenCV altísima confianza: gana sin consultar
+            finalValue = ocvValue;
+            source = 'opencv';
+            ocvWins++;
+          } else if (match) {
+            // Ambos de acuerdo: consenso
+            finalValue = ocvValue;
+            source = 'consensus';
+            consensusCount++;
           } else if (conf >= 0.70) {
-            // Media-alta: OpenCV gana pero marcamos si hay discrepancia
-            extractionResult[rv.field] = ocvValue;
-            mergedCount++;
-            if (!match) ambiguousCount++;
-            fieldDetails.push({ field: rv.field, source: match ? 'opencv' : 'opencv+flag', value: ocvValue, conf });
+            // OpenCV confianza media + discrepancia: OpenCV gana pero se registra
+            finalValue = ocvValue;
+            source = 'opencv>gemini';
+            ocvWins++;
           } else {
-            // Baja confianza: Gemini gana (OpenCV no está seguro)
-            fieldDetails.push({ field: rv.field, source: 'gemini', value: geminiNorm, conf });
+            // OpenCV baja confianza: Gemini gana
+            finalValue = geminiNorm;
+            source = 'gemini';
+            geminiWins++;
           }
+
+          extractionResult[rv.field] = finalValue;
+          fieldDetails.push({ field: rv.field, source, ocv: ocvNorm, gemini: geminiNorm, final: finalValue, conf });
         }
 
-        if (mergedCount > 0) {
-          console.log(`[OpenCV] Merge: ${mergedCount} campos desde OpenCV (${ambiguousCount} con discrepancia Gemini)`);
-        }
-        extractionResult._opencv_merged_count = mergedCount;
-        extractionResult._opencv_ambiguous_count = ambiguousCount;
+        const totalMerged = ocvWins + geminiWins + consensusCount;
+        console.log(`[OpenCV] Merge: ${totalMerged} campos | opencv=${ocvWins} consensus=${consensusCount} gemini=${geminiWins}`);
 
-        // Solo needs_review si hay muchos campos ambiguos (OpenCV y Gemini discrepan en zona media)
-        if (ambiguousCount > 5) {
-          extractionResult.requiresHumanReview = true;
-          extractionResult.humanReviewReason = `${ambiguousCount} campos checkbox con discrepancia OpenCV vs Gemini`;
-          extractionResult.validation_status = 'needs_review';
-        }
+        extractionResult._opencv_merge = {
+          total: totalMerged,
+          opencv_wins: ocvWins,
+          consensus: consensusCount,
+          gemini_wins: geminiWins,
+          fields: fieldDetails,
+        };
       }
       break;
   }
