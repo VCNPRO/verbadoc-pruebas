@@ -315,9 +315,17 @@ class FUNDAEValidator:
         # porque ambas mitades tienen las mismas 5 columnas (NC,1,2,3,4).
         # Usar columnas directamente con la X de la marca.
         if col_positions:
-            col_labels = ["1", "2", "3", "4"]
+            # Las 4 columnas de referencia son las primeras 4 casillas: NC, 1, 2, 3
+            # La 5ª casilla (valor 4) queda a la derecha fuera de las columnas de ref
+            col_labels = ["NC", "1", "2", "3"]
             best_col = min(range(4), key=lambda i: abs(mark_center - col_positions[i]))
             dist = abs(mark_center - col_positions[best_col])
+
+            # Si la marca está a la derecha de la última columna de ref → es "4"
+            if mark_center > col_positions[3] + 20 and dist > 20:
+                print(f"[MAP] {field} (scale5-col): mark_x={mark_center} -> 4 (más allá de col 3={col_positions[3]:.0f})")
+                return "4"
+
             # Si la distancia es >50px, la marca está fuera de las columnas estándar
             if dist > 50 and len(row_cbs) > 5:
                 # Recalcular columnas locales para la mitad donde está la marca
@@ -342,16 +350,14 @@ class FUNDAEValidator:
             print(f"[MAP] {field} (scale5-col): mark_x={mark_center} -> col {value} (dist={dist:.0f}px)")
             return value
 
-        # Fallback: posición relativa (primeras 4, descartar última = borde de tabla)
+        # Fallback: posición relativa. 5 casillas = NC,1,2,3,4
         sorted_cbs = sorted(enumerate(row_cbs), key=lambda x: x[1]['x'])
-        if len(sorted_cbs) > 4:
-            sorted_cbs = sorted_cbs[:4]  # primeras 4 posiciones (descartar borde)
         mark_pos = next((i for i, (idx, _) in enumerate(sorted_cbs) if idx == max_idx), -1)
         if mark_pos == -1:
-            # La marca está en posiciones descartadas (zona borde) -> columna 4
             value = "4"
         else:
-            value = ["1", "2", "3", "4"][mark_pos] if mark_pos < 4 else "4"
+            # 5 posiciones: NC(0), 1(1), 2(2), 3(3), 4(4)
+            value = ["NC", "1", "2", "3", "4"][mark_pos] if mark_pos < 5 else "4"
         print(f"[MAP] {field} (scale5-rel): mark_x={mark_center} pos={mark_pos} -> {value}")
         return value
 
