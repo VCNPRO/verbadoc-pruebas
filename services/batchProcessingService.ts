@@ -195,7 +195,7 @@ async function processSingleDocument(
 
   // 1. Clasificación (si está habilitada)
   if (settings.autoClassify) {
-    result.classification = await classifyDocument(file, 'gemini-3-pro-preview');
+    result.classification = await classifyDocument(file, 'gemini-3-flash-preview');
     result.cost! += 0.0005; // Coste estimado clasificación
     console.log(`  🏷️  Clasificado: ${result.classification.type} (${(result.classification.confidence * 100).toFixed(0)}%)`);
   }
@@ -206,13 +206,13 @@ async function processSingleDocument(
 
   if (schema.length > 0) {
     result.extractedData = await extractDataFromDocument(file, schema, prompt, settings.model);
-    result.cost! += settings.model === 'gemini-3-pro-preview' ? 0.0005 : 0.0016;
+    result.cost! += settings.model === 'gemini-3-flash-preview' ? 0.0005 : 0.0016;
     console.log(`  📝 Datos extraídos: ${Object.keys(result.extractedData).length} campos`);
   }
 
   // 3. Validación (si está habilitada)
   if (settings.autoValidate && result.extractedData && schema.length > 0) {
-    result.validation = await validateExtractedData(result.extractedData, schema, file, 'gemini-3-pro-preview');
+    result.validation = await validateExtractedData(result.extractedData, schema, file, 'gemini-3-flash-preview');
     result.cost! += result.validation.issues.length > 0 ? 0.0005 : 0; // Solo cobra si hace validación IA
     console.log(`  ✅ Validación: Score ${result.validation.score}/100 (${result.validation.issues.length} issues)`);
   }
@@ -242,7 +242,7 @@ async function processMultiDocumentPDF(
 
   // 1. Segmentar el PDF
   result.segmentation = await segmentPDFWithGemini(file, settings.model);
-  result.cost! += settings.model === 'gemini-3-pro-preview' ? 0.0005 : 0.0016;
+  result.cost! += settings.model === 'gemini-3-flash-preview' ? 0.0005 : 0.0016;
 
   console.log(`  📑 Detectados ${result.segmentation.segmentsFound} documentos en el PDF`);
 
@@ -260,7 +260,7 @@ async function processMultiDocumentPDF(
 
       // Clasificar si está habilitado
       if (settings.autoClassify) {
-        segmentResult.classification = await classifyDocument(segmentFile, 'gemini-3-pro-preview');
+        segmentResult.classification = await classifyDocument(segmentFile, 'gemini-3-flash-preview');
         result.cost! += 0.0005;
       }
 
@@ -270,12 +270,12 @@ async function processMultiDocumentPDF(
 
       if (schema.length > 0) {
         segmentResult.extractedData = await extractDataFromDocument(segmentFile, schema, prompt, settings.model);
-        result.cost! += settings.model === 'gemini-3-pro-preview' ? 0.0005 : 0.0016;
+        result.cost! += settings.model === 'gemini-3-flash-preview' ? 0.0005 : 0.0016;
       }
 
       // Validar si está habilitado
       if (settings.autoValidate && segmentResult.extractedData && schema.length > 0) {
-        segmentResult.validation = await validateExtractedData(segmentResult.extractedData, schema, segmentFile, 'gemini-3-pro-preview');
+        segmentResult.validation = await validateExtractedData(segmentResult.extractedData, schema, segmentFile, 'gemini-3-flash-preview');
         result.cost! += 0.0005;
       }
 

@@ -237,7 +237,7 @@ const postProcessExtraction = (data: any): any => {
 };
 
 export type GeminiModel =
-    | 'gemini-3-pro-preview'
+    | 'gemini-3-flash-preview'
     | 'gemini-2.5-flash'
     | 'gemini-2.5-pro';
 
@@ -252,7 +252,7 @@ export interface ModelInfo {
 
 export const AVAILABLE_MODELS: ModelInfo[] = [
     {
-        id: 'gemini-3-pro-preview',
+        id: 'gemini-3-flash-preview',
         name: 'Gemini 3 Pro',
         description: 'Modelo más preciso para formularios FUNDAE (5/5 en tests)',
         bestFor: 'FUNDAE, checkboxes, formularios manuscritos',
@@ -306,7 +306,7 @@ const callVertexAIAPI = async (endpoint: string, body: any): Promise<any> => {
 // Generar schema desde prompt
 export const generateSchemaFromPrompt = async (
     prompt: string,
-    modelId: GeminiModel = 'gemini-3-pro-preview'
+    modelId: GeminiModel = 'gemini-3-flash-preview'
 ): Promise<SchemaField[]> => {
     const analysisPrompt = `Analiza el siguiente prompt de extracción de datos y genera una lista de campos JSON que se necesitan extraer.
 
@@ -382,7 +382,7 @@ export const extractDataFromDocument = async (
     file: File,
     schema: SchemaField[],
     prompt: string,
-    modelId: GeminiModel = 'gemini-3-pro-preview'
+    modelId: GeminiModel = 'gemini-3-flash-preview'
 ): Promise<object> => {
     const generativePart = await fileToGenerativePart(file);
 
@@ -457,7 +457,7 @@ export const extractDataFromDocument = async (
 // Transcribir documento completo
 export const transcribeDocument = async (
     file: File,
-    modelId: GeminiModel = 'gemini-3-pro-preview'
+    modelId: GeminiModel = 'gemini-3-flash-preview'
 ): Promise<string> => {
     const generativePart = await fileToGenerativePart(file);
     const prompt = `Extrae el texto completo de este documento. Mantén la estructura original, incluyendo párrafos y saltos de línea. No resumas ni alteres el contenido. Devuelve únicamente el texto extraído.`;
@@ -532,7 +532,7 @@ export const transcribeHandwrittenDocument = async (
 // Generar metadatos a partir de texto
 export const generateMetadata = async (
     text: string,
-    modelId: GeminiModel = 'gemini-3-pro-preview'
+    modelId: GeminiModel = 'gemini-3-flash-preview'
 ): Promise<{ title: string; summary: string; keywords: string[] }> => {
     const prompt = `A partir del siguiente texto, genera metadatos útiles.
 
@@ -757,7 +757,7 @@ export const extractWithHybridSystem = async (
   file: File,
   schema: SchemaField[],
   prompt: string,
-  modelId: GeminiModel = 'gemini-3-pro-preview',
+  modelId: GeminiModel = 'gemini-3-flash-preview',
   options?: {
     forceAI?: boolean;           // Forzar uso de IA (saltar coordenadas)
     forceCoordinates?: boolean;  // Forzar uso de coordenadas (no usar fallback)
@@ -773,13 +773,13 @@ export const extractWithHybridSystem = async (
   {
     console.log('🚀 MODO IA DIRECTA (coordenadas desactivadas para procesamiento masivo)');
 
-    let currentModel: GeminiModel = 'gemini-3-pro-preview';
+    let currentModel: GeminiModel = 'gemini-3-flash-preview';
     let attempts = 0;
     let modelEscalated = false;
     let lastData: any = null;
     let lastConfidence = 0;
 
-    // INTENTO 1: gemini-3-pro-preview
+    // INTENTO 1: gemini-3-flash-preview
     try {
       attempts++;
       console.log(`🤖 Intento ${attempts}: Usando ${currentModel}...`);
@@ -796,7 +796,7 @@ export const extractWithHybridSystem = async (
 
       console.log(`📊 Resultado Gemini 3 Pro: ${Math.round(lastConfidence * 100)}% confianza (${extractedFields}/${totalFields} campos)`);
 
-      // Devolver resultado directo (sin escalado, solo gemini-3-pro-preview)
+      // Devolver resultado directo (sin escalado, solo gemini-3-flash-preview)
       return {
         data: aiData,
         method: 'ai',
@@ -869,7 +869,7 @@ export const extractWithHybridSystem = async (
           confidencePercentage: coordResult.confidencePercentage,
           processingTimeMs: Date.now() - startTime,
           usedFallback: false,
-          modelUsed: 'gemini-3-pro-preview',
+          modelUsed: 'gemini-3-flash-preview',
           modelEscalated: false,
           attempts: 1,
         };
@@ -936,7 +936,7 @@ export const extractWithHybridCVJudge = async (
   file: File,
   schema: SchemaField[],
   prompt: string,
-  modelId: GeminiModel = 'gemini-3-pro-preview'
+  modelId: GeminiModel = 'gemini-3-flash-preview'
 ): Promise<HybridExtractionResult> => {
   const startTime = Date.now();
 
@@ -1011,7 +1011,7 @@ export const extractWithHybridCVJudge = async (
 export const searchImageInDocument = async (
     documentFile: File,
     referenceImageFile: File,
-    modelId: GeminiModel = 'gemini-3-pro-preview'
+    modelId: GeminiModel = 'gemini-3-flash-preview'
 ): Promise<{ found: boolean; description: string; location?: string; confidence?: string }> => {
     const documentPart = await fileToGenerativePart(documentFile);
     const referencePart = await fileToGenerativePart(referenceImageFile);

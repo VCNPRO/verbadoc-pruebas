@@ -94,7 +94,7 @@ function AppContent() {
     const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
     const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
     const [advancedConfigOpen, setAdvancedConfigOpen] = useState<boolean>(false);
-    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-pro-preview' as GeminiModel); // Modelo fijo
+    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
 
     const [isTranscribing, setIsTranscribing] = useState<boolean>(false);

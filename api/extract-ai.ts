@@ -98,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Llamar a Gemini directamente con el prompt del frontend
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    const modelId = model || 'gemini-3-pro-preview';
+    const modelId = model || 'gemini-3-flash-preview';
     console.log(`🤖 Usando modelo: ${modelId}`);
 
     // Construir el prompt final

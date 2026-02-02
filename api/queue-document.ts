@@ -45,7 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fileName,
       fileSize: fileSize || 0,
       schema,
-      model: model || 'gemini-3-pro-preview',
+      model: model || 'gemini-3-flash-preview',
       userId,
       timestamp: Date.now(),
       status: 'queued'
