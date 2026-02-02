@@ -248,6 +248,18 @@ class FUNDAEValidator:
                 ))
 
             if not max_is_marked:
+                # Para nc_si_no con pocas casillas: buscar marca perdida (X agresiva)
+                if scale_type == "nc_si_no" and len(row_cbs) < 3:
+                    rescue_value = self._scan_missing_mark_nc_si_no(
+                        gray, row_cbs, row_cbs[0]['y'], field
+                    )
+                    if rescue_value:
+                        row_values.append(RowValue(
+                            row_index=row_idx, field=field, opencv_value=rescue_value,
+                            num_checkboxes=len(row_cbs), marked_positions=[], confidence=0.85
+                        ))
+                        continue
+
                 row_values.append(RowValue(
                     row_index=row_idx, field=field, opencv_value="NC",
                     num_checkboxes=len(row_cbs), marked_positions=[], confidence=0.95
@@ -414,6 +426,85 @@ class FUNDAEValidator:
         value = ["NC", "Si", "No"][mark_pos] if mark_pos < 3 else "No"
         print(f"[MAP] {field} (nc_si_no): marca pos {mark_pos} -> {value}")
         return value
+
+    def _scan_missing_mark_nc_si_no(self, gray: np.ndarray, row_cbs, row_y: int, field: str):
+        """
+        Para filas nc_si_no con <3 casillas y todas vacías: buscar marca perdida.
+        Cuando la X es muy agresiva, el contorno no pasa los filtros de checkbox,
+        pero la zona tiene alta densidad de tinta. Escaneamos regiones candidatas
+        entre las casillas detectadas.
+        """
+        if len(row_cbs) < 2:
+            return None
+
+        # Ordenar por X
+        sorted_cbs = sorted(row_cbs, key=lambda cb: cb['x'])
+        first_x = sorted_cbs[0]['x']
+        last_x = sorted_cbs[-1]['x'] + sorted_cbs[-1]['w']
+        cb_h = sorted_cbs[0]['h']
+        cb_w = sorted_cbs[0]['w']
+        cb_y = sorted_cbs[0]['y']
+
+        # Buscar zonas con tinta entre first_x y last_x que no coincidan con casillas detectadas
+        # Las 3 posiciones esperadas de nc_si_no: NC, Si, No
+        # NC suele estar a la izquierda, Si en el medio, No a la derecha
+        # Calcular posiciones esperadas basándose en las casillas detectadas
+        gap = (last_x - first_x) / max(len(sorted_cbs) - 1, 1) if len(sorted_cbs) >= 2 else cb_w * 3
+
+        # Generar zonas candidatas donde podría estar la casilla perdida
+        detected_centers = set()
+        for cb in sorted_cbs:
+            detected_centers.add(cb['x'] + cb['w'] // 2)
+
+        best_density = 0
+        best_center_x = None
+
+        # Escanear con ventana del tamaño de una casilla entre primera y última + gap
+        scan_start = max(0, first_x - int(gap))
+        scan_end = min(gray.shape[1], last_x + int(gap))
+
+        for x in range(scan_start, scan_end - cb_w, cb_w // 2):
+            center_x = x + cb_w // 2
+            # Saltar si coincide con casilla ya detectada
+            is_detected = any(abs(center_x - dc) < cb_w for dc in detected_centers)
+            if is_detected:
+                continue
+
+            # Medir densidad de tinta en esta zona
+            y1 = max(0, cb_y)
+            y2 = min(gray.shape[0], cb_y + cb_h)
+            x1 = max(0, x)
+            x2 = min(gray.shape[1], x + cb_w)
+            region = gray[y1:y2, x1:x2]
+            if region.size == 0:
+                continue
+
+            _, bin_region = cv2.threshold(region, 160, 255, cv2.THRESH_BINARY_INV)
+            density = np.sum(bin_region == 255) / bin_region.size
+
+            if density > best_density:
+                best_density = density
+                best_center_x = center_x
+
+        if best_density >= 0.20 and best_center_x is not None:
+            # Encontramos marca perdida. Mapear por posición relativa a las casillas
+            all_centers = sorted(list(detected_centers) + [best_center_x])
+            mark_pos = all_centers.index(best_center_x)
+            n_total = len(all_centers)
+
+            if n_total == 3:
+                value = ["NC", "Si", "No"][mark_pos] if mark_pos < 3 else "No"
+            elif n_total == 2:
+                # Solo 2 posiciones (la perdida + 1 detectada)
+                # Si la marca está a la izquierda → NC, si está en medio/derecha → Si o No
+                value = "Si"  # Más probable: la marca tapó la casilla Si
+            else:
+                value = "Si"  # Default conservador
+
+            print(f"[MAP] {field} (nc_si_no-RESCUE): marca perdida en x={best_center_x} density={best_density:.3f} pos={mark_pos}/{n_total} -> {value}")
+            return value
+
+        return None
 
     def _filter_candidates(self, contours, roi_x: int) -> List[Dict]:
         candidates = []
