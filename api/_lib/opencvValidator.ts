@@ -120,7 +120,9 @@ async function callOpenCVService(
   const timeout = setTimeout(() => controller.abort(), OPENCV_CONFIG.timeoutMs);
 
   try {
-    const resp = await fetch(`${OPENCV_CONFIG.serviceUrl}/validate`, {
+    const url = `${OPENCV_CONFIG.serviceUrl}/validate`;
+    console.log(`[OpenCV] Calling: ${url}`);
+    const resp = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -243,7 +245,7 @@ export async function validateWithOpenCV(
 
     return output;
   } catch (err: any) {
-    console.error(`[OpenCV] Error: ${err.message}`);
+    console.error(`[OpenCV] Error: ${err.message} | URL: ${OPENCV_CONFIG.serviceUrl} | cause: ${err.cause?.message || 'none'}`);
     return {
       enabled: true,
       mode: OPENCV_CONFIG.mode,
