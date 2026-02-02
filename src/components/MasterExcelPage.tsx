@@ -9,6 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
 import PinModal, { requiresPin } from './PinModal.tsx';
+import { PdfViewerOptimized } from './PdfViewerOptimized';
 
 interface MasterExcelRow {
   id: string;
@@ -77,6 +78,94 @@ export default function MasterExcelPage() {
 
   const [viewingRow, setViewingRow] = useState<MasterExcelRow | null>(null);
   const [sendingToReview, setSendingToReview] = useState(false);
+
+  // Estado para edición inline en modal y visor PDF
+  const [modalPdfUrl, setModalPdfUrl] = useState<string | null>(null);
+  const [modalEditingField, setModalEditingField] = useState<string | null>(null);
+  const [modalEditValue, setModalEditValue] = useState('');
+  const [savingField, setSavingField] = useState(false);
+
+  // Cargar PDF cuando se abre el modal de un row
+  useEffect(() => {
+    if (!viewingRow) {
+      setModalPdfUrl(null);
+      setModalEditingField(null);
+      return;
+    }
+
+    // Intentar obtener el PDF desde la extracción asociada
+    const loadPdf = async () => {
+      try {
+        const response = await fetch(`/api/extractions/${viewingRow.extraction_id}`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const url = data.extraction?.pdf_blob_url || data.extraction?.file_url;
+          if (url) {
+            setModalPdfUrl(url);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar PDF de la extracción:', e);
+      }
+      // Fallback: intentar sessionStorage
+      const pdfData = sessionStorage.getItem(`pdf_${viewingRow.extraction_id}`);
+      if (pdfData) {
+        try {
+          const base64Content = pdfData.split(',')[1] || pdfData;
+          const byteCharacters = atob(base64Content.replace(/\s/g, ''));
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/pdf' });
+          setModalPdfUrl(URL.createObjectURL(blob));
+        } catch (e) {
+          console.warn('Error decodificando PDF de sessionStorage:', e);
+        }
+      }
+    };
+
+    loadPdf();
+
+    return () => {
+      if (modalPdfUrl && modalPdfUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(modalPdfUrl);
+      }
+    };
+  }, [viewingRow?.id]);
+
+  // Guardar campo editado en el modal
+  const handleModalSaveField = async (key: string) => {
+    if (!viewingRow) return;
+    try {
+      setSavingField(true);
+      const updatedData = { ...viewingRow.row_data, [key]: modalEditValue };
+
+      const response = await fetch(`/api/master-excel/${viewingRow.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ row_data: updatedData })
+      });
+
+      if (!response.ok) throw new Error('Error al guardar');
+
+      // Actualizar localmente
+      const updatedRow = { ...viewingRow, row_data: updatedData };
+      setViewingRow(updatedRow);
+      setRows(prev => prev.map(r => r.id === viewingRow.id ? updatedRow : r));
+      setModalEditingField(null);
+      console.log(`✅ Campo "${key}" actualizado`);
+    } catch (err: any) {
+      console.error('Error al guardar campo:', err);
+      alert('Error al guardar el campo. Intenta de nuevo.');
+    } finally {
+      setSavingField(false);
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -594,12 +683,12 @@ export default function MasterExcelPage() {
         </div>
       </div>
 
-      {/* Modal Visor de Datos */}
+      {/* Modal Visor de Datos con PDF */}
       {viewingRow && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white rounded-xl shadow-2xl w-[95vw] max-w-[1400px] h-[90vh] overflow-hidden flex flex-col">
             {/* Header del Modal */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
                   Datos del Formulario
@@ -618,71 +707,141 @@ export default function MasterExcelPage() {
               </button>
             </div>
 
-            {/* Contenido del Modal - Tabla de datos */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                <table className="w-full">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase w-1/3">Campo</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {viewingRow.row_data && Object.entries(viewingRow.row_data)
-                      .sort(([a], [b]) => a.localeCompare(b))
-                      .map(([key, value]) => (
-                        <tr key={key} className="hover:bg-white transition-colors">
-                          <td className="px-4 py-2 text-sm font-medium text-gray-700">
-                            {key}
-                          </td>
-                          <td className="px-4 py-2 text-sm text-gray-900">
-                            {value === null || value === undefined || value === 'null'
-                              ? <span className="text-gray-400 italic">-</span>
-                              : typeof value === 'object'
-                                ? JSON.stringify(value)
-                                : String(value)
-                            }
-                          </td>
+            {/* Contenido 50/50: PDF izquierda + Datos editables derecha */}
+            <div className="flex-1 flex overflow-hidden">
+              {/* Izquierda: Visor PDF (50%) */}
+              <div className="w-1/2 h-full bg-gray-200 border-r border-gray-300 flex items-center justify-center">
+                {modalPdfUrl ? (
+                  <PdfViewerOptimized
+                    pdfUrl={modalPdfUrl}
+                    highlights={[]}
+                    currentErrorId={null}
+                    onHighlightClick={() => {}}
+                    className="w-full h-full"
+                  />
+                ) : (
+                  <div className="text-center p-8">
+                    <div className="text-gray-400 text-5xl mb-4">📄</div>
+                    <p className="text-gray-500 font-medium">PDF no disponible</p>
+                    <p className="text-gray-400 text-sm mt-1">No se encontró el archivo original</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Derecha: Tabla editable (50%) */}
+              <div className="w-1/2 h-full flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-4">
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                          <th className="px-2 py-2 text-center text-xs font-semibold text-gray-600 uppercase w-12"></th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase w-1/3">Campo</th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Valor</th>
                         </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {viewingRow.row_data && Object.entries(viewingRow.row_data)
+                          .sort(([a], [b]) => a.localeCompare(b))
+                          .map(([key, value]) => (
+                            <tr key={key} className="hover:bg-white transition-colors">
+                              <td className="px-2 py-2 text-center">
+                                {modalEditingField === key ? (
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => handleModalSaveField(key)}
+                                      disabled={savingField}
+                                      className="px-1.5 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 disabled:opacity-50"
+                                      title="Guardar"
+                                    >
+                                      ✓
+                                    </button>
+                                    <button
+                                      onClick={() => setModalEditingField(null)}
+                                      className="px-1.5 py-1 text-xs bg-gray-400 text-white rounded hover:bg-gray-500"
+                                      title="Cancelar"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setModalEditingField(key);
+                                      setModalEditValue(String(value ?? ''));
+                                    }}
+                                    className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                    title="Editar campo"
+                                  >
+                                    ✏️
+                                  </button>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 text-xs font-mono text-gray-500">
+                                {key}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                {modalEditingField === key ? (
+                                  <input
+                                    type="text"
+                                    value={modalEditValue}
+                                    onChange={(e) => setModalEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleModalSaveField(key);
+                                      if (e.key === 'Escape') setModalEditingField(null);
+                                    }}
+                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    autoFocus
+                                  />
+                                ) : (
+                                  value === null || value === undefined || value === 'null'
+                                    ? <span className="text-gray-400 italic">-</span>
+                                    : typeof value === 'object'
+                                      ? JSON.stringify(value)
+                                      : String(value)
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-              {/* Metadatos */}
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-blue-50 rounded-lg p-3">
-                  <span className="text-blue-600 font-medium">Estado:</span>
-                  <span className="ml-2 text-blue-900">{viewingRow.validation_status}</span>
+                  {/* Metadatos */}
+                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                    <div className="bg-blue-50 rounded-lg p-3">
+                      <span className="text-blue-600 font-medium">Estado:</span>
+                      <span className="ml-2 text-blue-900">{viewingRow.validation_status}</span>
+                    </div>
+                    <div className="bg-green-50 rounded-lg p-3">
+                      <span className="text-green-600 font-medium">Validación cruzada:</span>
+                      <span className="ml-2 text-green-900">
+                        {viewingRow.cross_validation_match ? 'Coincide' : 'No coincide'}
+                      </span>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-600 font-medium">Versión:</span>
+                      <span className="ml-2 text-gray-900">{viewingRow.version}</span>
+                    </div>
+                    <div className="bg-gray-50 rounded-lg p-3">
+                      <span className="text-gray-600 font-medium">Fecha:</span>
+                      <span className="ml-2 text-gray-900">
+                        {new Date(viewingRow.created_at).toLocaleString('es-ES')}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-green-50 rounded-lg p-3">
-                  <span className="text-green-600 font-medium">Validación cruzada:</span>
-                  <span className="ml-2 text-green-900">
-                    {viewingRow.cross_validation_match ? 'Coincide' : 'No coincide'}
-                  </span>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <span className="text-gray-600 font-medium">Versión:</span>
-                  <span className="ml-2 text-gray-900">{viewingRow.version}</span>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <span className="text-gray-600 font-medium">Fecha:</span>
-                  <span className="ml-2 text-gray-900">
-                    {new Date(viewingRow.created_at).toLocaleString('es-ES')}
-                  </span>
+
+                {/* Footer */}
+                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-end flex-shrink-0">
+                  <button
+                    onClick={() => setViewingRow(null)}
+                    className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-lg transition-colors"
+                  >
+                    Cerrar
+                  </button>
                 </div>
               </div>
-            </div>
-
-            {/* Footer del Modal */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end">
-              <button
-                onClick={() => setViewingRow(null)}
-                className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-lg transition-colors"
-              >
-                Cerrar
-              </button>
             </div>
           </div>
         </div>
