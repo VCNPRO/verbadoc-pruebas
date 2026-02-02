@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import List, Dict, Tuple, Optional
+from typing import Any, List, Dict, Tuple, Optional
 from enum import Enum
 import json
 
@@ -715,6 +715,69 @@ class FUNDAEValidator:
             if len(densities) >= 2 and densities[0] > densities[1] * 1.3:
                 return str(best + 1), 0.55
             return "NC", 0.30
+
+    def compare_with_gemini(self, result: ValidationResult, gemini_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Compara campo por campo los row_values de OpenCV con los datos de Gemini.
+        Devuelve matches, discrepancias y recomendación.
+        """
+        field_comparison = []
+        matches = 0
+        discrepancies = 0
+        opencv_fields = {}
+
+        for rv in result.row_values:
+            if rv.field:
+                opencv_fields[rv.field] = {
+                    "opencv_value": rv.opencv_value,
+                    "confidence": rv.confidence,
+                }
+
+        # Comparar cada campo que OpenCV detectó
+        for field_name, ocv_info in opencv_fields.items():
+            gemini_value = gemini_data.get(field_name)
+            opencv_value = ocv_info["opencv_value"]
+            confidence = ocv_info["confidence"]
+
+            # Normalizar para comparación
+            gemini_norm = str(gemini_value).strip() if gemini_value is not None else "NC"
+            opencv_norm = str(opencv_value).strip() if opencv_value is not None else "NC"
+
+            # "No contesta" equivale a "NC"
+            if gemini_norm.lower() in ("no contesta", "nc", "none", ""):
+                gemini_norm = "NC"
+            if gemini_norm.lower() == "sí":
+                gemini_norm = "Si"
+
+            match = gemini_norm == opencv_norm
+            if match:
+                matches += 1
+            else:
+                discrepancies += 1
+
+            field_comparison.append({
+                "field": field_name,
+                "gemini": gemini_norm,
+                "opencv": opencv_norm,
+                "confidence": round(confidence, 3),
+                "match": match,
+            })
+
+        total_compared = matches + discrepancies
+        recommendation = "ACCEPT"
+        if discrepancies > 5:
+            recommendation = "HUMAN_REVIEW"
+        elif discrepancies > 2:
+            recommendation = "VALIDATE"
+
+        return {
+            "total_compared": total_compared,
+            "matches": matches,
+            "discrepancies": discrepancies,
+            "match_rate": round(matches / total_compared, 3) if total_compared > 0 else 0,
+            "recommendation": recommendation,
+            "fields": field_comparison,
+        }
 
     def to_json(self, result: ValidationResult) -> str:
         return json.dumps({

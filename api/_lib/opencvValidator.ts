@@ -27,11 +27,11 @@ export interface OpenCVConfig {
   timeoutMs: number;
 }
 
-const DEFAULT_SERVICE_URL = 'https://wit-why-lyrics-ensure.trycloudflare.com';
+const DEFAULT_SERVICE_URL = 'https://mississippi-personally-remedies-themselves.trycloudflare.com';
 
 export const OPENCV_CONFIG: OpenCVConfig = {
-  enabled: false,
-  mode: 'log_only',
+  enabled: true,
+  mode: 'validate',
   discrepancyThreshold: 5,
   serviceUrl: process.env.OPENCV_SERVICE_URL || DEFAULT_SERVICE_URL,
   timeoutMs: 30_000,
@@ -50,6 +50,15 @@ interface OpenCVCheckbox {
   bbox: [number, number, number, number];
 }
 
+interface OpenCVRowValue {
+  row_index: number;
+  field: string | null;
+  opencv_value: string | null;
+  num_checkboxes: number;
+  marked_positions: number[];
+  confidence: number;
+}
+
 interface OpenCVResult {
   total_checkboxes: number;
   total_rows: number;
@@ -58,6 +67,23 @@ interface OpenCVResult {
   uncertain: number;
   processing_time_ms: number;
   checkboxes: OpenCVCheckbox[];
+  row_values?: OpenCVRowValue[];
+  comparison?: OpenCVFieldComparison;
+}
+
+interface OpenCVFieldComparison {
+  total_compared: number;
+  matches: number;
+  discrepancies: number;
+  match_rate: number;
+  recommendation: string;
+  fields: Array<{
+    field: string;
+    gemini: string;
+    opencv: string;
+    confidence: number;
+    match: boolean;
+  }>;
 }
 
 interface ComparisonResult {
@@ -261,6 +287,22 @@ export function applyOpenCVResult(
       break;
 
     case 'validate':
+      // Merge: sobreescribir campos checkbox con valor OpenCV si confianza >= 0.70
+      if (opencvOutput.opencv?.row_values) {
+        let mergedCount = 0;
+        for (const rv of opencvOutput.opencv.row_values) {
+          if (rv.field && rv.opencv_value && rv.confidence >= 0.70) {
+            extractionResult[rv.field] = rv.opencv_value;
+            mergedCount++;
+          }
+        }
+        if (mergedCount > 0) {
+          console.log(`[OpenCV] Merge: ${mergedCount} campos checkbox actualizados desde OpenCV`);
+        }
+        extractionResult._opencv_merged_count = mergedCount;
+      }
+
+      // Marcar needs_review si discrepancias > umbral
       if (opencvOutput.requiresHumanReview) {
         extractionResult.requiresHumanReview = true;
         extractionResult.humanReviewReason = `OpenCV detectó ${opencvOutput.comparison.discrepancy} discrepancias en checkboxes`;
