@@ -2,10 +2,9 @@
  * opencvValidator.ts
  *
  * Integración OpenCV para validación de checkboxes en formularios FUNDAE.
- * Llama al microservicio OpenCV en La Bestia via Cloudflare Tunnel.
- * Comparación CAMPO POR CAMPO: OpenCV devuelve qué valor tiene cada fila
- * y se compara con lo que Gemini extrajo para cada campo.
+ * Capa de validación complementaria a Gemini (no reemplazo).
  *
+ * Llama al microservicio FastAPI (opencv_server.py) via HTTP.
  * ROLLBACK: Desactivar con OPENCV_CONFIG.enabled = false
  */
 
@@ -20,34 +19,27 @@ export interface OpenCVConfig {
   enabled: boolean;
   /** Modo de operación */
   mode: OpenCVMode;
-  /** Número mínimo de discrepancias campo-a-campo para HUMAN_REVIEW */
+  /** Umbral de discrepancia para marcar revisión humana */
   discrepancyThreshold: number;
-  /** URL del microservicio OpenCV (Cloudflare Tunnel) */
+  /** URL del microservicio OpenCV */
   serviceUrl: string;
-  /** Timeout en ms para la llamada HTTP */
+  /** Timeout en ms para la petición HTTP */
   timeoutMs: number;
 }
 
+const DEFAULT_SERVICE_URL = 'https://wit-why-lyrics-ensure.trycloudflare.com';
+
 export const OPENCV_CONFIG: OpenCVConfig = {
-  enabled: true,
+  enabled: false,
   mode: 'log_only',
-  discrepancyThreshold: 2,
-  serviceUrl: process.env.OPENCV_SERVICE_URL || 'https://wit-why-lyrics-ensure.trycloudflare.com',
+  discrepancyThreshold: 5,
+  serviceUrl: process.env.OPENCV_SERVICE_URL || DEFAULT_SERVICE_URL,
   timeoutMs: 30_000,
 };
 
 // ============================================================================
 // TIPOS
 // ============================================================================
-
-interface OpenCVRowValue {
-  row_index: number;
-  field: string | null;
-  opencv_value: string | null;
-  num_checkboxes: number;
-  marked_positions: number[];
-  confidence: number;
-}
 
 interface OpenCVCheckbox {
   row: number;
@@ -65,22 +57,14 @@ interface OpenCVResult {
   empty: number;
   uncertain: number;
   processing_time_ms: number;
-  row_values: OpenCVRowValue[];
   checkboxes: OpenCVCheckbox[];
 }
 
-interface FieldDiscrepancy {
-  field: string;
-  gemini_value: string;
-  opencv_value: string;
-  opencv_confidence: number;
-}
-
 interface ComparisonResult {
-  total_compared: number;
-  matches: number;
-  discrepancies: number;
-  discrepancy_fields: FieldDiscrepancy[];
+  opencv_marked: number;
+  gemini_marked: number;
+  discrepancy: number;
+  discrepancy_percent: number;
   recommendation: 'ACCEPT' | 'VALIDATE' | 'HUMAN_REVIEW';
 }
 
@@ -98,110 +82,101 @@ export interface OpenCVValidationOutput {
 // ============================================================================
 
 /**
- * Llama al microservicio OpenCV en La Bestia.
+ * Llama al microservicio OpenCV con la URL del PDF.
+ * El servicio descarga el PDF, convierte la página a PNG y ejecuta el validador.
  */
-async function callOpenCVService(pdfUrl: string, pageIndex: number): Promise<OpenCVResult> {
-  const url = `${OPENCV_CONFIG.serviceUrl}/validate`;
-
+async function callOpenCVService(
+  pdfUrl: string,
+  pageIndex: number,
+  geminiData?: Record<string, any>
+): Promise<OpenCVResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), OPENCV_CONFIG.timeoutMs);
 
   try {
-    const response = await fetch(url, {
+    const resp = await fetch(`${OPENCV_CONFIG.serviceUrl}/validate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pdf_url: pdfUrl, page_index: pageIndex }),
+      body: JSON.stringify({
+        pdf_url: pdfUrl,
+        page_index: pageIndex,
+        dpi: 200,
+        gemini_data: geminiData || null,
+      }),
       signal: controller.signal,
     });
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`OpenCV service error ${response.status}: ${errorBody}`);
+    if (!resp.ok) {
+      const text = await resp.text();
+      throw new Error(`OpenCV service HTTP ${resp.status}: ${text}`);
     }
 
-    return await response.json() as OpenCVResult;
+    return await resp.json();
   } finally {
     clearTimeout(timeout);
   }
 }
 
 /**
- * Normaliza un valor de Gemini para comparación con OpenCV.
- * Gemini devuelve "1","2","3","4","NC","Sí","No", etc.
+ * Cuenta campos marcados en los datos extraídos por Gemini.
+ * Excluye campos de texto libre y metadata.
  */
-function normalizeGeminiValue(value: any): string | null {
-  if (value === null || value === undefined || value === '') return null;
-  const s = String(value).trim();
-  if (s === 'NC' || s === 'No contesta' || s === 'NA') return 'NC';
-  if (s === 'Sí' || s === 'Si' || s === 'sí' || s === 'si') return 'Si';
-  if (s === 'No' || s === 'no') return 'No';
-  // Para valores numéricos 1-4
-  if (['1', '2', '3', '4'].includes(s)) return s;
-  return s;
+function countGeminiMarked(geminiData: Record<string, any>): number {
+  const EXCLUDE_FIELDS = new Set([
+    'observaciones', 'comentarios', 'sugerencias',
+    'csv_fundae', 'codigo_barras', 'registro_entrada',
+    'expediente', 'cif', 'denominacion_aaff',
+  ]);
+
+  let count = 0;
+  for (const [field, value] of Object.entries(geminiData)) {
+    if (EXCLUDE_FIELDS.has(field)) continue;
+    if (value && value !== 'NC' && value !== 'No contesta' && value !== null && value !== '') {
+      count++;
+    }
+  }
+  return count;
 }
 
 /**
- * Compara campo por campo los valores de OpenCV vs Gemini.
+ * Compara conteos OpenCV vs Gemini y genera recomendación.
+ * Usa marked + uncertain como rango de posibles marcas OpenCV.
  */
-function compareFieldByField(
-  opencvResult: OpenCVResult,
-  geminiData: Record<string, any>,
-  threshold: number
-): ComparisonResult {
-  const discrepancy_fields: FieldDiscrepancy[] = [];
-  let totalCompared = 0;
-  let matches = 0;
-
-  for (const rv of opencvResult.row_values) {
-    if (!rv.field || rv.opencv_value === null) continue;
-
-    const geminiRaw = geminiData[rv.field];
-    const geminiNorm = normalizeGeminiValue(geminiRaw);
-
-    // Si Gemini no tiene este campo, no podemos comparar
-    if (geminiNorm === null) continue;
-
-    totalCompared++;
-
-    if (geminiNorm === rv.opencv_value) {
-      matches++;
-    } else {
-      // Ambos NC no es discrepancia
-      if (geminiNorm === 'NC' && rv.opencv_value === 'NC') {
-        matches++;
-        continue;
-      }
-      discrepancy_fields.push({
-        field: rv.field,
-        gemini_value: geminiNorm,
-        opencv_value: rv.opencv_value,
-        opencv_confidence: rv.confidence,
-      });
-    }
-  }
-
-  const discrepancies = discrepancy_fields.length;
+function compareResults(opencvResult: OpenCVResult, geminiMarked: number, threshold: number): ComparisonResult {
+  const opencvMarked = opencvResult.marked;
+  const opencvMax = opencvResult.marked + opencvResult.uncertain;
+  // Si Gemini cae dentro del rango [marked, marked+uncertain], es plausible
+  const diff = (geminiMarked >= opencvMarked && geminiMarked <= opencvMax)
+    ? 0
+    : Math.min(Math.abs(opencvMarked - geminiMarked), Math.abs(opencvMax - geminiMarked));
+  const maxVal = Math.max(opencvMax, geminiMarked, 1);
+  const diffPercent = (diff / maxVal) * 100;
 
   let recommendation: ComparisonResult['recommendation'];
-  if (discrepancies === 0) {
+  if (diff <= 2) {
     recommendation = 'ACCEPT';
-  } else if (discrepancies <= threshold) {
+  } else if (diff <= threshold || diffPercent <= 15) {
     recommendation = 'VALIDATE';
   } else {
     recommendation = 'HUMAN_REVIEW';
   }
 
   return {
-    total_compared: totalCompared,
-    matches,
-    discrepancies,
-    discrepancy_fields,
+    opencv_marked: opencvMarked,
+    gemini_marked: geminiMarked,
+    discrepancy: diff,
+    discrepancy_percent: Math.round(diffPercent * 10) / 10,
     recommendation,
   };
 }
 
 /**
- * Validación principal: llama al microservicio OpenCV y compara campo por campo con Gemini.
+ * Validación principal: llama al microservicio OpenCV y compara con Gemini.
+ *
+ * @param pdfUrl - URL pública del PDF (ej. Vercel Blob)
+ * @param geminiData - Datos extraídos por Gemini
+ * @param pageIndex - Índice de página (0-based), por defecto la segunda página (1)
+ * @returns Resultado de validación con flag de revisión humana
  */
 export async function validateWithOpenCV(
   pdfUrl: string,
@@ -214,9 +189,10 @@ export async function validateWithOpenCV(
 
   try {
     const opencvResult = await callOpenCVService(pdfUrl, pageIndex);
-    const comparison = compareFieldByField(
+    const geminiMarked = countGeminiMarked(geminiData);
+    const comparison = compareResults(
       opencvResult,
-      geminiData,
+      geminiMarked,
       OPENCV_CONFIG.discrepancyThreshold
     );
 
@@ -230,20 +206,13 @@ export async function validateWithOpenCV(
       requiresHumanReview,
     };
 
-    // Log resumen
-    console.log(
-      `[OpenCV] comparados=${comparison.total_compared} ok=${comparison.matches} ` +
-      `disc=${comparison.discrepancies} rec=${comparison.recommendation} ` +
-      `time=${opencvResult.processing_time_ms.toFixed(0)}ms`
-    );
-
-    // Log detalle de discrepancias
-    for (const d of comparison.discrepancy_fields) {
-      console.log(`[OpenCV] DISC: ${d.field} gemini=${d.gemini_value} opencv=${d.opencv_value} conf=${d.opencv_confidence.toFixed(2)}`);
-    }
+    // Log siempre cuando está habilitado
+    console.log(`[OpenCV] marcados=${opencvResult.marked} gemini=${geminiMarked} ` +
+      `diff=${comparison.discrepancy} rec=${comparison.recommendation} ` +
+      `time=${opencvResult.processing_time_ms.toFixed(0)}ms`);
 
     if (requiresHumanReview) {
-      console.warn(`[OpenCV] REQUIERE REVISION HUMANA: ${comparison.discrepancies} discrepancias`);
+      console.warn(`[OpenCV] DISCREPANCIA ALTA: ${comparison.discrepancy} diferencias. Requiere revisión humana.`);
     }
 
     return output;
@@ -259,18 +228,10 @@ export async function validateWithOpenCV(
 }
 
 /**
- * Wrapper que acepta pdf_blob_url directamente (alias de validateWithOpenCV).
- */
-export async function validatePdfWithOpenCV(
-  pdfUrl: string,
-  geminiData: Record<string, any>,
-  pageIndex = 1
-): Promise<OpenCVValidationOutput> {
-  return validateWithOpenCV(pdfUrl, geminiData, pageIndex);
-}
-
-/**
  * Aplica el resultado OpenCV al resultado de extracción según el modo configurado.
+ *
+ * @param extractionResult - Objeto resultado que se modifica in-place
+ * @param opencvOutput - Resultado de validateWithOpenCV
  */
 export function applyOpenCVResult(
   extractionResult: Record<string, any>,
@@ -278,34 +239,31 @@ export function applyOpenCVResult(
 ): void {
   if (!opencvOutput.enabled || !opencvOutput.comparison) return;
 
+  // Siempre adjuntar metadata OpenCV
   extractionResult._opencv = {
-    total_compared: opencvOutput.comparison.total_compared,
-    matches: opencvOutput.comparison.matches,
-    discrepancies: opencvOutput.comparison.discrepancies,
-    discrepancy_fields: opencvOutput.comparison.discrepancy_fields,
+    marked: opencvOutput.opencv?.marked,
+    gemini_marked: opencvOutput.comparison.gemini_marked,
+    discrepancy: opencvOutput.comparison.discrepancy,
     recommendation: opencvOutput.comparison.recommendation,
     mode: opencvOutput.mode,
   };
 
   switch (opencvOutput.mode) {
     case 'log_only':
+      // No modifica nada, solo se logueó arriba
       break;
 
     case 'flag_only':
       if (opencvOutput.requiresHumanReview) {
         extractionResult.requiresHumanReview = true;
-        extractionResult.humanReviewReason =
-          `OpenCV: ${opencvOutput.comparison.discrepancies} campos discrepan: ` +
-          opencvOutput.comparison.discrepancy_fields.map(d => d.field).join(', ');
+        extractionResult.humanReviewReason = `OpenCV detectó ${opencvOutput.comparison.discrepancy} discrepancias en checkboxes`;
       }
       break;
 
     case 'validate':
       if (opencvOutput.requiresHumanReview) {
         extractionResult.requiresHumanReview = true;
-        extractionResult.humanReviewReason =
-          `OpenCV: ${opencvOutput.comparison.discrepancies} campos discrepan: ` +
-          opencvOutput.comparison.discrepancy_fields.map(d => d.field).join(', ');
+        extractionResult.humanReviewReason = `OpenCV detectó ${opencvOutput.comparison.discrepancy} discrepancias en checkboxes`;
         extractionResult.validation_status = 'needs_review';
       }
       break;
