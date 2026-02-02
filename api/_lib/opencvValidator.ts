@@ -216,7 +216,7 @@ export async function validateWithOpenCV(
   }
 
   try {
-    const opencvResult = await callOpenCVService(pdfUrl, pageIndex);
+    const opencvResult = await callOpenCVService(pdfUrl, pageIndex, geminiData);
     const geminiMarked = countGeminiMarked(geminiData);
     const comparison = compareResults(
       opencvResult,

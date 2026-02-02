@@ -73,14 +73,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           applyOpenCVResult(mergedData, opencvResult);
 
           // Guardar metadata de comparación
-          if (opencvResult.opencv?.comparison) {
+          // comparison viene del servidor Python (dentro de opencv) o del TS (nivel superior)
+          const comparison = (opencvResult.opencv as any)?.comparison || opencvResult.comparison;
+          if (comparison) {
             mergedData._opencv = {
-              total_compared: opencvResult.opencv.comparison.total_compared,
-              matches: opencvResult.opencv.comparison.matches,
-              discrepancies: opencvResult.opencv.comparison.discrepancies,
-              match_rate: opencvResult.opencv.comparison.match_rate,
-              recommendation: opencvResult.opencv.comparison.recommendation,
-              fields: opencvResult.opencv.comparison.fields,
+              total_compared: comparison.total_compared || 0,
+              matches: comparison.matches || 0,
+              discrepancies: comparison.discrepancies || comparison.discrepancy || 0,
+              match_rate: comparison.match_rate || 0,
+              recommendation: comparison.recommendation,
+              fields: comparison.fields || [],
               mode: opencvResult.mode,
               merged_count: mergedData._opencv_merged_count || 0,
             };
