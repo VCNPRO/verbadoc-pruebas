@@ -30,6 +30,41 @@ interface AdminDashboardProps {
     isLightMode?: boolean;
 }
 
+interface ExtractionStats {
+    users: {
+        total: number;
+        byRole: Record<string, number>;
+        newThisMonth: number;
+    };
+    extractions: {
+        total: number;
+        byStatus: Record<string, number>;
+        recentErrors: number;
+    };
+    templates: {
+        total: number;
+    };
+    dailyStats: Array<{
+        date: string;
+        extractions: number;
+        active_users: number;
+    }>;
+    topCompanies: Array<{
+        company_name: string;
+        extraction_count: number;
+        user_count: number;
+    }>;
+    recentExtractions: Array<{
+        id: string;
+        filename: string;
+        status: string;
+        created_at: string;
+        email: string;
+        name?: string;
+        company_name?: string;
+    }>;
+}
+
 const ACTION_LABELS: Record<string, string> = {
     login: 'Inicio sesión',
     logout: 'Cierre sesión',
@@ -63,6 +98,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     const [logs, setLogs] = useState<AccessLog[]>([]);
     const [loadingLogs, setLoadingLogs] = useState(true);
     const [logsError, setLogsError] = useState<string | null>(null);
+
+    // Estado para estadísticas de extracciones
+    const [extractionStats, setExtractionStats] = useState<ExtractionStats | null>(null);
+    const [loadingExtractionStats, setLoadingExtractionStats] = useState(true);
+
+    // Tab activa
+    const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'logs' | 'extractions'>('overview');
 
     // Filtros
     const [filter, setFilter] = useState<'all' | 'today' | 'user'>('all');
@@ -122,6 +164,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
             setLogsError(err.message);
         } finally {
             setLoadingLogs(false);
+        }
+    };
+
+    // Cargar estadísticas de extracciones
+    const loadExtractionStats = async () => {
+        try {
+            setLoadingExtractionStats(true);
+            const response = await fetch('/api/admin/stats', {
+                credentials: 'include'
+            });
+            if (!response.ok) {
+                throw new Error('Error al cargar estadísticas');
+            }
+            const data = await response.json();
+            setExtractionStats(data);
+        } catch (err: any) {
+            console.error('Error loading extraction stats:', err);
+        } finally {
+            setLoadingExtractionStats(false);
         }
     };
 
@@ -217,6 +278,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     useEffect(() => {
         loadUsers();
         loadLogs();
+        loadExtractionStats();
     }, []);
 
     // Recargar logs cuando cambian los filtros
@@ -389,7 +451,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={() => { loadUsers(); loadLogs(); }}
+                            onClick={() => { loadUsers(); loadLogs(); loadExtractionStats(); }}
                             className="px-4 py-2 rounded-lg transition-colors"
                             style={{ backgroundColor: '#10b981', color: '#ffffff' }}
                         >
@@ -413,7 +475,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                 </div>
             </div>
 
+            {/* Tabs de navegación */}
+            <div className="max-w-7xl mx-auto mb-6">
+                <div className="flex gap-2 p-1 rounded-lg" style={{ backgroundColor: cardBg }}>
+                    {(['overview', 'users', 'logs', 'extractions'] as const).map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className="px-4 py-2 rounded-lg transition-colors font-medium"
+                            style={{
+                                backgroundColor: activeTab === tab ? accentColor : 'transparent',
+                                color: activeTab === tab ? '#ffffff' : textColor,
+                            }}
+                        >
+                            {tab === 'overview' && '📊 Resumen'}
+                            {tab === 'users' && '👥 Usuarios'}
+                            {tab === 'logs' && '📋 Actividad'}
+                            {tab === 'extractions' && '📄 Extracciones'}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             <div className="max-w-7xl mx-auto">
+                {/* Tab Resumen - Estadísticas generales */}
+                {activeTab === 'overview' && (
+                <>
                 {/* Estadísticas */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                     <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
@@ -434,7 +521,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                     </div>
                 </div>
 
-                {/* Usuarios Registrados */}
+                {/* Estadísticas de Extracciones en Overview */}
+                {extractionStats && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                        <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                            <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Total Extracciones</p>
+                            <p className="text-3xl font-bold mt-1">{extractionStats.extractions.total}</p>
+                        </div>
+                        <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                            <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Completadas</p>
+                            <p className="text-3xl font-bold mt-1" style={{ color: '#10b981' }}>
+                                {extractionStats.extractions.byStatus.completed || 0}
+                            </p>
+                        </div>
+                        <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                            <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Plantillas</p>
+                            <p className="text-3xl font-bold mt-1">{extractionStats.templates.total}</p>
+                        </div>
+                        <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor, borderColor: extractionStats.extractions.recentErrors > 0 ? '#ef4444' : borderColor }}>
+                            <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Errores (7 días)</p>
+                            <p className="text-3xl font-bold mt-1" style={{ color: extractionStats.extractions.recentErrors > 0 ? '#ef4444' : '#10b981' }}>
+                                {extractionStats.extractions.recentErrors}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Top Empresas */}
+                {extractionStats && extractionStats.topCompanies.length > 0 && (
+                    <div className="mb-8 p-6 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                        <h2 className="text-xl font-bold mb-4">Top Empresas por Extracciones</h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="text-left text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                        <th className="pb-2">Empresa</th>
+                                        <th className="pb-2 text-center">Extracciones</th>
+                                        <th className="pb-2 text-center">Usuarios</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {extractionStats.topCompanies.slice(0, 5).map((company, idx) => (
+                                        <tr key={idx} className="border-t" style={{ borderColor }}>
+                                            <td className="py-2">{company.company_name || 'Sin empresa'}</td>
+                                            <td className="py-2 text-center font-bold">{company.extraction_count}</td>
+                                            <td className="py-2 text-center">{company.user_count}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+                </>
+                )}
+
+                {/* Tab Usuarios */}
+                {activeTab === 'users' && (
                 <div className="mb-8 p-6 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold">Usuarios Registrados ({users.length})</h2>
@@ -530,7 +673,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                         </div>
                     )}
                 </div>
+                )}
 
+                {/* Tab Logs */}
+                {activeTab === 'logs' && (
+                <>
                 {/* Filtros de Logs */}
                 <div className="mb-4 p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
                     <div className="flex flex-wrap gap-4 items-center">
@@ -609,6 +756,115 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                         )}
                     </div>
                 </div>
+                </>
+                )}
+
+                {/* Tab Extracciones */}
+                {activeTab === 'extractions' && extractionStats && (
+                <>
+                {/* Estado de Extracciones */}
+                <div className="mb-8 p-6 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                    <h2 className="text-xl font-bold mb-4">Estado de Extracciones</h2>
+                    <div className="flex flex-wrap gap-4">
+                        {Object.entries(extractionStats.extractions.byStatus).map(([status, count]) => {
+                            const statusColors: Record<string, string> = {
+                                completed: '#10b981',
+                                processing: '#f59e0b',
+                                error: '#ef4444',
+                                pending: '#6b7280',
+                            };
+                            return (
+                                <div key={status} className="flex items-center gap-2 p-3 rounded-lg" style={{ backgroundColor: bgColor }}>
+                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: statusColors[status] || '#6b7280' }}></span>
+                                    <span className="capitalize">{status}</span>
+                                    <span className="font-bold ml-2">{count}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Extracciones Recientes */}
+                <div className="mb-8 p-6 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                    <h2 className="text-xl font-bold mb-4">Extracciones Recientes</h2>
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead>
+                                <tr className="text-left text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                    <th className="pb-2">Archivo</th>
+                                    <th className="pb-2">Usuario</th>
+                                    <th className="pb-2">Empresa</th>
+                                    <th className="pb-2 text-center">Estado</th>
+                                    <th className="pb-2">Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {extractionStats.recentExtractions.map((ext) => {
+                                    const statusColors: Record<string, { bg: string; text: string }> = {
+                                        completed: { bg: '#d1fae5', text: '#065f46' },
+                                        processing: { bg: '#fef3c7', text: '#92400e' },
+                                        error: { bg: '#fee2e2', text: '#b91c1c' },
+                                        pending: { bg: '#e5e7eb', text: '#374151' },
+                                    };
+                                    const colors = statusColors[ext.status] || statusColors.pending;
+                                    return (
+                                        <tr key={ext.id} className="border-t" style={{ borderColor }}>
+                                            <td className="py-2 max-w-xs truncate">{ext.filename}</td>
+                                            <td className="py-2">{ext.name || ext.email}</td>
+                                            <td className="py-2">{ext.company_name || '-'}</td>
+                                            <td className="py-2 text-center">
+                                                <span className="px-2 py-1 rounded text-xs font-medium" style={{ backgroundColor: colors.bg, color: colors.text }}>
+                                                    {ext.status}
+                                                </span>
+                                            </td>
+                                            <td className="py-2 text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                                {new Date(ext.created_at).toLocaleString('es-ES')}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {/* Actividad Diaria */}
+                {extractionStats.dailyStats.length > 0 && (
+                <div className="mb-8 p-6 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                    <h2 className="text-xl font-bold mb-4">Actividad Diaria (últimos 14 días)</h2>
+                    <div className="flex items-end gap-2 h-40">
+                        {extractionStats.dailyStats.slice(0, 14).reverse().map((day, idx) => {
+                            const maxExtractions = Math.max(...extractionStats.dailyStats.map(d => Number(d.extractions)));
+                            const height = maxExtractions > 0 ? (Number(day.extractions) / maxExtractions) * 100 : 5;
+                            return (
+                                <div key={idx} className="flex-1 flex flex-col items-center">
+                                    <div
+                                        className="w-full rounded-t"
+                                        style={{
+                                            height: `${Math.max(height, 5)}%`,
+                                            backgroundColor: accentColor,
+                                            minHeight: '4px',
+                                        }}
+                                        title={`${day.extractions} extracciones, ${day.active_users} usuarios activos`}
+                                    />
+                                    <span className="text-xs mt-1" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
+                                        {new Date(day.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+                )}
+                </>
+                )}
+
+                {/* Loading state para extracciones */}
+                {activeTab === 'extractions' && loadingExtractionStats && (
+                    <div className="text-center py-8">
+                        <p style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Cargando estadísticas...</p>
+                    </div>
+                )}
             </div>
         </div>
     );
