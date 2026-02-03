@@ -104,7 +104,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     const [loadingExtractionStats, setLoadingExtractionStats] = useState(true);
 
     // Tab activa
-    const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'logs' | 'extractions'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'logs' | 'extractions' | 'quotas'>('overview');
+
+    // Estado para cuotas
+    const [usersWithQuotas, setUsersWithQuotas] = useState<any[]>([]);
+    const [loadingQuotas, setLoadingQuotas] = useState(false);
+    const [editingQuota, setEditingQuota] = useState<string | null>(null);
+    const [editQuotaValue, setEditQuotaValue] = useState<number>(10);
 
     // Filtros
     const [filter, setFilter] = useState<'all' | 'today' | 'user'>('all');
@@ -183,6 +189,85 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
             console.error('Error loading extraction stats:', err);
         } finally {
             setLoadingExtractionStats(false);
+        }
+    };
+
+    // Cargar usuarios con cuotas
+    const loadUsersWithQuotas = async () => {
+        try {
+            setLoadingQuotas(true);
+            const response = await fetch('/api/admin/user-quotas', {
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error('Error al cargar cuotas');
+            const data = await response.json();
+            setUsersWithQuotas(data.users || []);
+        } catch (err: any) {
+            console.error('Error loading quotas:', err);
+        } finally {
+            setLoadingQuotas(false);
+        }
+    };
+
+    // Actualizar cuota de usuario
+    const handleUpdateQuota = async (userId: string, quota: number) => {
+        try {
+            setActionLoading(userId);
+            const response = await fetch('/api/admin/user-quotas', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ userId, quota }),
+            });
+            if (!response.ok) throw new Error('Error al actualizar cuota');
+            await loadUsersWithQuotas();
+            setEditingQuota(null);
+            alert('Cuota actualizada correctamente');
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // Cambiar plan de usuario
+    const handleChangePlan = async (userId: string, plan: string) => {
+        try {
+            setActionLoading(userId);
+            const response = await fetch('/api/admin/user-quotas', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ userId, plan }),
+            });
+            if (!response.ok) throw new Error('Error al cambiar plan');
+            await loadUsersWithQuotas();
+            alert('Plan actualizado correctamente');
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // Resetear uso de usuario
+    const handleResetUsage = async (userId: string) => {
+        if (!confirm('¿Resetear el uso mensual de este usuario a 0?')) return;
+        try {
+            setActionLoading(userId);
+            const response = await fetch('/api/admin/user-quotas', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ userId, resetUsage: true }),
+            });
+            if (!response.ok) throw new Error('Error al resetear uso');
+            await loadUsersWithQuotas();
+            alert('Uso reseteado correctamente');
+        } catch (err: any) {
+            alert('Error: ' + err.message);
+        } finally {
+            setActionLoading(null);
         }
     };
 
@@ -279,6 +364,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
         loadUsers();
         loadLogs();
         loadExtractionStats();
+        loadUsersWithQuotas();
     }, []);
 
     // Recargar logs cuando cambian los filtros
@@ -451,7 +537,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={() => { loadUsers(); loadLogs(); loadExtractionStats(); }}
+                            onClick={() => { loadUsers(); loadLogs(); loadExtractionStats(); loadUsersWithQuotas(); }}
                             className="px-4 py-2 rounded-lg transition-colors"
                             style={{ backgroundColor: '#10b981', color: '#ffffff' }}
                         >
@@ -478,7 +564,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
             {/* Tabs de navegación */}
             <div className="max-w-7xl mx-auto mb-6">
                 <div className="flex gap-2 p-1 rounded-lg" style={{ backgroundColor: cardBg }}>
-                    {(['overview', 'users', 'logs', 'extractions'] as const).map((tab) => (
+                    {(['overview', 'users', 'quotas', 'logs', 'extractions'] as const).map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -490,6 +576,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                         >
                             {tab === 'overview' && '📊 Resumen'}
                             {tab === 'users' && '👥 Usuarios'}
+                            {tab === 'quotas' && '📦 Cuotas'}
                             {tab === 'logs' && '📋 Actividad'}
                             {tab === 'extractions' && '📄 Extracciones'}
                         </button>
@@ -670,6 +757,145 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+                </div>
+                )}
+
+                {/* Tab Cuotas */}
+                {activeTab === 'quotas' && (
+                <div className="mb-8 p-6 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-xl font-bold">Gestión de Cuotas y Planes</h2>
+                        <div className="flex gap-2">
+                            <span className="px-3 py-1 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
+                                Free: 10 extracciones/mes
+                            </span>
+                            <span className="px-3 py-1 text-xs rounded-full bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                Pro: 100 extracciones/mes
+                            </span>
+                            <span className="px-3 py-1 text-xs rounded-full bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                                Enterprise: 1000 extracciones/mes
+                            </span>
+                        </div>
+                    </div>
+
+                    {loadingQuotas ? (
+                        <div className="text-center py-8">
+                            <p style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Cargando cuotas...</p>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="text-left text-xs uppercase" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                        <th className="pb-3">Usuario</th>
+                                        <th className="pb-3">Empresa</th>
+                                        <th className="pb-3 text-center">Plan</th>
+                                        <th className="pb-3 text-center">Uso / Cuota</th>
+                                        <th className="pb-3 text-center">Reset</th>
+                                        <th className="pb-3 text-center">Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {usersWithQuotas.map((u) => {
+                                        const usage = u.monthly_usage_extractions || 0;
+                                        const quota = u.monthly_quota_extractions || 10;
+                                        const usagePercent = (usage / quota) * 100;
+                                        const isOverQuota = usage >= quota;
+                                        const isLoading = actionLoading === u.id;
+
+                                        return (
+                                            <tr key={u.id} className="border-t" style={{ borderColor, opacity: isLoading ? 0.5 : 1 }}>
+                                                <td className="py-3">
+                                                    <div>
+                                                        <p className="font-medium">{u.name || u.email}</p>
+                                                        <p className="text-xs" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>{u.email}</p>
+                                                    </div>
+                                                </td>
+                                                <td className="py-3">{u.company_name || '-'}</td>
+                                                <td className="py-3 text-center">
+                                                    <select
+                                                        value={u.subscription_plan || 'free'}
+                                                        onChange={(e) => handleChangePlan(u.id, e.target.value)}
+                                                        disabled={isLoading}
+                                                        className="text-xs px-2 py-1 rounded border"
+                                                        style={{
+                                                            backgroundColor: u.subscription_plan === 'enterprise' ? '#7c3aed' : u.subscription_plan === 'pro' ? '#3b82f6' : '#6b7280',
+                                                            color: '#fff',
+                                                            borderColor: 'transparent'
+                                                        }}
+                                                    >
+                                                        <option value="free">Free</option>
+                                                        <option value="pro">Pro</option>
+                                                        <option value="enterprise">Enterprise</option>
+                                                    </select>
+                                                </td>
+                                                <td className="py-3">
+                                                    <div className="flex items-center gap-2 justify-center">
+                                                        {editingQuota === u.id ? (
+                                                            <div className="flex items-center gap-1">
+                                                                <span>{usage} / </span>
+                                                                <input
+                                                                    type="number"
+                                                                    value={editQuotaValue}
+                                                                    onChange={(e) => setEditQuotaValue(parseInt(e.target.value) || 0)}
+                                                                    className="w-16 px-2 py-1 text-sm border rounded"
+                                                                    style={{ backgroundColor: bgColor, borderColor }}
+                                                                />
+                                                                <button
+                                                                    onClick={() => handleUpdateQuota(u.id, editQuotaValue)}
+                                                                    className="px-2 py-1 bg-green-500 text-white text-xs rounded"
+                                                                >
+                                                                    ✓
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setEditingQuota(null)}
+                                                                    className="px-2 py-1 bg-gray-400 text-white text-xs rounded"
+                                                                >
+                                                                    ✗
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div
+                                                                className="cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/30 px-2 py-1 rounded"
+                                                                onClick={() => { setEditingQuota(u.id); setEditQuotaValue(quota); }}
+                                                                title="Click para editar cuota"
+                                                            >
+                                                                <span className={isOverQuota ? 'text-red-600 font-bold' : ''}>
+                                                                    {usage} / {quota}
+                                                                </span>
+                                                                <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-1">
+                                                                    <div
+                                                                        className="h-2 rounded-full"
+                                                                        style={{
+                                                                            width: `${Math.min(usagePercent, 100)}%`,
+                                                                            backgroundColor: isOverQuota ? '#ef4444' : usagePercent > 80 ? '#f59e0b' : '#10b981'
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="py-3 text-center text-xs" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
+                                                    {u.quota_reset_date ? new Date(u.quota_reset_date).toLocaleDateString('es-ES') : '-'}
+                                                </td>
+                                                <td className="py-3 text-center">
+                                                    <button
+                                                        onClick={() => handleResetUsage(u.id)}
+                                                        disabled={isLoading || usage === 0}
+                                                        className="px-2 py-1 text-xs rounded bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50"
+                                                        title="Resetear uso a 0"
+                                                    >
+                                                        Reset
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
                         </div>
                     )}
                 </div>
