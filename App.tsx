@@ -173,6 +173,7 @@ function AppContent() {
 
     // Determinar si es usuario reviewer (nmd_*)
     const isReviewer = user?.role === 'reviewer';
+    const isNormadat = user?.company_name?.toLowerCase()?.trim() === 'normadat';
 
     // ✅ Cargar historial desde la base de datos al iniciar (reemplaza localStorage)
     useEffect(() => {
@@ -249,7 +250,7 @@ function AppContent() {
                     setMasterExcelCount(masterData.stats?.total || masterData.rows?.length || 0);
                 }
 
-                // Cargar contador de No Procesables
+                // Cargar contador de PDF
                 const unprocessableResponse = await fetch('/api/unprocessable', {
                     credentials: 'include'
                 });
@@ -1316,7 +1317,7 @@ function AppContent() {
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
-                                <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || user?.name || user?.email}</strong>
+                                trabajando para: <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}{user?.company_name && user?.name ? ', ' : ''}{user?.name || (!user?.company_name ? user?.email : '')}</strong>
                             </span>
                             <button
                                 onClick={logout}
@@ -1337,24 +1338,21 @@ function AppContent() {
             <main className="flex-1 p-8">
                 <div className="max-w-4xl mx-auto">
                     <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Revisión
+                        Panel de Usuario
                     </h2>
                     <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                         <h3 className={`text-sm font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                             Totales
                         </h3>
                         <div className="flex gap-6">
-                            <div className="text-center">
-                                <span className={`text-2xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>{reviewCount}</span>
-                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Pendientes revisión</p>
-                            </div>
+                            
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{masterExcelCount}</span>
                                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Excel Master</p>
                             </div>
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>{unprocessableCount}</span>
-                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No procesables</p>
+                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>PDF</p>
                             </div>
                         </div>
                     </div>
@@ -1363,27 +1361,22 @@ function AppContent() {
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Botón Revisar */}
+                        {/* Botón Resultados */}
                         <button
-                            onClick={() => navigate('/review')}
+                            onClick={() => navigate('/resultados')}
                             className="p-6 rounded-xl border-2 transition-all hover:scale-105 hover:shadow-xl text-left"
                             style={{
                                 backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                                borderColor: isDarkMode ? '#f97316' : '#f59e0b'
+                                borderColor: isDarkMode ? '#3b82f6' : '#2563eb'
                             }}
                         >
-                            <div className="text-4xl mb-4">📋</div>
+                            <div className="text-4xl mb-4">📊</div>
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                Revisar Formularios
+                                Resultados
                             </h3>
                             <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Formularios con errores pendientes de revisión
+                                Ver resultados de extracción
                             </p>
-                            {reviewCount > 0 && (
-                                <span className="inline-block mt-3 px-3 py-1 bg-orange-500 text-white text-sm font-bold rounded-full">
-                                    {reviewCount} pendientes
-                                </span>
-                            )}
                         </button>
 
                         {/* Botón Excel Master */}
@@ -1409,7 +1402,7 @@ function AppContent() {
                             )}
                         </button>
 
-                        {/* Botón No Procesables */}
+                        {/* Botón PDF */}
                         <button
                             onClick={() => navigate('/unprocessable')}
                             className="p-6 rounded-xl border-2 transition-all hover:scale-105 hover:shadow-xl text-left"
@@ -1420,10 +1413,10 @@ function AppContent() {
                         >
                             <div className="text-4xl mb-4">⚠️</div>
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                No Procesables
+                                PDF
                             </h3>
                             <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Documentos que no pudieron procesarse
+                                Documentos PDF del cliente
                             </p>
                             {unprocessableCount > 0 && (
                                 <span className="inline-block mt-3 px-3 py-1 bg-red-600 text-white text-sm font-bold rounded-full">
@@ -1489,7 +1482,7 @@ function AppContent() {
                                     color: isLightMode ? '#64748b' : '#94a3b8'
                                 }}
                             >
-                                <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || user?.name || user?.email}</strong>
+                                trabajando para: <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}{user?.company_name && user?.name ? ', ' : ''}{user?.name || (!user?.company_name ? user?.email : '')}</strong>
                             </span>
                         </div>
                         <div className="flex items-center gap-4">
@@ -1603,8 +1596,8 @@ function AppContent() {
                 <div className="flex gap-4">
                     {/* Panel lateral: tarjetas de navegacion */}
                     <div className="hidden lg:flex flex-col gap-2 w-48 flex-shrink-0">
-                        {/* 1. Revisión (más alto, con totales) */}
-                        <button
+                        {/* 1. Revisión (más alto, con totales) - Solo para Normadat */}
+                        {(isNormadat || user?.role === 'admin') && <button
                             onClick={() => navigate('/review')}
                             className="flex flex-col p-4 rounded-lg border-2 transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
@@ -1645,7 +1638,7 @@ function AppContent() {
                                     </div>
                                 </div>
                             )}
-                        </button>
+                        </button>}
                         {/* 2. Excel */}
                         <button
                             onClick={() => navigate('/master-excel')}
@@ -1663,7 +1656,7 @@ function AppContent() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                         </button>
-                        {/* 3. No Procesables */}
+                        {/* 3. PDF */}
                         <button
                             onClick={() => navigate('/unprocessable')}
                             className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
@@ -1673,7 +1666,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>No Proc.</p>
+                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>PDF</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>{unprocessableCount}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#ef4444' : '#f87171'}>
@@ -1968,8 +1961,7 @@ function AppContent() {
         return (
             <Routes>
                 <Route path="/" element={<ReviewerHomePage />} />
-                <Route path="/review" element={<ReviewListPage />} />
-                <Route path="/review/:id" element={<ReviewPanel />} />
+                <Route path="/resultados" element={<ResultadosPage />} />
                 <Route path="/master-excel" element={<MasterExcelPage />} />
                 <Route path="/unprocessable" element={<UnprocessablePage />} />
                 {/* Cualquier otra ruta redirige al inicio */}

@@ -25,6 +25,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
     const [displayName, setDisplayName] = useState('');
     const [department, setDepartment] = useState<EuropaDepartment>('general');
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const { register, login } = useAuth();
