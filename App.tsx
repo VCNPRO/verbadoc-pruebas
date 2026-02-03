@@ -1317,17 +1317,17 @@ function AppContent() {
                                     Extracción Inteligente de Datos
                                 </p>
                             </div>
-                            <span className="text-xs px-2 py-1 rounded bg-amber-500 text-white font-semibold">
+                            <span className="text-base px-2 py-1 rounded bg-amber-500 text-white font-semibold">
                                 REVIEWER
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-sm" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
+                            <span className="text-base" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
                                 trabajando para <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ' por ' : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
                             </span>
                             <button
                                 onClick={logout}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-semibold shadow hover:shadow-md"
+                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-base font-semibold shadow hover:shadow-md"
                                 style={{
                                     backgroundColor: isLightMode ? '#ef4444' : '#dc2626',
                                     borderColor: isLightMode ? '#dc2626' : '#b91c1c',
@@ -1347,18 +1347,18 @@ function AppContent() {
                         Panel de Usuario
                     </h2>
                     <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                        <h3 className={`text-sm font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        <h3 className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                             Totales
                         </h3>
                         <div className="flex gap-6">
                             
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{masterExcelCount}</span>
-                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Excel Master</p>
+                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Excel Master</p>
                             </div>
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>{unprocessableCount}</span>
-                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>PDF</p>
+                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>PDF</p>
                             </div>
                         </div>
                     </div>
@@ -1380,7 +1380,7 @@ function AppContent() {
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 Resultados
                             </h3>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 Ver resultados de extracción
                             </p>
                         </button>
@@ -1398,11 +1398,11 @@ function AppContent() {
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 Excel Master
                             </h3>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 Ver todos los formularios procesados
                             </p>
                             {masterExcelCount > 0 && (
-                                <span className="inline-block mt-3 px-3 py-1 bg-emerald-600 text-white text-sm font-bold rounded-full">
+                                <span className="inline-block mt-3 px-3 py-1 bg-emerald-600 text-white text-base font-bold rounded-full">
                                     {masterExcelCount} registros
                                 </span>
                             )}
@@ -1421,11 +1421,11 @@ function AppContent() {
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 PDF
                             </h3>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 Documentos PDF del cliente
                             </p>
                             {unprocessableCount > 0 && (
-                                <span className="inline-block mt-3 px-3 py-1 bg-red-600 text-white text-sm font-bold rounded-full">
+                                <span className="inline-block mt-3 px-3 py-1 bg-red-600 text-white text-base font-bold rounded-full">
                                     {unprocessableCount} documentos
                                 </span>
                             )}
@@ -1435,7 +1435,7 @@ function AppContent() {
             </main>
 
             <footer
-                className="border-t py-4 px-8 text-center text-sm"
+                className="border-t py-4 px-8 text-center text-base"
                 style={{
                     backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
                     borderTopColor: isDarkMode ? '#334155' : '#dbeafe',
@@ -1483,7 +1483,7 @@ function AppContent() {
                                 </p>
                             </div>
                             <span
-                                className="text-xs font-sans transition-colors duration-500"
+                                className="text-base font-sans transition-colors duration-500"
                                 style={{
                                     color: isLightMode ? '#64748b' : '#94a3b8'
                                 }}
@@ -1495,7 +1495,7 @@ function AppContent() {
                             {/* Config Button - cuadrado */}
                             <button
                                 onClick={() => setIsConfigModalOpen(true)}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#6366f1' : '#4f46e5',
                                     borderColor: isLightMode ? '#4f46e5' : '#6366f1',
@@ -1513,7 +1513,7 @@ function AppContent() {
                             {/* Botón Plantillas - cuadrado */}
                             <button
                                 onClick={() => navigate('/templates')}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#8b5cf6' : '#7c3aed',
                                     borderColor: isLightMode ? '#7c3aed' : '#a78bfa',
@@ -1526,7 +1526,7 @@ function AppContent() {
                             {/* Botón Ayuda - cuadrado */}
                             <button
                                 onClick={() => setIsHelpModalOpen(true)}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#2563eb' : '#0891b2',
                                     borderColor: isLightMode ? '#1d4ed8' : '#06b6d4',
@@ -1572,10 +1572,10 @@ function AppContent() {
                         <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: isLightMode ? '#3b82f6' : '#60a5fa', borderTopColor: 'transparent' }} />
                         <div className="flex-1">
                             <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-semibold" style={{ color: isLightMode ? '#1e3a8a' : '#93c5fd' }}>
+                                <span className="text-base font-semibold" style={{ color: isLightMode ? '#1e3a8a' : '#93c5fd' }}>
                                     Procesando {extractionProgress.completed}/{extractionProgress.total} formularios
                                 </span>
-                                <span className="text-xs font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                <span className="text-base font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
                                     {(() => {
                                         const elapsed = Math.floor((Date.now() - (extractionProgress.startTime || Date.now())) / 1000);
                                         const min = Math.floor(elapsed / 60);
@@ -1611,10 +1611,10 @@ function AppContent() {
                                 borderColor: isLightMode ? '#fde68a' : '#78350f',
                             }}
                         >
-                            <p className="text-sm font-bold mb-2" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>Revisión</p>
+                            <p className="text-base font-bold mb-2" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>Revisión</p>
                             <div className="flex items-center justify-between w-full mb-1.5">
                                 <p className="text-[10px] font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>Totales</p>
-                                <p className="text-sm font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewStats.total}</p>
+                                <p className="text-base font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewStats.total}</p>
                             </div>
                             {reviewStats.total > 0 && (
                                 <div className="w-full space-y-1">
@@ -1655,7 +1655,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{masterExcelCount}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
@@ -1672,7 +1672,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>PDF</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>PDF</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>{unprocessableCount}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#ef4444' : '#f87171'}>
@@ -1689,7 +1689,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#1e3a8a' : '#60a5fa' }}>{history.length}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#3b82f6' : '#60a5fa'}>
@@ -1720,7 +1720,7 @@ function AppContent() {
                     <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
                         <button
                             onClick={() => setAdvancedConfigOpen(prev => !prev)}
-                            className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors"
+                            className="w-full flex items-center justify-between px-4 py-2.5 text-base font-semibold transition-colors"
                             style={{
                                 backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
                                 color: isLightMode ? '#475569' : '#94a3b8',
@@ -1732,7 +1732,7 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                                 <span>Configuracion avanzada</span>
-                                <span className="text-xs font-normal" style={{ color: isLightMode ? '#94a3b8' : '#64748b' }}>
+                                <span className="text-base font-normal" style={{ color: isLightMode ? '#94a3b8' : '#64748b' }}>
                                     Esquema, Plantillas, Asistente IA
                                 </span>
                             </div>
@@ -1770,7 +1770,7 @@ function AppContent() {
                                         <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
                                             <button
                                                 onClick={() => setTemplatesPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
                                                 style={{
                                                     backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
                                                     color: isLightMode ? '#334155' : '#cbd5e1',
@@ -1799,7 +1799,7 @@ function AppContent() {
                                         <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
                                             <button
                                                 onClick={() => setAiPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
                                                 style={{
                                                     backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
                                                     color: isLightMode ? '#334155' : '#cbd5e1',
@@ -1880,7 +1880,7 @@ function AppContent() {
                             <h4 className="font-bold mb-2" style={{ color: isLightMode ? '#1e3a8a' : '#10b981' }}>
                                 verbadoc
                             </h4>
-                            <p className="text-sm" style={{ color: isLightMode ? '#475569' : '#94a3b8' }}>
+                            <p className="text-base" style={{ color: isLightMode ? '#475569' : '#94a3b8' }}>
                                 Extracción inteligente de datos con IA procesada en Europa
                             </p>
                         </div>
@@ -1894,7 +1894,7 @@ function AppContent() {
                                 <a
                                     href="#"
                                     onClick={(e) => { e.preventDefault(); setIsSettingsModalOpen(true); }}
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     Política de Privacidad
@@ -1902,7 +1902,7 @@ function AppContent() {
                                 <a
                                     href="#"
                                     onClick={(e) => { e.preventDefault(); setIsSettingsModalOpen(true); }}
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     Términos y Condiciones
@@ -1910,7 +1910,7 @@ function AppContent() {
                                 <a
                                     href="#"
                                     onClick={(e) => { e.preventDefault(); setIsSettingsModalOpen(true); }}
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     Cumplimiento RGPD
@@ -1926,14 +1926,14 @@ function AppContent() {
                             <div className="space-y-1">
                                 <a
                                     href="mailto:legal@verbadoc.com"
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     legal@verbadoc.com
                                 </a>
                                 <a
                                     href="mailto:soporte@verbadoc.com"
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     soporte@verbadoc.com
@@ -1945,10 +1945,10 @@ function AppContent() {
                     {/* Copyright */}
                     <div className="border-t pt-4" style={{ borderTopColor: isLightMode ? '#e5e7eb' : '#334155' }}>
                         <div className="flex flex-col md:flex-row justify-between items-center gap-2">
-                            <p className="text-xs" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
+                            <p className="text-base" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
                                 © 2025 verbadoc. Todos los derechos reservados. • Procesamiento 100% en Europa 🇪🇺
                             </p>
-                            <p className="text-xs" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
+                            <p className="text-base" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
                                 v2.0 • Powered by Google Gemini AI (Bélgica)
                             </p>
                         </div>
