@@ -159,7 +159,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                             Email
                         </label>
                         <input
-                            type="email"
+                            type="email" id="auth-email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             required

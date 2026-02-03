@@ -29,6 +29,7 @@ import { getDepartamentoById, getDefaultTheme } from './utils/departamentosConfi
 // ✅ Sistema de autenticación real activado
 import { AuthProvider, useAuth } from './src/contexts/AuthContext.tsx';
 import { AuthModal } from './src/components/AuthModal.tsx';
+import { ResetPasswordPage } from './src/components/auth/ResetPasswordPage.tsx';
 // ✅ API de extracciones (BD en lugar de localStorage)
 import { createExtraction, getExtractions, deleteExtraction, UnprocessableDocumentError, type ApiExtraction } from './src/services/extractionAPI.ts';
 // ✅ Componentes de revisión (Fase 5)
@@ -1276,6 +1277,11 @@ function AppContent() {
     }
 
     // Mostrar modal de autenticación si no hay usuario
+    // Ruta pública de reset-password
+    if (window.location.pathname === '/reset-password') {
+        return <ResetPasswordPage />;
+    }
+
     if (!user) {
         return <AuthModal isLightMode={!isDarkMode} />;
     }
