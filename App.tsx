@@ -30,6 +30,7 @@ import { getDepartamentoById, getDefaultTheme } from './utils/departamentosConfi
 import { AuthProvider, useAuth } from './src/contexts/AuthContext.tsx';
 import { AuthModal } from './src/components/AuthModal.tsx';
 import { ResetPasswordPage } from './src/components/auth/ResetPasswordPage.tsx';
+import { PricingPage } from './src/components/PricingPage.tsx';
 // ✅ API de extracciones (BD en lugar de localStorage)
 import { createExtraction, getExtractions, deleteExtraction, UnprocessableDocumentError, type ApiExtraction } from './src/services/extractionAPI.ts';
 // ✅ Componentes de revisión (Fase 5)
@@ -2032,6 +2033,8 @@ function AppContent() {
                     </ProtectedRoute>
                 }
             />
+            {/* Pricing Page - Pública */}
+            <Route path="/pricing" element={<PricingPage />} />
         </Routes>
     );
 // Limpieza automática de localStorage (ejecutar al cargar el módulo)
