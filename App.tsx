@@ -1316,7 +1316,7 @@ function AppContent() {
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-sm" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
-                                trabajando para: &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || 'Normadat'}</strong>&nbsp; por &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
+                                <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || user?.name || user?.email}</strong>
                             </span>
                             <button
                                 onClick={logout}
@@ -1489,7 +1489,7 @@ function AppContent() {
                                     color: isLightMode ? '#64748b' : '#94a3b8'
                                 }}
                             >
-                                trabajando para: &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || 'Normadat'}</strong>&nbsp; por &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
+                                <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || user?.name || user?.email}</strong>
                             </span>
                         </div>
                         <div className="flex items-center gap-4">

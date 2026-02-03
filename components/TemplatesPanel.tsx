@@ -6,6 +6,7 @@ import { DEPARTAMENTOS, getDepartamentoById } from '../utils/departamentosConfig
 import { SchemaBuilder } from './SchemaBuilder.tsx';
 import { generateSchemaFromPrompt } from '../services/geminiService.ts';
 import { FUNDAE_SCHEMA, FUNDAE_EXTRACTION_PROMPT } from '../src/constants/fundae-template.ts';
+import { FUNDAE_BASICA_SCHEMA, FUNDAE_BASICA_EXTRACTION_PROMPT } from '../src/constants/fundae-basica-template.ts';
 
 export interface Template {
     id: string;
@@ -103,6 +104,19 @@ const defaultTemplates: Template[] = [
         category: 'modelos_propios', // Categoría especial
         schema: FUNDAE_SCHEMA,
         prompt: FUNDAE_EXTRACTION_PROMPT,
+        custom: false,
+        archived: false,
+    },
+    {
+        id: 'fundae-basica-2024',
+        name: '📊 FUNDAE BÁSICA - Validación Excel',
+        description: 'Plantilla simplificada con solo 3 campos (expediente, acción, grupo) para validación contra Excel del cliente.',
+        type: 'otro',
+        icon: 'file',
+        departamento: 'mis_modelos',
+        category: 'modelos_propios',
+        schema: FUNDAE_BASICA_SCHEMA,
+        prompt: FUNDAE_BASICA_EXTRACTION_PROMPT,
         custom: false,
         archived: false,
     },
