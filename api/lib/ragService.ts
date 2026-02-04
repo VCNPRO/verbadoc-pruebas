@@ -2,13 +2,12 @@
  * RAG SERVICE - "Preguntale al Documento"
  * api/lib/ragService.ts
  *
- * Retrieval-Augmented Generation service for semantic document search
- * Integrates Pinecone vector database with Gemini embeddings and generation
+ * Retrieval-Augmented Generation usando pgvector (PostgreSQL)
+ * Sin dependencias externas - todo en Vercel Postgres
  *
- * GDPR/ENS Compliant - All processing in EU
+ * GDPR/ENS Compliant - Datos en EU
  */
 
-import { Pinecone } from '@pinecone-database/pinecone';
 import { sql } from '@vercel/postgres';
 import { GoogleGenAI } from '@google/genai';
 
@@ -16,15 +15,12 @@ import { GoogleGenAI } from '@google/genai';
 // CONFIGURATION
 // ============================================================================
 
-const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
-const PINECONE_INDEX = process.env.PINECONE_INDEX || 'verbadoc-index';
-const EMBEDDING_MODEL = 'text-embedding-004'; // Gemini embedding model (768 dimensions)
-const GENERATION_MODEL = 'gemini-2.0-flash'; // Fast generation model
+const EMBEDDING_MODEL = 'text-embedding-004'; // Gemini embedding (768 dims)
+const GENERATION_MODEL = 'gemini-2.0-flash';
 
-// Chunk configuration for optimal retrieval
-const DEFAULT_CHUNK_SIZE = 500; // words
-const DEFAULT_CHUNK_OVERLAP = 50; // words overlap between chunks
-const DEFAULT_TOP_K = 5; // number of results to retrieve
+const DEFAULT_CHUNK_SIZE = 500; // palabras
+const DEFAULT_CHUNK_OVERLAP = 50;
+const DEFAULT_TOP_K = 5;
 
 // ============================================================================
 // INTERFACES
@@ -57,48 +53,6 @@ export interface RAGAnswer {
   tokensUsed?: number;
 }
 
-export interface RAGQueryLog {
-  id: string;
-  userId: string;
-  query: string;
-  response: string;
-  documentIds: string[];
-  confidenceScore: number;
-  createdAt: Date;
-}
-
-// ============================================================================
-// PINECONE CLIENT SINGLETON
-// ============================================================================
-
-let pineconeClient: Pinecone | null = null;
-
-/**
- * Initialize and return Pinecone client (singleton pattern)
- */
-export function initPinecone(): Pinecone {
-  if (!PINECONE_API_KEY) {
-    throw new Error('PINECONE_API_KEY environment variable is not set');
-  }
-
-  if (!pineconeClient) {
-    pineconeClient = new Pinecone({
-      apiKey: PINECONE_API_KEY,
-    });
-    console.log('[RAG] Pinecone client initialized');
-  }
-
-  return pineconeClient;
-}
-
-/**
- * Get Pinecone index
- */
-export function getPineconeIndex() {
-  const client = initPinecone();
-  return client.index(PINECONE_INDEX);
-}
-
 // ============================================================================
 // GEMINI CLIENT
 // ============================================================================
@@ -109,7 +63,7 @@ function getGenAIClient(): GoogleGenAI {
   if (!genaiClient) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
-      throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY environment variable is not set');
+      throw new Error('GEMINI_API_KEY o GOOGLE_API_KEY no configurada');
     }
     genaiClient = new GoogleGenAI({ apiKey });
   }
@@ -121,8 +75,7 @@ function getGenAIClient(): GoogleGenAI {
 // ============================================================================
 
 /**
- * Generate embedding vector for text using Gemini embedding model
- * Returns 768-dimensional vector
+ * Genera vector embedding con Gemini (768 dimensiones)
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   const client = getGenAIClient();
@@ -135,31 +88,29 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
     const embedding = result.embeddings?.[0]?.values;
     if (!embedding || embedding.length === 0) {
-      throw new Error('No embedding returned from Gemini');
+      throw new Error('No se genero embedding');
     }
 
     return embedding;
   } catch (error: any) {
-    console.error('[RAG] Error generating embedding:', error.message);
+    console.error('[RAG] Error generando embedding:', error.message);
     throw error;
   }
 }
 
 /**
- * Generate embeddings for multiple texts in batch
+ * Genera embeddings en batch
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   const embeddings: number[][] = [];
-
-  // Process in batches to avoid rate limits
   const batchSize = 10;
+
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
     const batchPromises = batch.map(text => generateEmbedding(text));
     const batchResults = await Promise.all(batchPromises);
     embeddings.push(...batchResults);
 
-    // Small delay between batches to respect rate limits
     if (i + batchSize < texts.length) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -173,25 +124,19 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 // ============================================================================
 
 /**
- * Split text into overlapping chunks for better retrieval
- * Uses word-based chunking with configurable size and overlap
+ * Divide texto en chunks con overlap
  */
 export function chunkText(
   text: string,
   chunkSize: number = DEFAULT_CHUNK_SIZE,
   overlap: number = DEFAULT_CHUNK_OVERLAP
 ): string[] {
-  if (!text || text.trim().length === 0) {
-    return [];
-  }
+  if (!text || text.trim().length === 0) return [];
 
-  // Normalize whitespace
   const normalizedText = text.replace(/\s+/g, ' ').trim();
   const words = normalizedText.split(' ');
 
-  if (words.length <= chunkSize) {
-    return [normalizedText];
-  }
+  if (words.length <= chunkSize) return [normalizedText];
 
   const chunks: string[] = [];
   let startIndex = 0;
@@ -200,32 +145,23 @@ export function chunkText(
     const endIndex = Math.min(startIndex + chunkSize, words.length);
     const chunk = words.slice(startIndex, endIndex).join(' ');
     chunks.push(chunk);
-
-    // Move start index forward by (chunkSize - overlap)
     startIndex += chunkSize - overlap;
-
-    // Prevent infinite loop if overlap >= chunkSize
-    if (startIndex <= chunks.length * (chunkSize - overlap) - chunkSize) {
-      break;
-    }
+    if (startIndex <= 0) break;
   }
 
   return chunks;
 }
 
 /**
- * Smart chunking that respects sentence boundaries
+ * Chunking inteligente que respeta oraciones
  */
 export function chunkTextSmart(
   text: string,
   maxChunkSize: number = DEFAULT_CHUNK_SIZE,
   overlap: number = DEFAULT_CHUNK_OVERLAP
 ): string[] {
-  if (!text || text.trim().length === 0) {
-    return [];
-  }
+  if (!text || text.trim().length === 0) return [];
 
-  // Split by sentence endings
   const sentences = text.split(/(?<=[.!?])\s+/);
   const chunks: string[] = [];
   let currentChunk: string[] = [];
@@ -235,10 +171,8 @@ export function chunkTextSmart(
     const sentenceWords = sentence.split(/\s+/).length;
 
     if (currentWordCount + sentenceWords > maxChunkSize && currentChunk.length > 0) {
-      // Save current chunk
       chunks.push(currentChunk.join(' '));
 
-      // Start new chunk with overlap (last few sentences)
       const overlapSentences: string[] = [];
       let overlapWords = 0;
       for (let i = currentChunk.length - 1; i >= 0 && overlapWords < overlap; i--) {
@@ -254,7 +188,6 @@ export function chunkTextSmart(
     currentWordCount += sentenceWords;
   }
 
-  // Don't forget the last chunk
   if (currentChunk.length > 0) {
     chunks.push(currentChunk.join(' '));
   }
@@ -263,90 +196,118 @@ export function chunkTextSmart(
 }
 
 // ============================================================================
-// PINECONE OPERATIONS
+// PGVECTOR OPERATIONS
 // ============================================================================
 
 /**
- * Upsert vectors to Pinecone
+ * Inserta embeddings en PostgreSQL
  */
-export async function upsertVectors(
-  vectors: Array<{
-    id: string;
-    values: number[];
-    metadata: Record<string, any>;
+export async function upsertEmbeddings(
+  embeddings: Array<{
+    documentId: string;
+    userId: string;
+    documentName: string;
+    chunkIndex: number;
+    chunkText: string;
+    embedding: number[];
+    metadata?: Record<string, any>;
   }>
 ): Promise<void> {
-  const index = getPineconeIndex();
+  for (const item of embeddings) {
+    const vectorStr = `[${item.embedding.join(',')}]`;
 
-  // Upsert in batches of 100 (Pinecone limit)
-  const batchSize = 100;
-  for (let i = 0; i < vectors.length; i += batchSize) {
-    const batch = vectors.slice(i, i + batchSize);
-    await index.upsert(batch);
-    console.log(`[RAG] Upserted batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(vectors.length / batchSize)}`);
+    await sql`
+      INSERT INTO rag_embeddings (
+        document_id, user_id, document_name, chunk_index, chunk_text, embedding, metadata
+      ) VALUES (
+        ${item.documentId}::uuid,
+        ${item.userId}::uuid,
+        ${item.documentName},
+        ${item.chunkIndex},
+        ${item.chunkText},
+        ${vectorStr}::vector,
+        ${item.metadata ? JSON.stringify(item.metadata) : null}::jsonb
+      )
+      ON CONFLICT (document_id, chunk_index)
+      DO UPDATE SET
+        chunk_text = EXCLUDED.chunk_text,
+        embedding = EXCLUDED.embedding,
+        metadata = EXCLUDED.metadata
+    `;
   }
 }
 
 /**
- * Search for similar vectors in Pinecone
+ * Busca embeddings similares en PostgreSQL
  */
 export async function searchSimilar(
   queryEmbedding: number[],
-  filters?: Record<string, any>,
-  topK: number = DEFAULT_TOP_K
+  userId: string,
+  topK: number = DEFAULT_TOP_K,
+  documentIds?: string[]
 ): Promise<RAGSearchResult[]> {
-  const index = getPineconeIndex();
+  const vectorStr = `[${queryEmbedding.join(',')}]`;
 
-  const queryOptions: any = {
-    vector: queryEmbedding,
-    topK,
-    includeMetadata: true,
-  };
+  let result;
 
-  if (filters && Object.keys(filters).length > 0) {
-    queryOptions.filter = filters;
+  if (documentIds && documentIds.length > 0) {
+    result = await sql`
+      SELECT
+        id,
+        document_id,
+        document_name,
+        chunk_index,
+        chunk_text,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity
+      FROM rag_embeddings
+      WHERE user_id = ${userId}::uuid
+        AND document_id = ANY(${documentIds}::uuid[])
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${topK}
+    `;
+  } else {
+    result = await sql`
+      SELECT
+        id,
+        document_id,
+        document_name,
+        chunk_index,
+        chunk_text,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity
+      FROM rag_embeddings
+      WHERE user_id = ${userId}::uuid
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${topK}
+    `;
   }
 
-  const results = await index.query(queryOptions);
-
-  return (results.matches || []).map(match => ({
+  return result.rows.map(row => ({
     chunk: {
-      id: match.id,
-      text: (match.metadata?.text as string) || '',
-      documentId: (match.metadata?.documentId as string) || '',
-      chunkIndex: (match.metadata?.chunkIndex as number) || 0,
-      metadata: match.metadata as Record<string, any>,
+      id: row.id,
+      text: row.chunk_text,
+      documentId: row.document_id,
+      chunkIndex: row.chunk_index,
     },
-    score: match.score || 0,
-    documentName: (match.metadata?.documentName as string) || undefined,
+    score: parseFloat(row.similarity) || 0,
+    documentName: row.document_name,
   }));
 }
 
 /**
- * Delete vectors by document ID
+ * Elimina embeddings de un documento
  */
 export async function deleteByDocumentId(documentId: string): Promise<void> {
-  const index = getPineconeIndex();
-
-  // Delete all vectors with matching document ID
-  await index.deleteMany({
-    filter: { documentId: { $eq: documentId } }
-  });
-
-  console.log(`[RAG] Deleted vectors for document: ${documentId}`);
+  await sql`DELETE FROM rag_embeddings WHERE document_id = ${documentId}::uuid`;
+  await sql`DELETE FROM rag_document_chunks WHERE document_id = ${documentId}::uuid`;
+  console.log(`[RAG] Eliminado documento: ${documentId}`);
 }
 
 /**
- * Delete vectors by user ID (for GDPR right to be forgotten)
+ * Elimina embeddings de un usuario (RGPD)
  */
 export async function deleteByUserId(userId: string): Promise<void> {
-  const index = getPineconeIndex();
-
-  await index.deleteMany({
-    filter: { userId: { $eq: userId } }
-  });
-
-  console.log(`[RAG] Deleted all vectors for user: ${userId}`);
+  await sql`DELETE FROM rag_embeddings WHERE user_id = ${userId}::uuid`;
+  console.log(`[RAG] Eliminados embeddings del usuario: ${userId}`);
 }
 
 // ============================================================================
@@ -354,7 +315,7 @@ export async function deleteByUserId(userId: string): Promise<void> {
 // ============================================================================
 
 /**
- * Generate answer using retrieved context
+ * Genera respuesta con contexto
  */
 export async function generateAnswer(
   query: string,
@@ -373,35 +334,22 @@ export async function generateAnswer(
     };
   }
 
-  // Build context string with source references
   const contextParts = context.map((result, idx) => {
     const sourceRef = `[Fuente ${idx + 1}: ${result.documentName || result.chunk.documentId}]`;
     return `${sourceRef}\n${result.chunk.text}`;
   });
   const contextString = contextParts.join('\n\n---\n\n');
 
-  const systemPrompt = language === 'es'
-    ? `Eres un asistente experto que responde preguntas basándose ÚNICAMENTE en los documentos proporcionados.
+  const systemPrompt = `Eres un asistente experto que responde preguntas basandose UNICAMENTE en los documentos proporcionados.
 
-REGLAS IMPORTANTES:
-1. Responde SOLO con información de los documentos proporcionados
-2. Si la información no está en los documentos, di "No tengo información suficiente en los documentos para responder"
-3. Cita las fuentes usando [Fuente X] cuando uses información específica
-4. Sé preciso y conciso
-5. Responde en español
+REGLAS:
+1. Responde SOLO con informacion de los documentos
+2. Si no hay informacion suficiente, dilo claramente
+3. Cita las fuentes usando [Fuente X]
+4. Se preciso y conciso
+5. Responde en espanol
 
-DOCUMENTOS DE REFERENCIA:
-${contextString}`
-    : `You are an expert assistant that answers questions based ONLY on the provided documents.
-
-IMPORTANT RULES:
-1. Answer ONLY with information from the provided documents
-2. If the information is not in the documents, say "I don't have enough information in the documents to answer"
-3. Cite sources using [Source X] when using specific information
-4. Be precise and concise
-5. Answer in English
-
-REFERENCE DOCUMENTS:
+DOCUMENTOS:
 ${contextString}`;
 
   try {
@@ -412,16 +360,13 @@ ${contextString}`;
         { role: 'user', parts: [{ text: `Pregunta: ${query}` }] }
       ],
       config: {
-        temperature: 0.3, // Lower temperature for more factual responses
+        temperature: 0.3,
         maxOutputTokens: 1024,
       }
     });
 
     const answer = result.text || '';
-
-    // Calculate confidence based on top scores
     const avgScore = context.reduce((sum, r) => sum + r.score, 0) / context.length;
-    const confidence = Math.round(avgScore * 100) / 100;
 
     return {
       answer,
@@ -432,11 +377,11 @@ ${contextString}`;
         snippet: result.chunk.text.substring(0, 200) + '...',
         score: Math.round(result.score * 100) / 100,
       })),
-      confidence,
+      confidence: Math.round(avgScore * 100) / 100,
       tokensUsed: result.usageMetadata?.totalTokenCount,
     };
   } catch (error: any) {
-    console.error('[RAG] Error generating answer:', error.message);
+    console.error('[RAG] Error generando respuesta:', error.message);
     throw error;
   }
 }
@@ -446,41 +391,25 @@ ${contextString}`;
 // ============================================================================
 
 /**
- * Complete RAG query: embed query -> search -> generate answer
+ * Pipeline completo: embedding -> busqueda -> respuesta
  */
 export async function ragQuery(
   query: string,
   userId: string,
   filters?: {
     documentIds?: string[];
-    projectId?: string;
-    dateFrom?: Date;
-    dateTo?: Date;
   },
   topK: number = DEFAULT_TOP_K
 ): Promise<RAGAnswer> {
-  console.log(`[RAG] Processing query for user ${userId}: "${query.substring(0, 50)}..."`);
+  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..."`);
 
-  // 1. Generate embedding for query
   const queryEmbedding = await generateEmbedding(query);
-
-  // 2. Build Pinecone filters
-  const pineconeFilters: Record<string, any> = {
-    userId: { $eq: userId }, // IMPORTANT: Filter by user for data isolation
-  };
-
-  if (filters?.documentIds && filters.documentIds.length > 0) {
-    pineconeFilters.documentId = { $in: filters.documentIds };
-  }
-
-  if (filters?.projectId) {
-    pineconeFilters.projectId = { $eq: filters.projectId };
-  }
-
-  // 3. Search similar vectors
-  const searchResults = await searchSimilar(queryEmbedding, pineconeFilters, topK);
-
-  // 4. Generate answer with context
+  const searchResults = await searchSimilar(
+    queryEmbedding,
+    userId,
+    topK,
+    filters?.documentIds
+  );
   const answer = await generateAnswer(query, searchResults);
 
   return answer;
@@ -491,7 +420,7 @@ export async function ragQuery(
 // ============================================================================
 
 /**
- * Ingest a document into the RAG system
+ * Ingesta un documento al sistema RAG
  */
 export async function ingestDocument(
   documentId: string,
@@ -500,52 +429,44 @@ export async function ingestDocument(
   userId: string,
   metadata?: Record<string, any>
 ): Promise<{ chunksCreated: number; vectorsUploaded: number }> {
-  console.log(`[RAG] Ingesting document: ${documentId}`);
+  console.log(`[RAG] Ingestando documento: ${documentId}`);
 
-  // 1. Chunk the text
   const chunks = chunkTextSmart(text);
-  console.log(`[RAG] Created ${chunks.length} chunks`);
+  console.log(`[RAG] ${chunks.length} chunks creados`);
 
   if (chunks.length === 0) {
     return { chunksCreated: 0, vectorsUploaded: 0 };
   }
 
-  // 2. Generate embeddings for all chunks
   const embeddings = await generateEmbeddings(chunks);
 
-  // 3. Prepare vectors for Pinecone
-  const vectors = chunks.map((chunkText, index) => ({
-    id: `${documentId}_chunk_${index}`,
-    values: embeddings[index],
-    metadata: {
-      documentId,
-      documentName,
-      userId,
-      chunkIndex: index,
-      text: chunkText,
-      createdAt: new Date().toISOString(),
-      ...metadata,
-    },
+  const embeddingsData = chunks.map((chunkText, index) => ({
+    documentId,
+    userId,
+    documentName,
+    chunkIndex: index,
+    chunkText,
+    embedding: embeddings[index],
+    metadata,
   }));
 
-  // 4. Upsert to Pinecone
-  await upsertVectors(vectors);
+  await upsertEmbeddings(embeddingsData);
 
-  // 5. Store chunk references in database
+  // Guardar referencia en rag_document_chunks
   for (let i = 0; i < chunks.length; i++) {
     await sql`
       INSERT INTO rag_document_chunks (document_id, chunk_index, chunk_text, pinecone_id)
-      VALUES (${documentId}::uuid, ${i}, ${chunks[i]}, ${vectors[i].id})
+      VALUES (${documentId}::uuid, ${i}, ${chunks[i]}, ${`${documentId}_chunk_${i}`})
       ON CONFLICT (document_id, chunk_index) DO UPDATE
-      SET chunk_text = EXCLUDED.chunk_text, pinecone_id = EXCLUDED.pinecone_id
+      SET chunk_text = EXCLUDED.chunk_text
     `;
   }
 
-  console.log(`[RAG] Document ${documentId} ingested: ${chunks.length} chunks`);
+  console.log(`[RAG] Documento ${documentId} ingestado: ${chunks.length} chunks`);
 
   return {
     chunksCreated: chunks.length,
-    vectorsUploaded: vectors.length,
+    vectorsUploaded: embeddings.length,
   };
 }
 
@@ -554,7 +475,7 @@ export async function ingestDocument(
 // ============================================================================
 
 /**
- * Log RAG query for audit (GDPR/ENS compliance)
+ * Log de consultas RAG (RGPD/ENS)
  */
 export async function logRagQuery(
   userId: string,
@@ -566,21 +487,16 @@ export async function logRagQuery(
   userAgent?: string
 ): Promise<string | null> {
   try {
+    const docIdsStr = documentIds.length > 0 ? `{${documentIds.join(',')}}` : null;
+
     const result = await sql`
       INSERT INTO rag_queries (
-        user_id,
-        query,
-        response,
-        document_ids,
-        confidence_score,
-        ip_address,
-        user_agent
-      )
-      VALUES (
+        user_id, query, response, document_ids, confidence_score, ip_address, user_agent
+      ) VALUES (
         ${userId}::uuid,
         ${query},
         ${response},
-        ${documentIds.length > 0 ? `{${documentIds.join(',')}}` : null}::uuid[],
+        ${docIdsStr}::uuid[],
         ${confidenceScore},
         ${ipAddress || null}::inet,
         ${userAgent || null}
@@ -596,13 +512,13 @@ export async function logRagQuery(
 }
 
 /**
- * Get RAG query history for a user
+ * Historial de consultas de un usuario
  */
 export async function getRagQueryHistory(
   userId: string,
   limit: number = 50
-): Promise<RAGQueryLog[]> {
-  const result = await sql<RAGQueryLog>`
+): Promise<any[]> {
+  const result = await sql`
     SELECT id, user_id, query, response, document_ids, confidence_score, created_at
     FROM rag_queries
     WHERE user_id = ${userId}::uuid
@@ -614,17 +530,57 @@ export async function getRagQueryHistory(
 }
 
 // ============================================================================
+// STATS
+// ============================================================================
+
+/**
+ * Estadisticas del indice RAG
+ */
+export async function getRagStats(userId?: string): Promise<{
+  totalEmbeddings: number;
+  totalDocuments: number;
+  totalChunks: number;
+}> {
+  if (userId) {
+    const result = await sql`
+      SELECT
+        COUNT(*) as total_embeddings,
+        COUNT(DISTINCT document_id) as total_documents
+      FROM rag_embeddings
+      WHERE user_id = ${userId}::uuid
+    `;
+
+    return {
+      totalEmbeddings: parseInt(result.rows[0]?.total_embeddings || '0'),
+      totalDocuments: parseInt(result.rows[0]?.total_documents || '0'),
+      totalChunks: parseInt(result.rows[0]?.total_embeddings || '0'),
+    };
+  }
+
+  const result = await sql`
+    SELECT
+      COUNT(*) as total_embeddings,
+      COUNT(DISTINCT document_id) as total_documents
+    FROM rag_embeddings
+  `;
+
+  return {
+    totalEmbeddings: parseInt(result.rows[0]?.total_embeddings || '0'),
+    totalDocuments: parseInt(result.rows[0]?.total_documents || '0'),
+    totalChunks: parseInt(result.rows[0]?.total_embeddings || '0'),
+  };
+}
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
 export default {
-  initPinecone,
-  getPineconeIndex,
   generateEmbedding,
   generateEmbeddings,
   chunkText,
   chunkTextSmart,
-  upsertVectors,
+  upsertEmbeddings,
   searchSimilar,
   deleteByDocumentId,
   deleteByUserId,
@@ -633,4 +589,5 @@ export default {
   ingestDocument,
   logRagQuery,
   getRagQueryHistory,
+  getRagStats,
 };
