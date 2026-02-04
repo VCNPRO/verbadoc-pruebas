@@ -62,8 +62,8 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
     dateTo: '',
   });
 
-  // Usar ref para el input en lugar de state controlado
-  const inputRef = useRef<HTMLInputElement>(null);
+  // Usar ref para el textarea en lugar de state controlado
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const historyFetchedRef = useRef(false);
 
@@ -303,23 +303,15 @@ Generado: ${new Date().toLocaleString('es-ES')}
         <div className={`flex gap-3 items-center`}>
           <div className="flex-1 relative">
             <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${textMuted}`} />
-            <input
+            <textarea
               ref={inputRef}
-              type="text"
               defaultValue=""
               onKeyDown={handleKeyPress}
               placeholder="Escribe tu pregunta sobre los documentos..."
-              className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors`}
+              className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors resize-none`}
               disabled={isSearching}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              data-lpignore="true"
-              data-form-type="other"
-              data-1p-ignore="true"
-              aria-autocomplete="none"
-              name={`rag-query-${Date.now()}`}
+              rows={1}
+              style={{ minHeight: '48px', maxHeight: '120px' }}
             />
           </div>
           <button
