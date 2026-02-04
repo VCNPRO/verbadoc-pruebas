@@ -62,13 +62,20 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
     dateTo: '',
   });
 
-  // Usar ref para el textarea en lugar de state controlado
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Usar ref para el div contentEditable - inmune a extensiones
+  const inputRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const historyFetchedRef = useRef(false);
 
-  // Función para obtener el valor actual del input
-  const getQueryValue = () => inputRef.current?.value || '';
+  // Función para obtener el valor actual del div contentEditable
+  const getQueryValue = () => inputRef.current?.textContent || '';
+
+  // Función para establecer el valor
+  const setQueryValue = (text: string) => {
+    if (inputRef.current) {
+      inputRef.current.textContent = text;
+    }
+  };
 
   // Colors based on theme - memoized to prevent unnecessary recalculations
   const colors = useMemo(() => ({
@@ -162,9 +169,7 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
   }, [handleSearch]);
 
   const handleHistoryClick = useCallback((item: QueryHistoryItem) => {
-    if (inputRef.current) {
-      inputRef.current.value = item.query;
-    }
+    setQueryValue(item.query);
     setShowHistory(false);
   }, []);
 
@@ -303,16 +308,41 @@ Generado: ${new Date().toLocaleString('es-ES')}
         <div className={`flex gap-3 items-center`}>
           <div className="flex-1 relative">
             <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${textMuted}`} />
-            <textarea
+            <div
               ref={inputRef}
-              defaultValue=""
+              contentEditable={!isSearching}
               onKeyDown={handleKeyPress}
-              placeholder="Escribe tu pregunta sobre los documentos..."
-              className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors resize-none`}
-              disabled={isSearching}
-              rows={1}
-              style={{ minHeight: '48px', maxHeight: '120px' }}
+              onInput={(e) => {
+                const el = e.currentTarget;
+                el.setAttribute('data-empty', el.textContent?.trim() ? 'false' : 'true');
+              }}
+              onFocus={(e) => {
+                const el = e.currentTarget;
+                el.setAttribute('data-empty', el.textContent?.trim() ? 'false' : 'true');
+              }}
+              onBlur={(e) => {
+                const el = e.currentTarget;
+                el.setAttribute('data-empty', el.textContent?.trim() ? 'false' : 'true');
+              }}
+              data-empty="true"
+              className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors relative`}
+              style={{
+                minHeight: '48px',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+              suppressContentEditableWarning={true}
             />
+            <style>{`
+              [data-empty="true"]:empty::before,
+              [data-empty="true"]:not(:focus)::before {
+                content: "Escribe tu pregunta sobre los documentos...";
+                color: ${isLightMode ? '#9ca3af' : '#6b7280'};
+                pointer-events: none;
+              }
+            `}</style>
           </div>
           <button
             onClick={handleSearch}
@@ -345,10 +375,8 @@ Generado: ${new Date().toLocaleString('es-ES')}
               <button
                 key={example}
                 onClick={() => {
-                  if (inputRef.current) {
-                    inputRef.current.value = example;
-                    inputRef.current.focus();
-                  }
+                  setQueryValue(example);
+                  inputRef.current?.focus();
                 }}
                 className={`text-xs px-3 py-1 rounded-full ${bgSecondary} ${textMuted} hover:${accentColor} transition-colors`}
               >
