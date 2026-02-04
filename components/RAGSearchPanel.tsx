@@ -1,467 +1,245 @@
 /**
- * RAG SEARCH PANEL - "Preguntale al Documento"
+ * RAG SEARCH PANEL - "Pregúntale al Documento"
  * components/RAGSearchPanel.tsx
  *
- * Semantic search interface for querying documents using RAG
- * Features:
- * - Natural language search
- * - Source citations with links
- * - Filter by date, document type
- * - Export results
- * - Query history
+ * Panel de consultas con lenguaje natural - VERSIÓN LIMPIA
  */
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Search, FileText, Clock, Download, ChevronRight, Loader2, AlertCircle, CheckCircle, MessageSquare, X, History, Filter } from 'lucide-react';
+import React, { useState, useRef } from 'react';
 
 interface RAGSource {
   documentId: string;
   documentName: string;
-  chunkIndex: number;
   snippet: string;
   score: number;
 }
 
 interface RAGResponse {
-  success: boolean;
   answer: string;
   sources: RAGSource[];
   confidence: number;
-  processingTimeMs: number;
-  tokensUsed?: number;
 }
 
-interface QueryHistoryItem {
-  id: string;
-  query: string;
-  response: string;
-  confidence_score: number;
-  created_at: string;
+interface Props {
+  isLightMode: boolean;
 }
 
-interface RAGSearchPanelProps {
-  isLightMode?: boolean;
-  onDocumentClick?: (documentId: string) => void;
-  authToken?: string;
-}
-
-const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
-  isLightMode = false,
-  onDocumentClick,
-  authToken,
-}) => {
-  const [isSearching, setIsSearching] = useState(false);
+export const RAGSearchPanel: React.FC<Props> = ({ isLightMode }) => {
+  const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<RAGResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
-  const [history, setHistory] = useState<QueryHistoryItem[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
-    documentIds: [] as string[],
-    dateFrom: '',
-    dateTo: '',
-  });
+  const formRef = useRef<HTMLFormElement>(null);
 
-  // Usar ref para el div contentEditable - inmune a extensiones
-  const inputRef = useRef<HTMLDivElement>(null);
-  const resultsRef = useRef<HTMLDivElement>(null);
-  const historyFetchedRef = useRef(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!query.trim() || isLoading) return;
 
-  // Función para obtener el valor actual del div contentEditable
-  const getQueryValue = () => inputRef.current?.textContent || '';
-
-  // Función para establecer el valor
-  const setQueryValue = (text: string) => {
-    if (inputRef.current) {
-      inputRef.current.textContent = text;
-    }
-  };
-
-  // Colors based on theme - memoized to prevent unnecessary recalculations
-  const colors = useMemo(() => ({
-    bgColor: isLightMode ? 'bg-white' : 'bg-slate-800',
-    bgSecondary: isLightMode ? 'bg-gray-50' : 'bg-slate-900',
-    textColor: isLightMode ? 'text-gray-900' : 'text-white',
-    textMuted: isLightMode ? 'text-gray-500' : 'text-gray-400',
-    borderColor: isLightMode ? 'border-gray-200' : 'border-slate-700',
-    accentColor: 'text-cyan-500',
-    accentBg: isLightMode ? 'bg-cyan-50' : 'bg-cyan-900/20',
-  }), [isLightMode]);
-
-  const { bgColor, bgSecondary, textColor, textMuted, borderColor, accentColor, accentBg } = colors;
-
-  // Fetch query history on mount - only once
-  const fetchHistory = useCallback(async () => {
-    if (historyFetchedRef.current) return;
-    historyFetchedRef.current = true;
-
-    try {
-      const res = await fetch('/api/rag/ask?limit=20', {
-        headers: {
-          'Authorization': authToken ? `Bearer ${authToken}` : '',
-        },
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (data.success && data.history) {
-        setHistory(data.history);
-      }
-    } catch (err) {
-      console.error('Error fetching history:', err);
-    }
-  }, [authToken]);
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
-
-  const handleSearch = useCallback(async () => {
-    const queryValue = getQueryValue();
-    if (!queryValue.trim() || isSearching) return;
-
-    setIsSearching(true);
+    setIsLoading(true);
     setError(null);
     setResponse(null);
 
     try {
       const res = await fetch('/api/rag/ask', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': authToken ? `Bearer ${authToken}` : '',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          query: queryValue.trim(),
-          documentIds: filters.documentIds.length > 0 ? filters.documentIds : undefined,
-          topK: 5,
-        }),
+        body: JSON.stringify({ query: query.trim(), topK: 5 }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || data.error || 'Error en la busqueda');
+        throw new Error(data.message || data.error || 'Error en la búsqueda');
       }
 
-      setResponse(data);
-      // Reset history fetched flag to allow refresh
-      historyFetchedRef.current = false;
-      fetchHistory();
-
-      // Scroll to results
-      setTimeout(() => {
-        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-
+      setResponse({
+        answer: data.answer,
+        sources: data.sources || [],
+        confidence: data.confidence || 0,
+      });
     } catch (err: any) {
       setError(err.message || 'Error al procesar la consulta');
     } finally {
-      setIsSearching(false);
+      setIsLoading(false);
     }
-  }, [isSearching, authToken, filters.documentIds, fetchHistory]);
-
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSearch();
-    }
-  }, [handleSearch]);
-
-  const handleHistoryClick = useCallback((item: QueryHistoryItem) => {
-    setQueryValue(item.query);
-    setShowHistory(false);
-  }, []);
-
-  const exportResults = () => {
-    if (!response) return;
-
-    const queryValue = getQueryValue();
-    const content = `
-CONSULTA RAG - VerbadocPro
-============================
-
-Pregunta: ${queryValue}
-
-Respuesta:
-${response.answer}
-
-Confianza: ${Math.round(response.confidence * 100)}%
-Tiempo de procesamiento: ${response.processingTimeMs}ms
-
-Fuentes:
-${response.sources.map((s, i) => `
-${i + 1}. ${s.documentName}
-   Score: ${Math.round(s.score * 100)}%
-   Extracto: ${s.snippet}
-`).join('\n')}
-
-Generado: ${new Date().toLocaleString('es-ES')}
-    `.trim();
-
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rag-query-${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-500';
-    if (confidence >= 0.5) return 'text-yellow-500';
-    return 'text-red-500';
-  };
+  const bgMain = isLightMode ? '#ffffff' : '#1a1a2e';
+  const bgInput = isLightMode ? '#f8fafc' : '#0f0f1a';
+  const borderColor = isLightMode ? '#e2e8f0' : '#2d2d44';
+  const textColor = isLightMode ? '#1e293b' : '#e2e8f0';
+  const textMuted = isLightMode ? '#64748b' : '#94a3b8';
+  const accentGreen = isLightMode ? '#10b981' : '#34d399';
 
   return (
-    <div className={`${bgColor} rounded-xl border ${borderColor} overflow-hidden`}>
-      {/* Header */}
-      <div className={`${bgSecondary} px-6 py-4 border-b ${borderColor}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${accentBg}`}>
-              <MessageSquare className={`w-5 h-5 ${accentColor}`} />
-            </div>
-            <div>
-              <h2 className={`font-semibold ${textColor}`}>Preguntale al Documento</h2>
-              <p className={`text-sm ${textMuted}`}>Busqueda semantica con IA</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className={`p-2 rounded-lg hover:${bgSecondary} transition-colors ${showHistory ? accentColor : textMuted}`}
-              title="Historial de consultas"
-            >
-              <History className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`p-2 rounded-lg hover:${bgSecondary} transition-colors ${showFilters ? accentColor : textMuted}`}
-              title="Filtros"
-            >
-              <Filter className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Filters Panel */}
-      {showFilters && (
-        <div className={`px-6 py-3 border-b ${borderColor} ${bgSecondary}`}>
-          <div className="flex flex-wrap gap-4 items-center">
-            <div>
-              <label className={`text-xs ${textMuted} block mb-1`}>Desde</label>
-              <input
-                type="date"
-                value={filters.dateFrom}
-                onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-                className={`px-3 py-1 rounded border ${borderColor} ${bgColor} ${textColor} text-sm`}
-              />
-            </div>
-            <div>
-              <label className={`text-xs ${textMuted} block mb-1`}>Hasta</label>
-              <input
-                type="date"
-                value={filters.dateTo}
-                onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-                className={`px-3 py-1 rounded border ${borderColor} ${bgColor} ${textColor} text-sm`}
-              />
-            </div>
-            {(filters.dateFrom || filters.dateTo) && (
-              <button
-                onClick={() => setFilters({ ...filters, dateFrom: '', dateTo: '' })}
-                className={`text-xs ${accentColor} hover:underline mt-5`}
-              >
-                Limpiar filtros
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* History Panel */}
-      {showHistory && history.length > 0 && (
-        <div className={`px-6 py-3 border-b ${borderColor} max-h-48 overflow-y-auto`}>
-          <p className={`text-xs ${textMuted} mb-2`}>Consultas recientes:</p>
-          <div className="space-y-2">
-            {history.slice(0, 5).map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleHistoryClick(item)}
-                className={`w-full text-left p-2 rounded ${bgSecondary} hover:opacity-80 transition-opacity`}
-              >
-                <p className={`text-sm ${textColor} truncate`}>{item.query}</p>
-                <p className={`text-xs ${textMuted}`}>
-                  {new Date(item.created_at).toLocaleDateString('es-ES')} -
-                  Confianza: {Math.round(item.confidence_score * 100)}%
-                </p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Search Input */}
-      <div className="p-6">
-        <div className={`flex gap-3 items-center`}>
-          <div className="flex-1 relative">
-            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${textMuted}`} />
-            <div
-              ref={inputRef}
-              contentEditable={!isSearching}
-              onKeyDown={handleKeyPress}
-              onInput={(e) => {
-                const el = e.currentTarget;
-                el.setAttribute('data-empty', el.textContent?.trim() ? 'false' : 'true');
+    <div style={{ backgroundColor: bgMain, color: textColor }}>
+      {/* Zona de escritura estilo chat */}
+      <form ref={formRef} onSubmit={handleSubmit} autoComplete="off">
+        <div
+          style={{
+            display: 'flex',
+            gap: '12px',
+            alignItems: 'flex-end',
+            padding: '16px',
+            backgroundColor: bgInput,
+            borderRadius: '12px',
+            border: `2px solid ${borderColor}`,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <textarea
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  formRef.current?.requestSubmit();
+                }
               }}
-              onFocus={(e) => {
-                const el = e.currentTarget;
-                el.setAttribute('data-empty', el.textContent?.trim() ? 'false' : 'true');
-              }}
-              onBlur={(e) => {
-                const el = e.currentTarget;
-                el.setAttribute('data-empty', el.textContent?.trim() ? 'false' : 'true');
-              }}
-              data-empty="true"
-              className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors relative`}
+              placeholder="Escribe tu pregunta aquí... (Enter para enviar)"
+              disabled={isLoading}
+              rows={3}
               style={{
-                minHeight: '48px',
-                maxHeight: '120px',
-                overflowY: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word'
+                width: '100%',
+                padding: '12px 16px',
+                fontSize: '16px',
+                lineHeight: '1.5',
+                backgroundColor: bgMain,
+                color: textColor,
+                border: `1px solid ${borderColor}`,
+                borderRadius: '8px',
+                resize: 'none',
+                outline: 'none',
+                fontFamily: 'inherit',
               }}
-              suppressContentEditableWarning={true}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              data-form-type="other"
+              data-lpignore="true"
             />
-            <style>{`
-              [data-empty="true"]:empty::before,
-              [data-empty="true"]:not(:focus)::before {
-                content: "Escribe tu pregunta sobre los documentos...";
-                color: ${isLightMode ? '#9ca3af' : '#6b7280'};
-                pointer-events: none;
-              }
-            `}</style>
           </div>
           <button
-            onClick={handleSearch}
-            disabled={isSearching}
-            className={`px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+            type="submit"
+            disabled={isLoading || !query.trim()}
+            style={{
+              padding: '12px 24px',
+              fontSize: '16px',
+              fontWeight: '600',
+              backgroundColor: isLoading || !query.trim() ? (isLightMode ? '#cbd5e1' : '#374151') : accentGreen,
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: isLoading || !query.trim() ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              minWidth: '120px',
+              justifyContent: 'center',
+            }}
           >
-            {isSearching ? (
+            {isLoading ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="animate-spin">⏳</span>
                 Buscando...
               </>
             ) : (
               <>
-                <Search className="w-5 h-5" />
-                Buscar
+                🔍 Buscar
               </>
             )}
           </button>
         </div>
+      </form>
 
-        {/* Example queries */}
-        {!response && !error && (
-          <div className={`mt-4 flex flex-wrap gap-2`}>
-            <span className={`text-xs ${textMuted}`}>Prueba:</span>
-            {[
-              'Cual es el total de la factura?',
-              'Quien es el proveedor?',
-              'Que productos se mencionan?',
-            ].map((example) => (
-              <button
-                key={example}
-                onClick={() => {
-                  setQueryValue(example);
-                  inputRef.current?.focus();
-                }}
-                className={`text-xs px-3 py-1 rounded-full ${bgSecondary} ${textMuted} hover:${accentColor} transition-colors`}
-              >
-                {example}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Error Display */}
-      {error && (
-        <div className="px-6 pb-6">
-          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/30 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-red-500 font-medium">Error en la busqueda</p>
-              <p className={`text-sm ${textMuted}`}>{error}</p>
-            </div>
-          </div>
+      {/* Sugerencias rápidas */}
+      {!response && !error && (
+        <div style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ color: textMuted, fontSize: '13px' }}>Prueba:</span>
+          {['¿Cuál es el total?', '¿Quién es el proveedor?', 'Resume el documento'].map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => setQuery(suggestion)}
+              style={{
+                padding: '4px 12px',
+                fontSize: '13px',
+                backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
+                color: textMuted,
+                border: `1px solid ${borderColor}`,
+                borderRadius: '16px',
+                cursor: 'pointer',
+              }}
+            >
+              {suggestion}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Results */}
+      {/* Error */}
+      {error && (
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '12px 16px',
+            backgroundColor: isLightMode ? '#fef2f2' : '#2d1b1b',
+            border: `1px solid ${isLightMode ? '#fecaca' : '#5c2828'}`,
+            borderRadius: '8px',
+            color: isLightMode ? '#dc2626' : '#f87171',
+          }}
+        >
+          ⚠️ {error}
+        </div>
+      )}
+
+      {/* Respuesta */}
       {response && (
-        <div ref={resultsRef} className="px-6 pb-6 space-y-6">
-          {/* Answer */}
-          <div className={`p-4 rounded-xl ${accentBg} border ${borderColor}`}>
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <CheckCircle className={`w-5 h-5 ${accentColor}`} />
-                <span className={`font-medium ${textColor}`}>Respuesta</span>
-              </div>
-              <div className="flex items-center gap-4 text-xs">
-                <span className={getConfidenceColor(response.confidence)}>
-                  Confianza: {Math.round(response.confidence * 100)}%
-                </span>
-                <span className={textMuted}>
-                  {response.processingTimeMs}ms
-                </span>
-                <button
-                  onClick={exportResults}
-                  className={`p-1 hover:${accentColor} transition-colors`}
-                  title="Exportar resultados"
-                >
-                  <Download className="w-4 h-4" />
-                </button>
-              </div>
+        <div style={{ marginTop: '16px' }}>
+          {/* Respuesta principal */}
+          <div
+            style={{
+              padding: '16px',
+              backgroundColor: isLightMode ? '#ecfdf5' : '#0d2818',
+              border: `1px solid ${isLightMode ? '#a7f3d0' : '#166534'}`,
+              borderRadius: '8px',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ fontWeight: '600', color: accentGreen }}>✅ Respuesta</span>
+              <span style={{ fontSize: '13px', color: textMuted }}>
+                Confianza: {Math.round(response.confidence * 100)}%
+              </span>
             </div>
-            <p className={`${textColor} whitespace-pre-wrap leading-relaxed`}>
-              {response.answer}
-            </p>
+            <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{response.answer}</p>
           </div>
 
-          {/* Sources */}
+          {/* Fuentes */}
           {response.sources.length > 0 && (
-            <div>
-              <h3 className={`font-medium ${textColor} mb-3 flex items-center gap-2`}>
-                <FileText className="w-4 h-4" />
-                Fuentes ({response.sources.length})
-              </h3>
-              <div className="space-y-3">
-                {response.sources.map((source, index) => (
+            <div style={{ marginTop: '12px' }}>
+              <p style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: textMuted }}>
+                📄 Fuentes ({response.sources.length})
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {response.sources.map((source, i) => (
                   <div
-                    key={`${source.documentId}-${source.chunkIndex}`}
-                    className={`p-4 rounded-lg ${bgSecondary} border ${borderColor} hover:border-cyan-500/50 transition-colors cursor-pointer`}
-                    onClick={() => onDocumentClick?.(source.documentId)}
+                    key={i}
+                    style={{
+                      padding: '12px',
+                      backgroundColor: bgInput,
+                      border: `1px solid ${borderColor}`,
+                      borderRadius: '6px',
+                    }}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-0.5 rounded ${accentBg} ${accentColor}`}>
-                          Fuente {index + 1}
-                        </span>
-                        <span className={`font-medium ${textColor} text-sm`}>
-                          {source.documentName}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs ${textMuted}`}>
-                          Score: {Math.round(source.score * 100)}%
-                        </span>
-                        <ChevronRight className={`w-4 h-4 ${textMuted}`} />
-                      </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '500', fontSize: '14px' }}>{source.documentName}</span>
+                      <span style={{ fontSize: '12px', color: textMuted }}>
+                        {Math.round(source.score * 100)}%
+                      </span>
                     </div>
-                    <p className={`text-sm ${textMuted} line-clamp-3`}>
+                    <p style={{ fontSize: '13px', color: textMuted, lineHeight: '1.4' }}>
                       "{source.snippet}"
                     </p>
                   </div>
@@ -469,33 +247,10 @@ Generado: ${new Date().toLocaleString('es-ES')}
               </div>
             </div>
           )}
-
-          {/* No sources warning */}
-          {response.sources.length === 0 && (
-            <div className={`p-4 rounded-lg ${bgSecondary} border ${borderColor}`}>
-              <div className="flex items-center gap-2">
-                <AlertCircle className={`w-5 h-5 ${textMuted}`} />
-                <p className={textMuted}>
-                  No se encontraron fuentes relevantes para esta consulta.
-                  Intenta reformular tu pregunta.
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       )}
-
-      {/* Footer */}
-      <div className={`px-6 py-3 border-t ${borderColor} ${bgSecondary}`}>
-        <p className={`text-xs ${textMuted} text-center`}>
-          Busqueda potenciada por Gemini + Pinecone | Datos procesados en la UE
-        </p>
-      </div>
     </div>
   );
 };
-
-// Wrap with React.memo to prevent re-renders when parent state changes
-export const RAGSearchPanel = React.memo(RAGSearchPanelInner);
 
 export default RAGSearchPanel;

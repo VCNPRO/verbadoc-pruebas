@@ -1819,49 +1819,40 @@ function AppContent() {
                     </div>
                 </div>
 
-                {/* Panel RAG: Pregúntale al Documento - SIEMPRE VISIBLE */}
-                <div className="mt-4">
-                    <div className="border-2 rounded-lg overflow-hidden shadow-lg" style={{
-                        borderColor: isLightMode ? '#10b981' : '#059669',
-                        backgroundColor: isLightMode ? '#ecfdf5' : '#064e3b'
-                    }}>
-                        <button
+                {/* ZONA DE TRABAJO: Dos columnas - RAG y Config Avanzada */}
+                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                    {/* COLUMNA IZQUIERDA: Pregúntale al Documento */}
+                    <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#10b981' : '#059669' }}>
+                        <div
+                            className="flex items-center justify-between px-4 py-2.5 cursor-pointer"
                             onClick={() => setRagPanelOpen(prev => !prev)}
-                            className="w-full flex items-center justify-between px-4 py-3 text-base font-semibold transition-colors"
                             style={{
-                                backgroundColor: isLightMode ? '#d1fae5' : '#065f46',
+                                backgroundColor: isLightMode ? '#ecfdf5' : '#064e3b',
                                 color: isLightMode ? '#047857' : '#6ee7b7',
                             }}
                         >
-                            <div className="flex items-center gap-3">
-                                <span className="text-2xl">💬</span>
-                                <div>
-                                    <span className="text-lg font-bold">Pregúntale al Documento</span>
-                                    <p className="text-sm opacity-75">Consulta tus documentos con lenguaje natural</p>
-                                </div>
+                            <div className="flex items-center gap-2">
+                                <span>💬</span>
+                                <span className="font-semibold">Pregúntale al Documento</span>
+                                <span className="text-sm font-normal opacity-75">· Consulta con lenguaje natural</span>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${ragPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${ragPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
-                        </button>
-                        <div
-                            className="p-4"
-                            style={{
-                                backgroundColor: isLightMode ? '#ffffff' : '#0a2620',
-                                display: ragPanelOpen ? 'block' : 'none'
-                            }}
-                        >
-                            <RAGSearchPanel isLightMode={isLightMode} />
                         </div>
+                        {ragPanelOpen && (
+                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0f172a' }}>
+                                <RAGSearchPanel isLightMode={isLightMode} />
+                            </div>
+                        )}
                     </div>
-                </div>
 
-                {/* Configuracion avanzada - colapsable */}
-                <div className="mt-4">
+                    {/* COLUMNA DERECHA: Configuración Avanzada */}
                     <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                        <button
+                        <div
+                            className="flex items-center justify-between px-4 py-2.5 cursor-pointer"
                             onClick={() => setAdvancedConfigOpen(prev => !prev)}
-                            className="w-full flex items-center justify-between px-4 py-2.5 text-base font-semibold transition-colors"
                             style={{
                                 backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
                                 color: isLightMode ? '#475569' : '#94a3b8',
@@ -1872,20 +1863,18 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <span>Configuracion avanzada</span>
-                                <span className="text-base font-normal" style={{ color: isLightMode ? '#94a3b8' : '#64748b' }}>
-                                    Esquema, Plantillas, Asistente IA
-                                </span>
+                                <span className="font-semibold">Configuración Avanzada</span>
+                                <span className="text-sm font-normal opacity-75">· Esquema, Plantillas, IA</span>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${advancedConfigOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
-                        </button>
+                        </div>
                         {advancedConfigOpen && (
-                            <div className="p-4">
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0f172a' }}>
+                                <div className="flex flex-col gap-4">
                                     {/* Esquema y Prompt */}
-                                    <div className="lg:col-span-2">
+                                    <div>
                                         <ExtractionEditor
                                             file={activeFile}
                                             template={selectedTemplate}
@@ -1980,6 +1969,7 @@ function AppContent() {
                             </div>
                         )}
                     </div>
+
                 </div>
             </main>
 
