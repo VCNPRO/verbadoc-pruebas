@@ -1638,7 +1638,7 @@ function AppContent() {
                     {/* Panel lateral: tarjetas de navegacion */}
                     <div className="hidden lg:flex flex-col gap-2 w-48 flex-shrink-0">
                         {/* 1. Revisión (más alto, con totales) - Solo para Normadat */}
-                        {(isNormadat || user?.role === 'admin') && <button
+                        {isNormadat && <button
                             onClick={() => navigate('/review')}
                             className="flex flex-col p-4 rounded-lg border-2 transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
