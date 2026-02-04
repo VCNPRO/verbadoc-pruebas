@@ -36,75 +36,97 @@ const IsolatedInput: React.FC<{
   isLightMode: boolean;
 }> = ({ value, onChange, onSubmit, placeholder, disabled, isLightMode }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const shadowRef = useRef<ShadowRoot | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const callbacksRef = useRef({ onChange, onSubmit });
 
+  // Mantener callbacks actualizados sin recrear el DOM
+  callbacksRef.current = { onChange, onSubmit };
+
+  // Crear Shadow DOM solo una vez
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || shadowRef.current) return;
 
-    // Crear Shadow DOM si no existe
-    let shadow = containerRef.current.shadowRoot;
-    if (!shadow) {
-      shadow = containerRef.current.attachShadow({ mode: 'closed' });
-    }
+    const shadow = containerRef.current.attachShadow({ mode: 'closed' });
+    shadowRef.current = shadow;
 
-    // Estilos y textarea dentro del Shadow DOM
-    const bgMain = isLightMode ? '#ffffff' : '#1e293b';
-    const textColor = isLightMode ? '#1e293b' : '#e2e8f0';
-    const borderColor = isLightMode ? '#e2e8f0' : '#475569';
-
-    shadow.innerHTML = `
-      <style>
-        textarea {
-          width: 100%;
-          min-height: 80px;
-          padding: 12px 16px;
-          font-size: 16px;
-          line-height: 1.5;
-          font-family: inherit;
-          background-color: ${bgMain};
-          color: ${textColor};
-          border: 2px solid ${borderColor};
-          border-radius: 8px;
-          resize: none;
-          outline: none;
-          box-sizing: border-box;
-        }
-        textarea:focus {
-          border-color: #10b981;
-        }
-        textarea::placeholder {
-          color: ${isLightMode ? '#94a3b8' : '#64748b'};
-        }
-        textarea:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-      </style>
-      <textarea placeholder="${placeholder}" ${disabled ? 'disabled' : ''}></textarea>
+    // Crear estilos
+    const style = document.createElement('style');
+    style.textContent = `
+      textarea {
+        width: 100%;
+        min-height: 80px;
+        padding: 12px 16px;
+        font-size: 16px;
+        line-height: 1.5;
+        font-family: system-ui, -apple-system, sans-serif;
+        border: 2px solid #475569;
+        border-radius: 8px;
+        resize: none;
+        outline: none;
+        box-sizing: border-box;
+        background: #1e293b;
+        color: #e2e8f0;
+      }
+      textarea:focus {
+        border-color: #10b981;
+      }
+      textarea::placeholder {
+        color: #64748b;
+      }
+      textarea:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      textarea.light {
+        background: #ffffff;
+        color: #1e293b;
+        border-color: #e2e8f0;
+      }
+      textarea.light::placeholder {
+        color: #94a3b8;
+      }
     `;
+    shadow.appendChild(style);
 
-    const textarea = shadow.querySelector('textarea');
-    if (textarea) {
-      inputRef.current = textarea as HTMLTextAreaElement;
-      textarea.value = value;
+    // Crear textarea
+    const textarea = document.createElement('textarea');
+    textarea.placeholder = placeholder;
+    textarea.className = isLightMode ? 'light' : '';
+    shadow.appendChild(textarea);
+    textareaRef.current = textarea;
 
-      textarea.addEventListener('input', (e) => {
-        onChange((e.target as HTMLTextAreaElement).value);
-      });
+    // Event listeners con refs para evitar recreación
+    textarea.addEventListener('input', () => {
+      callbacksRef.current.onChange(textarea.value);
+    });
 
-      textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-          e.preventDefault();
-          onSubmit();
-        }
-      });
-    }
-  }, [isLightMode, disabled]);
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        callbacksRef.current.onSubmit();
+      }
+    });
+  }, []);
 
-  // Actualizar valor cuando cambia externamente
+  // Actualizar clase de tema
   useEffect(() => {
-    if (inputRef.current && inputRef.current.value !== value) {
-      inputRef.current.value = value;
+    if (textareaRef.current) {
+      textareaRef.current.className = isLightMode ? 'light' : '';
+    }
+  }, [isLightMode]);
+
+  // Actualizar disabled
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.disabled = disabled;
+    }
+  }, [disabled]);
+
+  // Sincronizar valor solo cuando cambia externamente (ej: sugerencias)
+  useEffect(() => {
+    if (textareaRef.current && textareaRef.current.value !== value) {
+      textareaRef.current.value = value;
     }
   }, [value]);
 
