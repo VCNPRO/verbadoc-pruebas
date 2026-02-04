@@ -10,7 +10,9 @@ interface FileUploaderProps {
     onFileSelect: (id: string | null) => void;
     onExtractAll?: () => void;
     onExtractSelected?: (selectedIds: string[]) => void;
+    onIngestToRAG?: (selectedIds: string[]) => void; // Nueva función para ingestar a RAG
     isLoading?: boolean;
+    isIngesting?: boolean; // Estado de ingesta RAG
     onViewFile?: (file: File) => void;
     theme?: any;
     isLightMode?: boolean;
@@ -37,7 +39,7 @@ const StatusIndicator = ({ status }: { status: UploadedFile['status'] }) => {
     }
 };
 
-export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, activeFileId, onFileSelect, onExtractAll, onExtractSelected, isLoading, onViewFile, theme, isLightMode, duplicateFiles }) => {
+export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, activeFileId, onFileSelect, onExtractAll, onExtractSelected, onIngestToRAG, isLoading, isIngesting, onViewFile, theme, isLightMode, duplicateFiles }) => {
     const cardBg = isLightMode ? '#ffffff' : 'rgba(30, 41, 59, 0.5)';
     const borderColor = isLightMode ? '#dbeafe' : 'rgba(51, 65, 85, 0.5)';
     const textColor = isLightMode ? '#1e3a8a' : '#f1f5f9';
@@ -258,6 +260,12 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
             onExtractSelected(Array.from(selectedFileIds));
         }
     };
+
+    const handleIngestToRAG = () => {
+        if (onIngestToRAG && selectedFileIds.size > 0) {
+            onIngestToRAG(Array.from(selectedFileIds));
+        }
+    };
     
     return (
         <div
@@ -342,34 +350,52 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                                 {selectedFileIds.size > 0 ? `${selectedFileIds.size} seleccionados de ${files.length}` : `Archivos Cargados (${files.length})`}
                                             </h3>
                                         </div>
-                                        <div className="flex gap-2">
-                                            {onExtractSelected && selectedFileIds.size > 0 && (
-                                                <button
-                                                    onClick={handleProcessSelected}
-                                                    disabled={isLoading}
-                                                    className="text-xs px-3 py-1 text-white rounded-md transition-colors hover:opacity-90"
-                                                    style={{
-                                                        backgroundColor: isLoading ? (isLightMode ? '#d1d5db' : '#334155') : '#10b981'
-                                                    }}
-                                                >
-                                                    Procesar Selección ({selectedFileIds.size})
-                                                </button>
+                                        <div className="flex gap-2 flex-wrap">
+                                            {selectedFileIds.size > 0 && (
+                                                <>
+                                                    {onExtractSelected && (
+                                                        <button
+                                                            onClick={handleProcessSelected}
+                                                            disabled={isLoading || isIngesting}
+                                                            className="text-xs px-3 py-1 text-white rounded-md transition-colors hover:opacity-90"
+                                                            style={{
+                                                                backgroundColor: (isLoading || isIngesting) ? (isLightMode ? '#d1d5db' : '#334155') : '#10b981'
+                                                            }}
+                                                            title="Extraer datos con plantilla"
+                                                        >
+                                                            📊 Extraer ({selectedFileIds.size})
+                                                        </button>
+                                                    )}
+                                                    {onIngestToRAG && (
+                                                        <button
+                                                            onClick={handleIngestToRAG}
+                                                            disabled={isLoading || isIngesting}
+                                                            className="text-xs px-3 py-1 text-white rounded-md transition-colors hover:opacity-90"
+                                                            style={{
+                                                                backgroundColor: (isLoading || isIngesting) ? (isLightMode ? '#d1d5db' : '#334155') : '#8b5cf6'
+                                                            }}
+                                                            title="Ingestar para consultas con lenguaje natural"
+                                                        >
+                                                            {isIngesting ? '⏳ Ingesta...' : `💬 Ingestar RAG (${selectedFileIds.size})`}
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
                                             {onExtractAll && (
                                                 <button
                                                     onClick={onExtractAll}
-                                                    disabled={isLoading || !files.some(f => f.status === 'pendiente' || f.status === 'error')}
+                                                    disabled={isLoading || isIngesting || !files.some(f => f.status === 'pendiente' || f.status === 'error')}
                                                     className="text-xs px-3 py-1 text-white rounded-md transition-colors"
                                                     style={{
-                                                        backgroundColor: isLoading || !files.some(f => f.status === 'pendiente' || f.status === 'error')
+                                                        backgroundColor: (isLoading || isIngesting || !files.some(f => f.status === 'pendiente' || f.status === 'error'))
                                                             ? (isLightMode ? '#d1d5db' : '#334155')
                                                             : accentColor
                                                     }}
                                                 >
-                                                    {isLoading ? 'Procesando...' : 'Procesar Todos'}
+                                                    {isLoading ? 'Procesando...' : 'Extraer Todos'}
                                                 </button>
                                             )}
-                                            <button onClick={onClearAll} className="text-xs transition-colors" style={{ color: isLightMode ? '#ef4444' : '#f87171' }}>Limpiar Todo</button>
+                                            <button onClick={onClearAll} className="text-xs transition-colors" style={{ color: isLightMode ? '#ef4444' : '#f87171' }}>Limpiar</button>
                                         </div>
                                     </div>
                                     <div className="overflow-y-auto pr-2 flex-grow">

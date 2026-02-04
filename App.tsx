@@ -85,6 +85,7 @@ function AppContent() {
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
     const [history, setHistory] = useState<ExtractionResult[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isIngesting, setIsIngesting] = useState<boolean>(false); // Estado para ingesta RAG
     const [extractionProgress, setExtractionProgress] = useState<{ total: number; completed: number; errors: number; startTime: number | null }>({ total: 0, completed: 0, errors: 0, startTime: null });
     const [viewingFile, setViewingFile] = useState<File | null>(null);
     const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
@@ -536,6 +537,71 @@ function AppContent() {
 
         setIsLoading(false);
         setShowResultsExpanded(true); // Mostrar resultados automáticamente
+    };
+
+    // 💬 INGESTAR A RAG - Para "Pregúntale al Documento"
+    const handleIngestToRAG = async (selectedIds: string[]) => {
+        const filesToIngest = files.filter(f => selectedIds.includes(f.id));
+        if (filesToIngest.length === 0) return;
+
+        setIsIngesting(true);
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const file of filesToIngest) {
+            try {
+                // Actualizar estado visual
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'procesando' } : f)
+                );
+
+                // Convertir archivo a base64
+                const arrayBuffer = await file.file.arrayBuffer();
+                const base64 = btoa(
+                    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
+
+                // Llamar al endpoint de ingesta
+                const response = await fetch('/api/rag/upload-and-ingest', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filename: file.file.name,
+                        fileBase64: base64,
+                        fileType: file.file.type || 'application/pdf',
+                        fileSizeBytes: file.file.size
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setFiles(currentFiles =>
+                        currentFiles.map(f => f.id === file.id ? { ...f, status: 'completado' } : f)
+                    );
+                    successCount++;
+                    console.log(`✅ [RAG] ${file.file.name} ingestado: ${result.ingestion.chunksCreated} chunks`);
+                } else {
+                    throw new Error(result.error || 'Error en ingesta');
+                }
+            } catch (error: any) {
+                console.error(`❌ [RAG] Error ingesta ${file.file.name}:`, error);
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'error', error: error.message } : f)
+                );
+                errorCount++;
+            }
+        }
+
+        setIsIngesting(false);
+
+        // Notificación de resultado
+        if (errorCount === 0) {
+            alert(`✅ ${successCount} documento(s) ingestados correctamente.\n\nAhora puedes usar "Pregúntale al Documento" para hacer consultas.`);
+        } else {
+            alert(`⚠️ Ingesta completada:\n✅ ${successCount} exitosos\n❌ ${errorCount} con errores`);
+        }
     };
 
     const handleExtractAll = async () => {
@@ -1740,7 +1806,9 @@ function AppContent() {
                         onFileSelect={handleFileSelect}
                         onExtractAll={handleExtractAll}
                         onExtractSelected={handleExtractSelected}
+                        onIngestToRAG={handleIngestToRAG}
                         isLoading={isLoading}
+                        isIngesting={isIngesting}
                         onViewFile={handleViewFile}
                         theme={currentTheme}
                         isLightMode={isLightMode}
