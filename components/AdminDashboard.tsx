@@ -625,7 +625,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                             <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Plantillas</p>
                             <p className="text-3xl font-bold mt-1">{extractionStats.templates.total}</p>
                         </div>
-                        <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor, borderColor: extractionStats.extractions.recentErrors > 0 ? '#ef4444' : borderColor }}>
+                        <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor: extractionStats.extractions.recentErrors > 0 ? '#ef4444' : borderColor }}>
                             <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Errores (7 días)</p>
                             <p className="text-3xl font-bold mt-1" style={{ color: extractionStats.extractions.recentErrors > 0 ? '#ef4444' : '#10b981' }}>
                                 {extractionStats.extractions.recentErrors}
