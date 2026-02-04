@@ -312,7 +312,14 @@ Generado: ${new Date().toLocaleString('es-ES')}
               className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors`}
               disabled={isSearching}
               autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
               spellCheck={false}
+              data-lpignore="true"
+              data-form-type="other"
+              data-1p-ignore="true"
+              aria-autocomplete="none"
+              name={`rag-query-${Date.now()}`}
             />
           </div>
           <button
