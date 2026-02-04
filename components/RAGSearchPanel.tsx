@@ -45,7 +45,7 @@ interface RAGSearchPanelProps {
   authToken?: string;
 }
 
-export const RAGSearchPanel: React.FC<RAGSearchPanelProps> = ({
+const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
   isLightMode = false,
   onDocumentClick,
   authToken,
@@ -459,5 +459,8 @@ Generado: ${new Date().toLocaleString('es-ES')}
     </div>
   );
 };
+
+// Wrap with React.memo to prevent re-renders when parent state changes
+export const RAGSearchPanel = React.memo(RAGSearchPanelInner);
 
 export default RAGSearchPanel;
