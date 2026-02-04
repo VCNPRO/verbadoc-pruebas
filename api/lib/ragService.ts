@@ -17,7 +17,7 @@ import { GoogleGenAI } from '@google/genai';
 // ============================================================================
 
 const PINECONE_API_KEY = process.env.PINECONE_API_KEY;
-const PINECONE_INDEX = process.env.PINECONE_INDEX || 'verbadocpro-rag';
+const PINECONE_INDEX = process.env.PINECONE_INDEX || 'verbadoc-index';
 const EMBEDDING_MODEL = 'text-embedding-004'; // Gemini embedding model (768 dimensions)
 const GENERATION_MODEL = 'gemini-2.0-flash'; // Fast generation model
 
