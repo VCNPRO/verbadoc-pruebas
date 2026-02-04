@@ -1844,11 +1844,15 @@ function AppContent() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
-                        {ragPanelOpen && (
-                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0a2620' }}>
-                                <RAGSearchPanel isLightMode={isLightMode} />
-                            </div>
-                        )}
+                        <div
+                            className="p-4"
+                            style={{
+                                backgroundColor: isLightMode ? '#ffffff' : '#0a2620',
+                                display: ragPanelOpen ? 'block' : 'none'
+                            }}
+                        >
+                            <RAGSearchPanel isLightMode={isLightMode} />
+                        </div>
                     </div>
                 </div>
 
