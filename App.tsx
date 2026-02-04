@@ -1819,6 +1819,39 @@ function AppContent() {
                     </div>
                 </div>
 
+                {/* Panel RAG: Pregúntale al Documento - SIEMPRE VISIBLE */}
+                <div className="mt-4">
+                    <div className="border-2 rounded-lg overflow-hidden shadow-lg" style={{
+                        borderColor: isLightMode ? '#8b5cf6' : '#7c3aed',
+                        backgroundColor: isLightMode ? '#faf5ff' : '#1e1b4b'
+                    }}>
+                        <button
+                            onClick={() => setRagPanelOpen(prev => !prev)}
+                            className="w-full flex items-center justify-between px-4 py-3 text-base font-semibold transition-colors"
+                            style={{
+                                backgroundColor: isLightMode ? '#f3e8ff' : '#2e1065',
+                                color: isLightMode ? '#7c3aed' : '#c4b5fd',
+                            }}
+                        >
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl">💬</span>
+                                <div>
+                                    <span className="text-lg font-bold">Pregúntale al Documento</span>
+                                    <p className="text-sm opacity-75">Consulta tus documentos con lenguaje natural</p>
+                                </div>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 transition-transform ${ragPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        {ragPanelOpen && (
+                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0f0a1e' }}>
+                                <RAGSearchPanel isLightMode={isLightMode} />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 {/* Configuracion avanzada - colapsable */}
                 <div className="mt-4">
                     <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
@@ -1935,28 +1968,6 @@ function AppContent() {
                                                         extractedData={activeFile?.extractedData}
                                                         currentSchema={schema}
                                                     />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Panel: Pregúntale al Documento (RAG) */}
-                                        <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                                            <button
-                                                onClick={() => setRagPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
-                                                style={{
-                                                    backgroundColor: isLightMode ? '#faf5ff' : '#1e1b4b',
-                                                    color: isLightMode ? '#7c3aed' : '#a78bfa',
-                                                }}
-                                            >
-                                                <span>💬 Pregúntale al Documento</span>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${ragPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </button>
-                                            {ragPanelOpen && (
-                                                <div className="p-2">
-                                                    <RAGSearchPanel isLightMode={isLightMode} />
                                                 </div>
                                             )}
                                         </div>
