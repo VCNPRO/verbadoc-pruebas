@@ -50,7 +50,6 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
   onDocumentClick,
   authToken,
 }) => {
-  const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [response, setResponse] = useState<RAGResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +62,13 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
     dateTo: '',
   });
 
+  // Usar ref para el input en lugar de state controlado
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const historyFetchedRef = useRef(false);
+
+  // Función para obtener el valor actual del input
+  const getQueryValue = () => inputRef.current?.value || '';
 
   // Colors based on theme - memoized to prevent unnecessary recalculations
   const colors = useMemo(() => ({
@@ -106,7 +109,8 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
   }, [fetchHistory]);
 
   const handleSearch = useCallback(async () => {
-    if (!query.trim() || isSearching) return;
+    const queryValue = getQueryValue();
+    if (!queryValue.trim() || isSearching) return;
 
     setIsSearching(true);
     setError(null);
@@ -121,7 +125,7 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
         },
         credentials: 'include',
         body: JSON.stringify({
-          query: query.trim(),
+          query: queryValue.trim(),
           documentIds: filters.documentIds.length > 0 ? filters.documentIds : undefined,
           topK: 5,
         }),
@@ -148,7 +152,7 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
     } finally {
       setIsSearching(false);
     }
-  }, [query, isSearching, authToken, filters.documentIds, fetchHistory]);
+  }, [isSearching, authToken, filters.documentIds, fetchHistory]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -158,22 +162,21 @@ const RAGSearchPanelInner: React.FC<RAGSearchPanelProps> = ({
   }, [handleSearch]);
 
   const handleHistoryClick = useCallback((item: QueryHistoryItem) => {
-    setQuery(item.query);
+    if (inputRef.current) {
+      inputRef.current.value = item.query;
+    }
     setShowHistory(false);
-  }, []);
-
-  const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(e.target.value);
   }, []);
 
   const exportResults = () => {
     if (!response) return;
 
+    const queryValue = getQueryValue();
     const content = `
 CONSULTA RAG - VerbadocPro
 ============================
 
-Pregunta: ${query}
+Pregunta: ${queryValue}
 
 Respuesta:
 ${response.answer}
@@ -303,18 +306,18 @@ Generado: ${new Date().toLocaleString('es-ES')}
             <input
               ref={inputRef}
               type="text"
-              value={query}
-              onChange={handleQueryChange}
+              defaultValue=""
               onKeyDown={handleKeyPress}
               placeholder="Escribe tu pregunta sobre los documentos..."
               className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors`}
               disabled={isSearching}
               autoComplete="off"
+              spellCheck={false}
             />
           </div>
           <button
             onClick={handleSearch}
-            disabled={isSearching || !query.trim()}
+            disabled={isSearching}
             className={`px-6 py-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
           >
             {isSearching ? (
@@ -342,7 +345,12 @@ Generado: ${new Date().toLocaleString('es-ES')}
             ].map((example) => (
               <button
                 key={example}
-                onClick={() => setQuery(example)}
+                onClick={() => {
+                  if (inputRef.current) {
+                    inputRef.current.value = example;
+                    inputRef.current.focus();
+                  }
+                }}
                 className={`text-xs px-3 py-1 rounded-full ${bgSecondary} ${textMuted} hover:${accentColor} transition-colors`}
               >
                 {example}
