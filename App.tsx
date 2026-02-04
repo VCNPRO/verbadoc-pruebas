@@ -20,6 +20,7 @@ import { EnhancedResultsPage } from './components/EnhancedResultsPage.tsx';
 import { ChatbotLaia } from './components/ChatbotLaia.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AIAssistantPanel } from './components/AIAssistantPanel.tsx';
+import { RAGSearchPanel } from './components/RAGSearchPanel.tsx';
 // Fix: Use explicit file extension in import.
 import type { UploadedFile, ExtractionResult, SchemaField, SchemaFieldType, Departamento } from './types.ts';
 import { logActivity } from './src/utils/activityLogger.ts';
@@ -96,6 +97,7 @@ function AppContent() {
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
     const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
     const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
+    const [ragPanelOpen, setRagPanelOpen] = useState<boolean>(false);
     const [advancedConfigOpen, setAdvancedConfigOpen] = useState<boolean>(false);
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
@@ -1933,6 +1935,28 @@ function AppContent() {
                                                         extractedData={activeFile?.extractedData}
                                                         currentSchema={schema}
                                                     />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Panel: Pregúntale al Documento (RAG) */}
+                                        <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
+                                            <button
+                                                onClick={() => setRagPanelOpen(prev => !prev)}
+                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
+                                                style={{
+                                                    backgroundColor: isLightMode ? '#faf5ff' : '#1e1b4b',
+                                                    color: isLightMode ? '#7c3aed' : '#a78bfa',
+                                                }}
+                                            >
+                                                <span>💬 Pregúntale al Documento</span>
+                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${ragPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                            {ragPanelOpen && (
+                                                <div className="p-2">
+                                                    <RAGSearchPanel isLightMode={isLightMode} />
                                                 </div>
                                             )}
                                         </div>
