@@ -22,10 +22,11 @@ interface RAGResponse {
 
 interface Props {
   isLightMode: boolean;
+  query: string;
+  setQuery: (q: string) => void;
 }
 
-export const RAGSearchPanel: React.FC<Props> = ({ isLightMode }) => {
-  const [query, setQuery] = useState('');
+export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<RAGResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

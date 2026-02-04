@@ -98,6 +98,7 @@ function AppContent() {
     const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
     const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
     const [ragPanelOpen, setRagPanelOpen] = useState<boolean>(false);
+    const [ragQuery, setRagQuery] = useState<string>('');
     const [advancedConfigOpen, setAdvancedConfigOpen] = useState<boolean>(false);
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
@@ -1843,7 +1844,7 @@ function AppContent() {
                         </div>
                         {ragPanelOpen && (
                             <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0f172a' }}>
-                                <RAGSearchPanel isLightMode={isLightMode} />
+                                <RAGSearchPanel isLightMode={isLightMode} query={ragQuery} setQuery={setRagQuery} />
                             </div>
                         )}
                     </div>
