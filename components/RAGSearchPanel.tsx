@@ -5,7 +5,7 @@
  * Panel de consultas con lenguaje natural - VERSIÓN LIMPIA
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 
 interface RAGSource {
   documentId: string;
@@ -26,14 +26,97 @@ interface Props {
   setQuery: (q: string) => void;
 }
 
+// Componente de input aislado con Shadow DOM - inmune a extensiones
+const IsolatedInput: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+  onSubmit: () => void;
+  placeholder: string;
+  disabled: boolean;
+  isLightMode: boolean;
+}> = ({ value, onChange, onSubmit, placeholder, disabled, isLightMode }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Crear Shadow DOM si no existe
+    let shadow = containerRef.current.shadowRoot;
+    if (!shadow) {
+      shadow = containerRef.current.attachShadow({ mode: 'closed' });
+    }
+
+    // Estilos y textarea dentro del Shadow DOM
+    const bgMain = isLightMode ? '#ffffff' : '#1e293b';
+    const textColor = isLightMode ? '#1e293b' : '#e2e8f0';
+    const borderColor = isLightMode ? '#e2e8f0' : '#475569';
+
+    shadow.innerHTML = `
+      <style>
+        textarea {
+          width: 100%;
+          min-height: 80px;
+          padding: 12px 16px;
+          font-size: 16px;
+          line-height: 1.5;
+          font-family: inherit;
+          background-color: ${bgMain};
+          color: ${textColor};
+          border: 2px solid ${borderColor};
+          border-radius: 8px;
+          resize: none;
+          outline: none;
+          box-sizing: border-box;
+        }
+        textarea:focus {
+          border-color: #10b981;
+        }
+        textarea::placeholder {
+          color: ${isLightMode ? '#94a3b8' : '#64748b'};
+        }
+        textarea:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      </style>
+      <textarea placeholder="${placeholder}" ${disabled ? 'disabled' : ''}></textarea>
+    `;
+
+    const textarea = shadow.querySelector('textarea');
+    if (textarea) {
+      inputRef.current = textarea as HTMLTextAreaElement;
+      textarea.value = value;
+
+      textarea.addEventListener('input', (e) => {
+        onChange((e.target as HTMLTextAreaElement).value);
+      });
+
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          onSubmit();
+        }
+      });
+    }
+  }, [isLightMode, disabled]);
+
+  // Actualizar valor cuando cambia externamente
+  useEffect(() => {
+    if (inputRef.current && inputRef.current.value !== value) {
+      inputRef.current.value = value;
+    }
+  }, [value]);
+
+  return <div ref={containerRef} style={{ width: '100%' }} />;
+};
+
 export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<RAGResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const formRef = useRef<HTMLFormElement>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     if (!query.trim() || isLoading) return;
 
     setIsLoading(true);
@@ -75,56 +158,32 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
 
   return (
     <div style={{ backgroundColor: bgMain, color: textColor }}>
-      {/* Zona de escritura estilo chat */}
-      <form ref={formRef} onSubmit={handleSubmit} autoComplete="off">
-        <div
-          style={{
-            display: 'flex',
-            gap: '12px',
-            alignItems: 'flex-end',
-            padding: '16px',
-            backgroundColor: bgInput,
-            borderRadius: '12px',
-            border: `2px solid ${borderColor}`,
-          }}
-        >
-          <div style={{ flex: 1 }}>
-            <textarea
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  formRef.current?.requestSubmit();
-                }
-              }}
-              placeholder="Escribe tu pregunta aquí... (Enter para enviar)"
-              disabled={isLoading}
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '12px 16px',
-                fontSize: '16px',
-                lineHeight: '1.5',
-                backgroundColor: bgMain,
-                color: textColor,
-                border: `1px solid ${borderColor}`,
-                borderRadius: '8px',
-                resize: 'none',
-                outline: 'none',
-                fontFamily: 'inherit',
-              }}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              data-form-type="other"
-              data-lpignore="true"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isLoading || !query.trim()}
+      {/* Zona de escritura con Shadow DOM aislado */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '12px',
+          alignItems: 'flex-end',
+          padding: '16px',
+          backgroundColor: bgInput,
+          borderRadius: '12px',
+          border: `2px solid ${borderColor}`,
+        }}
+      >
+        <div style={{ flex: 1 }}>
+          <IsolatedInput
+            value={query}
+            onChange={setQuery}
+            onSubmit={handleSubmit}
+            placeholder="Escribe tu pregunta aquí... (Enter para enviar)"
+            disabled={isLoading}
+            isLightMode={isLightMode}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={isLoading || !query.trim()}
             style={{
               padding: '12px 24px',
               fontSize: '16px',
@@ -153,7 +212,6 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
             )}
           </button>
         </div>
-      </form>
 
       {/* Sugerencias rápidas */}
       {!response && !error && (
