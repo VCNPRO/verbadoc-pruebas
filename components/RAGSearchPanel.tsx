@@ -26,7 +26,7 @@ interface Props {
   setQuery: (q: string) => void;
 }
 
-// Componente de input aislado con Shadow DOM - inmune a extensiones
+// Input en iframe aislado - contexto de navegación separado
 const IsolatedInput: React.FC<{
   value: string;
   onChange: (val: string) => void;
@@ -35,102 +35,122 @@ const IsolatedInput: React.FC<{
   disabled: boolean;
   isLightMode: boolean;
 }> = ({ value, onChange, onSubmit, placeholder, disabled, isLightMode }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const shadowRef = useRef<ShadowRoot | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const callbacksRef = useRef({ onChange, onSubmit });
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const isInitialized = useRef(false);
 
-  // Mantener callbacks actualizados sin recrear el DOM
-  callbacksRef.current = { onChange, onSubmit };
+  const bgColor = isLightMode ? '#ffffff' : '#1e293b';
+  const textColor = isLightMode ? '#1e293b' : '#e2e8f0';
+  const borderColor = isLightMode ? '#e2e8f0' : '#475569';
+  const placeholderColor = isLightMode ? '#94a3b8' : '#64748b';
 
-  // Crear Shadow DOM solo una vez
+  const iframeContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          margin: 0;
+          padding: 0;
+          background: transparent;
+        }
+        textarea {
+          width: 100%;
+          height: 80px;
+          padding: 12px 16px;
+          font-size: 16px;
+          line-height: 1.5;
+          font-family: system-ui, -apple-system, sans-serif;
+          background: ${bgColor};
+          color: ${textColor};
+          border: 2px solid ${borderColor};
+          border-radius: 8px;
+          resize: none;
+          outline: none;
+        }
+        textarea:focus { border-color: #10b981; }
+        textarea::placeholder { color: ${placeholderColor}; }
+        textarea:disabled { opacity: 0.6; }
+      </style>
+    </head>
+    <body>
+      <textarea
+        id="input"
+        placeholder="${placeholder}"
+        ${disabled ? 'disabled' : ''}
+      ></textarea>
+      <script>
+        const textarea = document.getElementById('input');
+        textarea.addEventListener('input', () => {
+          window.parent.postMessage({ type: 'input', value: textarea.value }, '*');
+        });
+        textarea.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            window.parent.postMessage({ type: 'submit' }, '*');
+          }
+        });
+        window.addEventListener('message', (e) => {
+          if (e.data.type === 'setValue') {
+            textarea.value = e.data.value;
+          }
+          if (e.data.type === 'setDisabled') {
+            textarea.disabled = e.data.disabled;
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `;
+
+  // Escuchar mensajes del iframe
   useEffect(() => {
-    if (!containerRef.current || shadowRef.current) return;
+    const handleMessage = (e: MessageEvent) => {
+      if (e.data.type === 'input') {
+        onChange(e.data.value);
+      }
+      if (e.data.type === 'submit') {
+        onSubmit();
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [onChange, onSubmit]);
 
-    const shadow = containerRef.current.attachShadow({ mode: 'closed' });
-    shadowRef.current = shadow;
-
-    // Crear estilos
-    const style = document.createElement('style');
-    style.textContent = `
-      textarea {
-        width: 100%;
-        min-height: 80px;
-        padding: 12px 16px;
-        font-size: 16px;
-        line-height: 1.5;
-        font-family: system-ui, -apple-system, sans-serif;
-        border: 2px solid #475569;
-        border-radius: 8px;
-        resize: none;
-        outline: none;
-        box-sizing: border-box;
-        background: #1e293b;
-        color: #e2e8f0;
-      }
-      textarea:focus {
-        border-color: #10b981;
-      }
-      textarea::placeholder {
-        color: #64748b;
-      }
-      textarea:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-      textarea.light {
-        background: #ffffff;
-        color: #1e293b;
-        border-color: #e2e8f0;
-      }
-      textarea.light::placeholder {
-        color: #94a3b8;
-      }
-    `;
-    shadow.appendChild(style);
-
-    // Crear textarea
-    const textarea = document.createElement('textarea');
-    textarea.placeholder = placeholder;
-    textarea.className = isLightMode ? 'light' : '';
-    shadow.appendChild(textarea);
-    textareaRef.current = textarea;
-
-    // Event listeners con refs para evitar recreación
-    textarea.addEventListener('input', () => {
-      callbacksRef.current.onChange(textarea.value);
-    });
-
-    textarea.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        callbacksRef.current.onSubmit();
-      }
-    });
-  }, []);
-
-  // Actualizar clase de tema
+  // Sincronizar valor con el iframe
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.className = isLightMode ? 'light' : '';
-    }
-  }, [isLightMode]);
-
-  // Actualizar disabled
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.disabled = disabled;
-    }
-  }, [disabled]);
-
-  // Sincronizar valor solo cuando cambia externamente (ej: sugerencias)
-  useEffect(() => {
-    if (textareaRef.current && textareaRef.current.value !== value) {
-      textareaRef.current.value = value;
+    if (iframeRef.current?.contentWindow && isInitialized.current) {
+      iframeRef.current.contentWindow.postMessage({ type: 'setValue', value }, '*');
     }
   }, [value]);
 
-  return <div ref={containerRef} style={{ width: '100%' }} />;
+  // Sincronizar disabled
+  useEffect(() => {
+    if (iframeRef.current?.contentWindow && isInitialized.current) {
+      iframeRef.current.contentWindow.postMessage({ type: 'setDisabled', disabled }, '*');
+    }
+  }, [disabled]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      srcDoc={iframeContent}
+      onLoad={() => {
+        isInitialized.current = true;
+        if (value) {
+          iframeRef.current?.contentWindow?.postMessage({ type: 'setValue', value }, '*');
+        }
+      }}
+      style={{
+        width: '100%',
+        height: '84px',
+        border: 'none',
+        borderRadius: '8px',
+        background: 'transparent',
+      }}
+      sandbox="allow-scripts"
+    />
+  );
 };
 
 export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }) => {
