@@ -181,56 +181,16 @@ const convertSchemaToVertexAI = (schema: SchemaField[]): VertexAISchema => {
     };
 };
 
-// Post-procesamiento: convierte null/undefined a "NC"
-// Excepción: valoracion_7_x depende de modalidad
-// Lista de TODOS los campos FUNDAE que siempre deben estar presentes
-const FUNDAE_REQUIRED_FIELDS = [
-    'numero_expediente', 'perfil', 'cif_empresa', 'numero_accion', 'numero_grupo',
-    'denominacion_aaff', 'modalidad', 'edad', 'sexo', 'titulacion', 'titulacion_codigo',
-    'lugar_trabajo', 'categoria_profesional', 'categoria_profesional_otra',
-    'horario_curso', 'porcentaje_jornada', 'tamano_empresa',
-    'valoracion_1_1', 'valoracion_1_2', 'valoracion_2_1', 'valoracion_2_2',
-    'valoracion_3_1', 'valoracion_3_2',
-    'valoracion_4_1_formadores', 'valoracion_4_1_tutores',
-    'valoracion_4_2_formadores', 'valoracion_4_2_tutores',
-    'valoracion_5_1', 'valoracion_5_2', 'valoracion_6_1', 'valoracion_6_2',
-    'valoracion_7_1', 'valoracion_7_2',
-    'valoracion_8_1', 'valoracion_8_2',
-    'valoracion_9_1', 'valoracion_9_2', 'valoracion_9_3', 'valoracion_9_4', 'valoracion_9_5',
-    'valoracion_10', 'recomendaria_curso', 'sugerencias', 'fecha_cumplimentacion',
-    'registro_entrada'
-];
-
+// Post-procesamiento genérico: limpia valores nulos
+// MODO GENÉRICO: No fuerza campos específicos
 const postProcessExtraction = (data: any): any => {
     const result = { ...data };
 
-    // Asegurar que TODOS los campos FUNDAE estén presentes (rellenar faltantes con NC)
-    for (const field of FUNDAE_REQUIRED_FIELDS) {
-        if (!(field in result)) {
-            result[field] = 'NC';
-        }
-    }
-
-    // Determinar valor para valoracion_7_x basado en modalidad
-    const modalidad = result.modalidad?.toLowerCase() || '';
-    const esPresencial = modalidad.includes('presencial') && !modalidad.includes('mixta');
-
+    // Limpiar valores nulos/undefined pero NO añadir campos faltantes
     for (const key of Object.keys(result)) {
-        // Si el valor es null, undefined, o string vacío
-        if (result[key] === null || result[key] === undefined || result[key] === '') {
-            // Caso especial: valoracion_7_x
-            if (key === 'valoracion_7_1' || key === 'valoracion_7_2') {
-                result[key] = esPresencial ? 'NA' : 'NC';
-            } else {
-                result[key] = 'NC';
-            }
+        if (result[key] === null || result[key] === undefined) {
+            result[key] = '';
         }
-    }
-
-    // Asegurar que valoracion_7_x sea NA si es presencial (incluso si tiene valor)
-    if (esPresencial) {
-        result.valoracion_7_1 = 'NA';
-        result.valoracion_7_2 = 'NA';
     }
 
     return result;
@@ -252,25 +212,26 @@ export interface ModelInfo {
 
 export const AVAILABLE_MODELS: ModelInfo[] = [
     {
-        id: 'gemini-3-flash-preview',
-        name: 'Gemini 3 Pro',
-        description: 'Modelo más preciso para formularios FUNDAE (5/5 en tests)',
-        bestFor: 'FUNDAE, checkboxes, formularios manuscritos',
-        costPerDoc: '~$0.01/doc (recomendado)'
-    },
-    {
         id: 'gemini-2.5-flash',
-        name: 'Estándar',
-        description: 'Modelo estable y probado',
-        bestFor: 'Uso general, facturas, contratos, informes',
+        name: 'Estándar (Recomendado)',
+        description: 'Modelo estable y probado - mejor relación calidad/precio',
+        bestFor: 'Uso general, facturas, contratos, formularios',
         costPerDoc: '~$0.0016/doc'
     },
     {
         id: 'gemini-2.5-pro',
         name: 'Avanzado',
-        description: 'Modelo avanzado',
-        bestFor: 'Documentos complejos, múltiples tablas',
+        description: 'Modelo avanzado para documentos complejos',
+        bestFor: 'Documentos complejos, múltiples tablas, análisis detallado',
         costPerDoc: '~$0.008/doc'
+    },
+    {
+        id: 'gemini-3-flash-preview',
+        name: 'Experimental',
+        description: 'Modelo experimental (desactivado por coste)',
+        bestFor: 'Testing solo - muy caro para producción',
+        costPerDoc: '~$0.01/doc',
+        experimental: true
     }
 ];
 

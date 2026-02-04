@@ -7,7 +7,7 @@ import { ExtractionEditor } from './components/ExtractionEditor.tsx';
 // Fix: Use explicit file extension in import.
 import { HistoryViewer } from './components/HistoryViewer.tsx';
 // Fix: Use explicit file extension in import.
-import { TemplatesPanel } from './components/TemplatesPanel.tsx';
+// TemplatesPanel eliminado - modo genérico
 // Fix: Use explicit file extension in import.
 import { PdfViewer } from './components/PdfViewer.tsx';
 // Fix: Use explicit file extension in import.
@@ -43,12 +43,11 @@ import { ColumnMappingEditor } from './src/components/admin/ColumnMappingEditor.
 import MasterExcelPage from './src/components/MasterExcelPage.tsx';
 // ✅ Unprocessable Page (Documentos no procesables)
 import UnprocessablePage from './src/components/UnprocessablePage.tsx';
-// ✅ IDP Template Editor
-import TemplateEditorPage from './src/pages/TemplateEditorPage.tsx';
+// Template Editor eliminado - modo genérico
 // ✅ Servicio de sincronización
 import { SyncService } from './src/services/syncService.ts';
-// ✅ Plantilla FUNDAE por defecto
-import { FUNDAE_SCHEMA, FUNDAE_EXTRACTION_PROMPT } from './src/constants/fundae-template.ts';
+// ✅ Plantilla genérica por defecto (modo sin FUNDAE)
+import { GENERIC_SCHEMA, GENERIC_EXTRACTION_PROMPT } from './src/constants/generic-template.ts';
 
 import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
@@ -94,7 +93,6 @@ function AppContent() {
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
     const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
-    const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
     const [advancedConfigOpen, setAdvancedConfigOpen] = useState<boolean>(false);
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
@@ -161,8 +159,8 @@ function AppContent() {
     }, [files, history]);
 
     // State for the editor, which can be reused across different files
-    const [prompt, setPrompt] = useState<string>(FUNDAE_EXTRACTION_PROMPT);
-    const [schema, setSchema] = useState<SchemaField[]>(FUNDAE_SCHEMA);
+    const [prompt, setPrompt] = useState<string>(GENERIC_EXTRACTION_PROMPT);
+    const [schema, setSchema] = useState<SchemaField[]>(GENERIC_SCHEMA);
 
     // Obtener el tema basado en el departamento actual
     const currentTheme = useMemo(() => {
@@ -1509,21 +1507,7 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                             </button>
-                            {/* Modelo IA fijo: Gemini 3 Pro */}
-                            {/* Resultados, Revisar, Excel, No Proc → movidos al panel lateral */}
-                            {/* Botón Plantillas - cuadrado */}
-                            <button
-                                onClick={() => navigate('/templates')}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
-                                style={{
-                                    backgroundColor: isLightMode ? '#8b5cf6' : '#7c3aed',
-                                    borderColor: isLightMode ? '#7c3aed' : '#a78bfa',
-                                    color: '#ffffff'
-                                }}
-                                title="Editor de Plantillas de Extracción"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
-                            </button>
+                            {/* Modelo IA fijo: Gemini 2.5 Flash */}
                             {/* Botón Ayuda - cuadrado */}
                             <button
                                 onClick={() => setIsHelpModalOpen(true)}
@@ -1800,37 +1784,8 @@ function AppContent() {
                                             isLightMode={isLightMode}
                                         />
                                     </div>
-                                    {/* Plantillas y Asistente IA */}
+                                    {/* Asistente IA */}
                                     <div className="flex flex-col gap-3">
-                                        <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                                            <button
-                                                onClick={() => setTemplatesPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
-                                                style={{
-                                                    backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
-                                                    color: isLightMode ? '#334155' : '#cbd5e1',
-                                                }}
-                                            >
-                                                <span>Plantillas</span>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${templatesPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </button>
-                                            {templatesPanelOpen && (
-                                                <div className="p-2">
-                                                    <TemplatesPanel
-                                                        onSelectTemplate={handleSelectTemplate}
-                                                        currentSchema={schema}
-                                                        currentPrompt={prompt}
-                                                        onDepartamentoChange={handleDepartamentoChange}
-                                                        currentDepartamento={currentDepartamento}
-                                                        theme={currentTheme}
-                                                        isLightMode={isLightMode}
-                                                        user={user}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
                                         <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
                                             <button
                                                 onClick={() => setAiPanelOpen(prev => !prev)}
@@ -2056,8 +2011,6 @@ function AppContent() {
             <Route path="/master-excel" element={<MasterExcelPage />} />
             {/* ✅ Unprocessable - Ver documentos no procesables */}
             <Route path="/unprocessable" element={<UnprocessablePage />} />
-            {/* ✅ IDP Template Editor */}
-            <Route path="/templates" element={<TemplateEditorPage />} />
             {/* Admin Dashboard */}
             <Route
                 path="/admin"
