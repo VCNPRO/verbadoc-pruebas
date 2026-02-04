@@ -11,7 +11,7 @@
  * - Query history
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Search, FileText, Clock, Download, ChevronRight, Loader2, AlertCircle, CheckCircle, MessageSquare, X, History, Filter } from 'lucide-react';
 
 interface RAGSource {
@@ -65,22 +65,26 @@ export const RAGSearchPanel: React.FC<RAGSearchPanelProps> = ({
 
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const historyFetchedRef = useRef(false);
 
-  // Colors based on theme
-  const bgColor = isLightMode ? 'bg-white' : 'bg-slate-800';
-  const bgSecondary = isLightMode ? 'bg-gray-50' : 'bg-slate-900';
-  const textColor = isLightMode ? 'text-gray-900' : 'text-white';
-  const textMuted = isLightMode ? 'text-gray-500' : 'text-gray-400';
-  const borderColor = isLightMode ? 'border-gray-200' : 'border-slate-700';
-  const accentColor = 'text-cyan-500';
-  const accentBg = isLightMode ? 'bg-cyan-50' : 'bg-cyan-900/20';
+  // Colors based on theme - memoized to prevent unnecessary recalculations
+  const colors = useMemo(() => ({
+    bgColor: isLightMode ? 'bg-white' : 'bg-slate-800',
+    bgSecondary: isLightMode ? 'bg-gray-50' : 'bg-slate-900',
+    textColor: isLightMode ? 'text-gray-900' : 'text-white',
+    textMuted: isLightMode ? 'text-gray-500' : 'text-gray-400',
+    borderColor: isLightMode ? 'border-gray-200' : 'border-slate-700',
+    accentColor: 'text-cyan-500',
+    accentBg: isLightMode ? 'bg-cyan-50' : 'bg-cyan-900/20',
+  }), [isLightMode]);
 
-  // Fetch query history on mount
-  useEffect(() => {
-    fetchHistory();
-  }, []);
+  const { bgColor, bgSecondary, textColor, textMuted, borderColor, accentColor, accentBg } = colors;
 
-  const fetchHistory = async () => {
+  // Fetch query history on mount - only once
+  const fetchHistory = useCallback(async () => {
+    if (historyFetchedRef.current) return;
+    historyFetchedRef.current = true;
+
     try {
       const res = await fetch('/api/rag/ask?limit=20', {
         headers: {
@@ -95,9 +99,13 @@ export const RAGSearchPanel: React.FC<RAGSearchPanelProps> = ({
     } catch (err) {
       console.error('Error fetching history:', err);
     }
-  };
+  }, [authToken]);
 
-  const handleSearch = async () => {
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  const handleSearch = useCallback(async () => {
     if (!query.trim() || isSearching) return;
 
     setIsSearching(true);
@@ -126,7 +134,9 @@ export const RAGSearchPanel: React.FC<RAGSearchPanelProps> = ({
       }
 
       setResponse(data);
-      fetchHistory(); // Refresh history
+      // Reset history fetched flag to allow refresh
+      historyFetchedRef.current = false;
+      fetchHistory();
 
       // Scroll to results
       setTimeout(() => {
@@ -138,19 +148,23 @@ export const RAGSearchPanel: React.FC<RAGSearchPanelProps> = ({
     } finally {
       setIsSearching(false);
     }
-  };
+  }, [query, isSearching, authToken, filters.documentIds, fetchHistory]);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSearch();
     }
-  };
+  }, [handleSearch]);
 
-  const handleHistoryClick = (item: QueryHistoryItem) => {
+  const handleHistoryClick = useCallback((item: QueryHistoryItem) => {
     setQuery(item.query);
     setShowHistory(false);
-  };
+  }, []);
+
+  const handleQueryChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setQuery(e.target.value);
+  }, []);
 
   const exportResults = () => {
     if (!response) return;
@@ -290,11 +304,12 @@ Generado: ${new Date().toLocaleString('es-ES')}
               ref={inputRef}
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onChange={handleQueryChange}
+              onKeyDown={handleKeyPress}
               placeholder="Escribe tu pregunta sobre los documentos..."
               className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${borderColor} ${bgSecondary} ${textColor} focus:border-cyan-500 focus:outline-none transition-colors`}
               disabled={isSearching}
+              autoComplete="off"
             />
           </div>
           <button
