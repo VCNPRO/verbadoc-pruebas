@@ -1822,15 +1822,15 @@ function AppContent() {
                 {/* Panel RAG: Pregúntale al Documento - SIEMPRE VISIBLE */}
                 <div className="mt-4">
                     <div className="border-2 rounded-lg overflow-hidden shadow-lg" style={{
-                        borderColor: isLightMode ? '#8b5cf6' : '#7c3aed',
-                        backgroundColor: isLightMode ? '#faf5ff' : '#1e1b4b'
+                        borderColor: isLightMode ? '#10b981' : '#059669',
+                        backgroundColor: isLightMode ? '#ecfdf5' : '#064e3b'
                     }}>
                         <button
                             onClick={() => setRagPanelOpen(prev => !prev)}
                             className="w-full flex items-center justify-between px-4 py-3 text-base font-semibold transition-colors"
                             style={{
-                                backgroundColor: isLightMode ? '#f3e8ff' : '#2e1065',
-                                color: isLightMode ? '#7c3aed' : '#c4b5fd',
+                                backgroundColor: isLightMode ? '#d1fae5' : '#065f46',
+                                color: isLightMode ? '#047857' : '#6ee7b7',
                             }}
                         >
                             <div className="flex items-center gap-3">
@@ -1845,7 +1845,7 @@ function AppContent() {
                             </svg>
                         </button>
                         {ragPanelOpen && (
-                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0f0a1e' }}>
+                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0a2620' }}>
                                 <RAGSearchPanel isLightMode={isLightMode} />
                             </div>
                         )}
