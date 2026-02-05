@@ -2220,7 +2220,7 @@ function AppContent() {
                 <Route path="/review" element={<ReviewListPage isDarkMode={isDarkMode} />} />
                 <Route path="/review/:id" element={<ReviewPanel isDarkMode={isDarkMode} />} />
                 <Route path="/master-excel" element={<MasterExcelPage isDarkMode={isDarkMode} />} />
-                <Route path="/unprocessable" element={<UnprocessablePage />} />
+                <Route path="/unprocessable" element={<UnprocessablePage isDarkMode={isDarkMode} />} />
                 <Route path="/guia" element={<UserGuidePage isDarkMode={isDarkMode} />} />
                 <Route path="/pricing" element={<PricingPage isDarkMode={isDarkMode} />} />
                 {/* Cualquier otra ruta redirige al inicio */}
@@ -2273,7 +2273,7 @@ function AppContent() {
             {/* ✅ Master Excel - Ver todos los formularios procesados */}
             <Route path="/master-excel" element={<MasterExcelPage isDarkMode={isDarkMode} />} />
             {/* ✅ Unprocessable - Ver documentos no procesables */}
-            <Route path="/unprocessable" element={<UnprocessablePage />} />
+            <Route path="/unprocessable" element={<UnprocessablePage isDarkMode={isDarkMode} />} />
             {/* ✅ Nuevas rutas */}
             <Route path="/rag" element={<BibliotecaPage />} />
             <Route path="/guia" element={<UserGuidePage isDarkMode={isDarkMode} />} />

@@ -81,7 +81,7 @@ const CATEGORY_LABELS: Record<string, { text: string; color: string; icon: strin
   }
 };
 
-export default function UnprocessablePage() {
+export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?: boolean }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [documents, setDocuments] = useState<UnprocessableDocument[]>([]);
@@ -96,6 +96,16 @@ export default function UnprocessablePage() {
   // Ordenación
   const [sortField, setSortField] = useState<'filename' | 'created_at'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Theme variables for dark mode
+  const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
+  const bgSecondary = isDarkMode ? 'bg-[#1e293b]' : 'bg-[#e8edf2]';
+  const textPrimary = isDarkMode ? 'text-white' : 'text-[#1e293b]';
+  const textSecondary = isDarkMode ? 'text-slate-400' : 'text-[#475569]';
+  const border = isDarkMode ? 'border-slate-700' : 'border-[#cbd5e1]';
+  const bgCard = isDarkMode ? 'bg-[#1e293b]' : 'bg-white';
+  const hoverRow = isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]';
+  const bgInput = isDarkMode ? 'bg-[#0f172a] text-white border-slate-600' : 'bg-white border-gray-300';
 
   // Función para cambiar ordenación
   const handleSort = (field: 'filename' | 'created_at') => {
@@ -400,16 +410,16 @@ export default function UnprocessablePage() {
     : documents.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${bgPrimary}`}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className={`${bgCard} border-b ${border}`}>
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className={`text-2xl font-bold ${textPrimary}`}>
                 Documentos PDF
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className={`${textSecondary} mt-1`}>
                 Documentos PDF del cliente
               </p>
             </div>
@@ -417,7 +427,7 @@ export default function UnprocessablePage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate('/')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className={`px-4 py-2 ${textSecondary} hover:${textPrimary} border ${border} rounded-lg ${hoverRow}`}
               >
                 ← Volver al inicio
               </button>
@@ -470,16 +480,16 @@ export default function UnprocessablePage() {
 
       {/* Filtros */}
       <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4">
+        <div className={`${bgCard} border ${border} rounded-lg p-4 flex gap-4`}>
           {/* Filtro por categoría */}
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
               Categoría
             </label>
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className={`w-full px-3 py-2 rounded-md ${bgInput}`}
             >
               <option value="all">Todas</option>
               {Object.entries(CATEGORY_LABELS).map(([key, config]) => (
@@ -492,7 +502,7 @@ export default function UnprocessablePage() {
 
           {/* Búsqueda */}
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
               Buscar
             </label>
             <input
@@ -501,7 +511,7 @@ export default function UnprocessablePage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && loadData()}
               placeholder="Nombre archivo, expediente..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className={`w-full px-3 py-2 rounded-md ${bgInput}`}
             />
           </div>
 
@@ -527,7 +537,7 @@ export default function UnprocessablePage() {
 
       {/* Tabla */}
       <div className="max-w-7xl mx-auto px-6 pb-8">
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className={`${bgCard} border ${border} rounded-lg overflow-hidden`}>
           
           {/* Barra de acciones en bloque */}
           {selectedIds.size > 0 && (
@@ -579,20 +589,20 @@ export default function UnprocessablePage() {
           {loading ? (
             <div className="p-12 text-center">
               <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className="text-gray-600">Cargando documentos...</p>
+              <p className={`${textSecondary}`}>Cargando documentos...</p>
             </div>
           ) : documents.length === 0 ? (
             <div className="p-12 text-center">
               <div className="text-6xl mb-4">✅</div>
-              <p className="text-gray-600 text-lg">No hay documentos no procesables</p>
-              <p className="text-gray-500 text-sm mt-2">
+              <p className={`${textSecondary} text-lg`}>No hay documentos no procesables</p>
+              <p className={`${textSecondary} text-sm mt-2`}>
                 Todos los documentos han sido procesados correctamente
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className={`${bgSecondary} border-b ${border}`}>
                   <tr>
                     <th className="px-4 py-3 text-left">
                       <input
@@ -603,22 +613,22 @@ export default function UnprocessablePage() {
                       />
                     </th>
                     <th
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase cursor-pointer ${hoverRow} select-none`}
                       onClick={() => handleSort('filename')}
                     >
                       Archivo {sortField === 'filename' && (sortDirection === 'asc' ? '▲' : '▼')}
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expediente</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acción</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Grupo</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Categoría</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Expediente</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Acción</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Grupo</th>
                     <th
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase cursor-pointer ${hoverRow} select-none`}
                       onClick={() => handleSort('created_at')}
                     >
                       Fecha {sortField === 'created_at' && (sortDirection === 'asc' ? '▲' : '▼')}
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -626,7 +636,7 @@ export default function UnprocessablePage() {
                     const isSelected = selectedIds.has(doc.id);
                     const isDownloaded = downloadedIds.has(doc.id);
                     return (
-                      <tr key={doc.id} className={`border-b border-gray-100 hover:bg-gray-50 ${isSelected ? 'bg-indigo-50' : ''}`}>
+                      <tr key={doc.id} className={`border-b ${border} ${hoverRow} ${isSelected ? 'bg-indigo-50' : ''}`}>
                         <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="checkbox"
@@ -635,7 +645,7 @@ export default function UnprocessablePage() {
                             className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
                           />
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
+                        <td className={`px-4 py-3 text-sm ${textPrimary}`}>
                           <div className="max-w-xs truncate" title={doc.filename}>
                             {doc.filename}
                           </div>
@@ -643,16 +653,16 @@ export default function UnprocessablePage() {
                         <td className="px-4 py-3">
                           {getCategoryBadge(doc.rejection_category)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className={`px-4 py-3 text-sm ${textSecondary}`}>
                           {doc.numero_expediente || '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className={`px-4 py-3 text-sm ${textSecondary}`}>
                           {doc.numero_accion || '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className={`px-4 py-3 text-sm ${textSecondary}`}>
                           {doc.numero_grupo || '-'}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
+                        <td className={`px-4 py-3 text-sm ${textSecondary}`}>
                           {new Date(doc.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="px-4 py-3">
@@ -689,12 +699,12 @@ export default function UnprocessablePage() {
       {/* Modal de detalles con visor de PDF */}
       {selectedDoc && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+          <div className={`${isDarkMode ? 'bg-[#1e293b]' : 'bg-white'} rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col`}>
             {/* Header del modal */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between shrink-0">
+            <div className={`p-4 border-b ${border} flex items-center justify-between shrink-0`}>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Detalles del Documento</h2>
-                <p className="text-sm text-gray-500 mt-1">{selectedDoc.filename}</p>
+                <h2 className={`text-xl font-bold ${textPrimary}`}>Detalles del Documento</h2>
+                <p className={`text-sm ${textSecondary} mt-1`}>{selectedDoc.filename}</p>
               </div>
               <button
                 onClick={() => setSelectedDoc(null)}
@@ -707,8 +717,8 @@ export default function UnprocessablePage() {
             {/* Contenido principal - Layout lado a lado */}
             <div className="flex-1 overflow-hidden flex">
               {/* Panel izquierdo: Visor PDF */}
-              <div className="w-1/2 border-r border-gray-200 bg-gray-100 flex flex-col">
-                <div className="p-2 bg-gray-50 border-b border-gray-200 text-sm font-medium text-gray-600 flex items-center gap-2">
+              <div className={`w-1/2 border-r ${border} ${bgSecondary} flex flex-col`}>
+                <div className={`p-2 ${bgSecondary} border-b ${border} text-sm font-medium ${textSecondary} flex items-center gap-2`}>
                   <span>📄</span> Vista previa del PDF
                 </div>
                 <div className="flex-1 overflow-hidden">
@@ -738,42 +748,42 @@ export default function UnprocessablePage() {
               <div className="w-1/2 overflow-auto p-4">
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Categoría:</label>
+                    <label className={`text-sm font-medium ${textSecondary}`}>Categoría:</label>
                     <div className="mt-1">{getCategoryBadge(selectedDoc.rejection_category)}</div>
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Motivo del rechazo:</label>
-                    <p className="text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 mt-1 text-sm">
+                    <label className={`text-sm font-medium ${textSecondary}`}>Motivo del rechazo:</label>
+                    <p className={`${textPrimary} ${bgSecondary} p-3 rounded border ${border} mt-1 text-sm`}>
                       {selectedDoc.rejection_reason}
                     </p>
                   </div>
 
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Expediente:</label>
-                      <p className="text-gray-900 text-sm">{selectedDoc.numero_expediente || 'N/A'}</p>
+                      <label className={`text-sm font-medium ${textSecondary}`}>Expediente:</label>
+                      <p className={`${textPrimary} text-sm`}>{selectedDoc.numero_expediente || 'N/A'}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Acción:</label>
-                      <p className="text-gray-900 text-sm">{selectedDoc.numero_accion || 'N/A'}</p>
+                      <label className={`text-sm font-medium ${textSecondary}`}>Acción:</label>
+                      <p className={`${textPrimary} text-sm`}>{selectedDoc.numero_accion || 'N/A'}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Grupo:</label>
-                      <p className="text-gray-900 text-sm">{selectedDoc.numero_grupo || 'N/A'}</p>
+                      <label className={`text-sm font-medium ${textSecondary}`}>Grupo:</label>
+                      <p className={`${textPrimary} text-sm`}>{selectedDoc.numero_grupo || 'N/A'}</p>
                     </div>
                   </div>
 
                   {selectedDoc.extracted_data && Object.keys(selectedDoc.extracted_data).length > 0 && (
                     <div>
-                      <label className="text-sm font-medium text-gray-500">Datos extraídos:</label>
-                      <pre className="text-xs text-gray-900 bg-gray-50 p-3 rounded border border-gray-200 mt-1 overflow-auto max-h-48">
+                      <label className={`text-sm font-medium ${textSecondary}`}>Datos extraídos:</label>
+                      <pre className={`text-xs ${textPrimary} ${bgSecondary} p-3 rounded border ${border} mt-1 overflow-auto max-h-48`}>
                         {JSON.stringify(selectedDoc.extracted_data, null, 2)}
                       </pre>
                     </div>
                   )}
 
-                  <div className="text-sm text-gray-500">
+                  <div className={`text-sm ${textSecondary}`}>
                     Fecha: {new Date(selectedDoc.created_at).toLocaleString('es-ES')}
                   </div>
                 </div>
@@ -781,7 +791,7 @@ export default function UnprocessablePage() {
             </div>
 
             {/* Footer con acciones */}
-            <div className="p-4 border-t border-gray-200 flex justify-between items-center shrink-0 bg-gray-50">
+            <div className={`p-4 border-t ${border} flex justify-between items-center shrink-0 ${bgSecondary}`}>
               <div className="text-sm text-gray-500">
                 {selectedDoc.pdf_blob_url && (
                   <a
@@ -800,7 +810,7 @@ export default function UnprocessablePage() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setSelectedDoc(null)}
-                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+                  className={`px-4 py-2 ${isDarkMode ? 'bg-slate-600 text-white hover:bg-slate-500' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} rounded-lg`}
                 >
                   Cerrar
                 </button>
