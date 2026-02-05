@@ -566,6 +566,12 @@ function AppContent() {
                     new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
                 );
 
+                // Detectar nombre de carpeta si viene de subida de carpeta
+                const relativePath = (file.file as any).webkitRelativePath || '';
+                const folderName = relativePath.includes('/')
+                    ? relativePath.split('/')[0]
+                    : undefined;
+
                 // Llamar al endpoint de ingesta
                 const response = await fetch('/api/rag/upload-and-ingest', {
                     method: 'POST',
@@ -575,7 +581,8 @@ function AppContent() {
                         filename: file.file.name,
                         fileBase64: base64,
                         fileType: file.file.type || 'application/pdf',
-                        fileSizeBytes: file.file.size
+                        fileSizeBytes: file.file.size,
+                        folderName
                     })
                 });
 

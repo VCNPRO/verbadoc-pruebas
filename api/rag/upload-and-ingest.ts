@@ -3,11 +3,14 @@
  * api/rag/upload-and-ingest.ts
  *
  * Endpoint simplificado para:
- * 1. Guardar documento en BD (sin extracción de campos)
- * 2. Ingestar automáticamente al sistema RAG
+ * 1. Guardar documento en BD (sin extraccion de campos)
+ * 2. Ingestar automaticamente al sistema RAG
+ *
+ * Soporta PDFs, imagenes (JPEG, PNG, TIFF) y texto.
+ * Para imagenes: analisis visual + OCR combinados.
  *
  * POST /api/rag/upload-and-ingest
- * Body: { filename, fileBase64, fileType, fileSizeBytes }
+ * Body: { filename, fileBase64, fileType, fileSizeBytes, folderId?, folderName? }
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
@@ -28,13 +31,33 @@ function verifyAuth(req: VercelRequest): { userId: string; role: string } | null
   }
 }
 
-// Extraer texto de PDF usando una llamada simple a Gemini
-async function extractTextFromPdf(base64Data: string, mimeType: string): Promise<string> {
+// Tipos de imagen soportados
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 'image/webp', 'image/gif', 'image/bmp'];
+
+function isImageMimeType(mimeType: string): boolean {
+  return IMAGE_MIME_TYPES.includes(mimeType.toLowerCase());
+}
+
+// Extraer contenido de un archivo usando Gemini (PDFs e imagenes)
+async function extractContent(base64Data: string, mimeType: string): Promise<string> {
   const { GoogleGenAI } = await import('@google/genai');
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) throw new Error('API key no configurada');
 
   const client = new GoogleGenAI({ apiKey });
+
+  // Prompt diferente segun tipo de archivo
+  const isImage = isImageMimeType(mimeType);
+
+  const prompt = isImage
+    ? `Analiza esta imagen en detalle. Realiza las dos tareas siguientes y devuelve el resultado como texto plano continuo:
+
+1. DESCRIPCION VISUAL: Describe detalladamente todo lo que ves en la imagen: personas (edad aproximada, vestimenta, posicion), objetos, entorno, colores, epoca estimada, estado de la imagen, y cualquier elemento relevante.
+
+2. TEXTO VISIBLE (OCR): Si hay texto visible en la imagen (carteles, documentos, inscripciones, fechas, nombres, pies de foto, sellos, etiquetas), transcribelo literalmente.
+
+Combina ambas partes en un texto continuo y descriptivo. No uses listas ni formato markdown. Escribe en espanol.`
+    : 'Extrae TODO el texto de este documento. Devuelve solo el texto plano, sin formateo ni comentarios adicionales.';
 
   const result = await client.models.generateContent({
     model: 'gemini-2.0-flash',
@@ -42,7 +65,7 @@ async function extractTextFromPdf(base64Data: string, mimeType: string): Promise
       {
         parts: [
           { inlineData: { mimeType, data: base64Data } },
-          { text: 'Extrae TODO el texto de este documento. Devuelve solo el texto plano, sin formateo ni comentarios adicionales.' }
+          { text: prompt }
         ]
       }
     ]
@@ -136,22 +159,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const documentId = docResult.rows[0].id;
     console.log(`✅ [RAG Upload] Documento guardado: ${documentId}`);
 
-    // 3. Extraer texto del PDF
-    console.log(`📝 [RAG Upload] Extrayendo texto...`);
-    const extractedText = await extractTextFromPdf(fileBase64, fileType || 'application/pdf');
+    // 3. Extraer contenido (texto para PDFs, descripcion visual + OCR para imagenes)
+    const isImage = isImageMimeType(fileType || '');
+    console.log(`[RAG Upload] Extrayendo contenido (${isImage ? 'imagen' : 'documento'})...`);
+    const extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
 
     if (!extractedText || extractedText.trim().length < 10) {
-      console.warn(`⚠️ [RAG Upload] Poco texto extraído de ${filename}`);
+      console.warn(`[RAG Upload] Poco contenido extraido de ${filename} (${extractedText?.length || 0} chars)`);
     }
 
     // 4. Ingestar al sistema RAG
-    console.log(`🔄 [RAG Upload] Ingesta en curso...`);
+    console.log(`[RAG Upload] Ingesta en curso...`);
     const ingestResult = await ingestDocument(
       documentId,
       filename,
       extractedText,
       auth.userId,
-      { originalUrl: blob.url, fileType }
+      { originalUrl: blob.url, fileType, isImage }
     );
 
     console.log(`✅ [RAG Upload] Ingesta completada: ${ingestResult.chunksCreated} chunks`);
