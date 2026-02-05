@@ -135,6 +135,28 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
         >
           {isLoading ? '⏳ Buscando...' : '🔍 Buscar'}
         </button>
+        {(query || response || error) && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery('');
+              setResponse(null);
+              setError(null);
+            }}
+            style={{
+              padding: '12px 16px',
+              fontSize: '16px',
+              backgroundColor: 'transparent',
+              color: textMuted,
+              border: `1px solid ${borderColor}`,
+              borderRadius: '8px',
+              cursor: 'pointer',
+            }}
+            title="Limpiar"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {/* Sugerencias */}
