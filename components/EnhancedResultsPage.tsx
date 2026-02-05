@@ -63,6 +63,11 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
     const [ragNewFolderName, setRagNewFolderName] = useState('');
     const [ragIngesting, setRagIngesting] = useState(false);
 
+    // Estados RAG - Edicion de descripcion
+    const [ragEditDescription, setRagEditDescription] = useState<string>('');
+    const [ragEditMode, setRagEditMode] = useState(false);
+    const [ragSaving, setRagSaving] = useState(false);
+
     // Seleccionar primer resultado automáticamente
     useEffect(() => {
         if (results.length > 0 && !selectedResult) {
@@ -89,6 +94,58 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
     const handleOpenRagIngest = () => {
         loadRagFolders();
         setShowRagIngest(true);
+    };
+
+    // Detectar si el resultado seleccionado es un documento RAG
+    const isRagDocument = selectedResult?.extractedData && (selectedResult.extractedData as any)?._ragDocument === true;
+    const ragDescription = isRagDocument ? (selectedResult!.extractedData as any)?.description || '' : '';
+    const ragIsImage = isRagDocument ? (selectedResult!.extractedData as any)?.isImage === true : false;
+    const ragBlobUrl = isRagDocument ? (selectedResult!.extractedData as any)?.blobUrl || '' : '';
+
+    // Cargar descripcion cuando cambia el resultado seleccionado
+    useEffect(() => {
+        if (isRagDocument) {
+            setRagEditDescription(ragDescription);
+            setRagEditMode(false);
+        }
+    }, [selectedResult?.id]);
+
+    // Guardar descripcion editada y re-ingestar
+    const handleSaveRagDescription = async () => {
+        if (!selectedResult || !ragEditDescription.trim()) return;
+        setRagSaving(true);
+
+        try {
+            const response = await fetch('/api/rag/update-description', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    documentId: selectedResult.id,
+                    description: ragEditDescription.trim()
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Actualizar el resultado local
+                const updatedData = {
+                    ...(selectedResult.extractedData as any),
+                    description: ragEditDescription.trim()
+                };
+                setSelectedResult({ ...selectedResult, extractedData: updatedData });
+                setRagEditMode(false);
+                alert(`Descripcion actualizada y re-ingestada (${data.ingestion?.chunksCreated || 0} chunks)`);
+            } else {
+                alert(data.error || 'Error al guardar');
+            }
+        } catch (error) {
+            console.error('Error saving RAG description:', error);
+            alert('Error al guardar la descripcion');
+        } finally {
+            setRagSaving(false);
+        }
     };
 
     const handleRagIngest = async () => {
@@ -630,7 +687,9 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                     <div className="flex-1 min-w-0">
                                         <div className="flex items-center gap-1 mb-0.5">
                                             <span className="text-sm">
-                                                {result.type === 'extraction' ? '📊' : '📄'}
+                                                {(result.extractedData as any)?._ragDocument
+                                                    ? ((result.extractedData as any)?.isImage ? '🖼️' : '📚')
+                                                    : (result.type === 'extraction' ? '📊' : '📄')}
                                             </span>
                                             <span className="text-xs font-medium truncate" style={{ color: textColor }}>
                                                 {result.fileName}
@@ -761,10 +820,10 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                             <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                     <h3 className="text-lg font-bold flex items-center gap-2 mb-1" style={{ color: textColor }}>
-                                        {selectedResult.type === 'extraction' ? '📊' : '📄'} {selectedResult.fileName}
+                                        {isRagDocument ? (ragIsImage ? '🖼️' : '📚') : (selectedResult.type === 'extraction' ? '📊' : '📄')} {selectedResult.fileName}
                                     </h3>
                                     <p className="text-sm" style={{ color: textSecondary }}>
-                                        {selectedResult.type === 'extraction' ? 'Extracción de Datos' : 'Transcripción de Texto'} • {new Date(selectedResult.timestamp).toLocaleString()}
+                                        {isRagDocument ? 'Documento RAG' : (selectedResult.type === 'extraction' ? 'Extraccion de Datos' : 'Transcripcion de Texto')} • {new Date(selectedResult.timestamp).toLocaleString()}
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
@@ -794,6 +853,119 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                         <div className="flex-1 overflow-y-auto p-4 space-y-4">
                             {/* Chat: Pregúntale al Documento (para ambos tipos) */}
                             <DocumentChat result={selectedResult} isLightMode={isLightMode} />
+
+                            {/* VISTA PARA DOCUMENTOS RAG (fotos, PDFs ingestados) */}
+                            {isRagDocument && (
+                                <>
+                                    {/* Preview de imagen si es foto */}
+                                    {ragIsImage && ragBlobUrl && (
+                                        <div className="p-4 rounded-lg border" style={{ backgroundColor: isLightMode ? '#f0f9ff' : 'rgba(30, 41, 59, 0.8)', borderColor: borderColor }}>
+                                            <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: textColor }}>
+                                                Imagen Original
+                                            </h4>
+                                            <div className="flex justify-center">
+                                                <img
+                                                    src={ragBlobUrl}
+                                                    alt={selectedResult?.fileName || 'Imagen'}
+                                                    className="max-h-64 rounded-lg border object-contain"
+                                                    style={{ borderColor: borderColor }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Preview de PDF si no es imagen */}
+                                    {!ragIsImage && ragBlobUrl && (
+                                        <div className="p-4 rounded-lg border" style={{ backgroundColor: isLightMode ? '#f0f9ff' : 'rgba(30, 41, 59, 0.8)', borderColor: borderColor }}>
+                                            <h4 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: textColor }}>
+                                                Documento Original
+                                            </h4>
+                                            <a
+                                                href={ragBlobUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+                                                style={{ backgroundColor: accentColor, color: '#ffffff' }}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                                </svg>
+                                                Ver PDF original
+                                            </a>
+                                        </div>
+                                    )}
+
+                                    {/* Descripcion generada por IA (editable) */}
+                                    <div className="p-4 rounded-lg border" style={{ backgroundColor: isLightMode ? '#f9fafb' : 'rgba(15, 23, 42, 0.5)', borderColor: borderColor }}>
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: textColor }}>
+                                                {ragIsImage ? 'Descripcion Visual + OCR (IA)' : 'Texto Extraido (IA)'}
+                                            </h4>
+                                            <div className="flex gap-2">
+                                                {!ragEditMode ? (
+                                                    <button
+                                                        onClick={() => { setRagEditDescription(ragDescription); setRagEditMode(true); }}
+                                                        className="px-3 py-1.5 rounded text-xs font-medium transition-all hover:opacity-90 border"
+                                                        style={{ borderColor: borderColor, color: accentColor }}
+                                                    >
+                                                        Editar
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            onClick={() => { setRagEditMode(false); setRagEditDescription(ragDescription); }}
+                                                            className="px-3 py-1.5 rounded text-xs font-medium transition-all hover:opacity-80 border"
+                                                            style={{ borderColor: borderColor, color: textSecondary }}
+                                                        >
+                                                            Cancelar
+                                                        </button>
+                                                        <button
+                                                            onClick={handleSaveRagDescription}
+                                                            disabled={ragSaving || ragEditDescription.trim() === ragDescription}
+                                                            className="px-3 py-1.5 rounded text-xs font-medium text-white transition-all hover:opacity-90 disabled:opacity-50"
+                                                            style={{ backgroundColor: '#059669' }}
+                                                        >
+                                                            {ragSaving ? 'Guardando...' : 'Guardar y Re-ingestar'}
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {ragEditMode ? (
+                                            <textarea
+                                                value={ragEditDescription}
+                                                onChange={(e) => setRagEditDescription(e.target.value)}
+                                                className="w-full p-3 rounded-lg border text-sm resize-y"
+                                                style={{
+                                                    backgroundColor: isLightMode ? '#ffffff' : '#1e293b',
+                                                    borderColor: borderColor,
+                                                    color: textColor,
+                                                    minHeight: '200px'
+                                                }}
+                                            />
+                                        ) : (
+                                            <div
+                                                className="p-3 rounded-lg overflow-auto"
+                                                style={{
+                                                    backgroundColor: isLightMode ? '#ffffff' : 'rgba(30, 41, 59, 0.5)',
+                                                    maxHeight: '50vh'
+                                                }}
+                                            >
+                                                <pre className="whitespace-pre-wrap text-sm" style={{ color: isLightMode ? '#334155' : '#cbd5e1' }}>
+                                                    {ragDescription || '(Sin descripcion generada)'}
+                                                </pre>
+                                            </div>
+                                        )}
+
+                                        <p className="text-xs mt-2" style={{ color: textSecondary }}>
+                                            {ragIsImage
+                                                ? 'Descripcion visual y texto OCR generados automaticamente. Puedes corregirla y re-ingestar.'
+                                                : 'Texto extraido automaticamente. Puedes corregirlo y re-ingestar.'}
+                                        </p>
+                                    </div>
+                                </>
+                            )}
 
                             {/* VISTA PARA TRANSCRIPCIÓN */}
                             {selectedResult.type === 'transcription' && (
@@ -874,8 +1046,8 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                 </>
                             )}
 
-                            {/* VISTA PARA EXTRACCIÓN */}
-                            {selectedResult.type === 'extraction' && (
+                            {/* VISTA PARA EXTRACCION (solo para extracciones normales, no RAG) */}
+                            {selectedResult.type === 'extraction' && !isRagDocument && (
                                 <>
                                     {/* Selector de formato Excel */}
                                     <div className="p-3 rounded-lg border" style={{ backgroundColor: isLightMode ? '#f0f9ff' : 'rgba(30, 41, 59, 0.5)', borderColor: borderColor }}>

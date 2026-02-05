@@ -592,6 +592,23 @@ function AppContent() {
                     setFiles(currentFiles =>
                         currentFiles.map(f => f.id === file.id ? { ...f, status: 'completado' } : f)
                     );
+
+                    // Agregar al historial para que aparezca en Resultados con descripcion visible
+                    const newHistoryEntry: ExtractionResult = {
+                        id: result.documentId,
+                        type: 'extraction' as const,
+                        fileId: result.documentId,
+                        fileName: file.file.name,
+                        extractedData: {
+                            _ragDocument: true,
+                            description: result.description || '',
+                            isImage: result.isImage || false,
+                            blobUrl: result.blobUrl || ''
+                        },
+                        timestamp: new Date().toISOString(),
+                    };
+                    setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
+
                     successCount++;
                     console.log(`✅ [RAG] ${file.file.name} ingestado: ${result.ingestion.chunksCreated} chunks`);
                 } else {
@@ -607,10 +624,11 @@ function AppContent() {
         }
 
         setIsIngesting(false);
+        if (successCount > 0) setShowResultsExpanded(true);
 
-        // Notificación de resultado
+        // Notificacion de resultado
         if (errorCount === 0) {
-            alert(`✅ ${successCount} documento(s) ingestados correctamente.\n\nAhora puedes usar "Pregúntale al Documento" para hacer consultas.`);
+            alert(`✅ ${successCount} documento(s) ingestados correctamente.\n\nPuedes ver la descripcion generada en Resultados y corregirla si es necesario.`);
         } else {
             alert(`⚠️ Ingesta completada:\n✅ ${successCount} exitosos\n❌ ${errorCount} con errores`);
         }

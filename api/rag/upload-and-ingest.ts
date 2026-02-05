@@ -135,7 +135,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log(`✅ [RAG Upload] Archivo subido: ${blob.url}`);
 
-    // 2. Guardar referencia en extraction_results (para mantener compatibilidad)
+    // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes)
+    const isImage = isImageMimeType(fileType || '');
+    console.log(`[RAG Upload] Extrayendo contenido (${isImage ? 'imagen' : 'documento'})...`);
+    const extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
+
+    if (!extractedText || extractedText.trim().length < 10) {
+      console.warn(`[RAG Upload] Poco contenido extraido de ${filename} (${extractedText?.length || 0} chars)`);
+    }
+
+    // 3. Guardar referencia en extraction_results CON la descripcion generada
+    const extractedData = {
+      _ragDocument: true,
+      description: extractedText || '',
+      isImage,
+      blobUrl: blob.url
+    };
+
     const docResult = await sql`
       INSERT INTO extraction_results (
         user_id, filename, extracted_data, model_used,
@@ -144,7 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ) VALUES (
         ${auth.userId}::uuid,
         ${filename},
-        ${{ _ragDocument: true, _noExtraction: true }}::jsonb,
+        ${JSON.stringify(extractedData)}::jsonb,
         'rag-direct',
         ${blob.url},
         ${fileType || 'application/pdf'},
@@ -158,15 +174,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const documentId = docResult.rows[0].id;
     console.log(`✅ [RAG Upload] Documento guardado: ${documentId}`);
-
-    // 3. Extraer contenido (texto para PDFs, descripcion visual + OCR para imagenes)
-    const isImage = isImageMimeType(fileType || '');
-    console.log(`[RAG Upload] Extrayendo contenido (${isImage ? 'imagen' : 'documento'})...`);
-    const extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
-
-    if (!extractedText || extractedText.trim().length < 10) {
-      console.warn(`[RAG Upload] Poco contenido extraido de ${filename} (${extractedText?.length || 0} chars)`);
-    }
 
     // 4. Ingestar al sistema RAG
     console.log(`[RAG Upload] Ingesta en curso...`);
@@ -186,6 +193,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       filename,
       folderId: resolvedFolderId,
       blobUrl: blob.url,
+      description: extractedText,
+      isImage,
       ingestion: {
         chunksCreated: ingestResult.chunksCreated,
         vectorsUploaded: ingestResult.vectorsUploaded
