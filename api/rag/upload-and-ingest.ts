@@ -71,7 +71,14 @@ Combina ambas partes en un texto continuo y descriptivo. No uses listas ni forma
     ]
   });
 
-  return result.text || '';
+  // Extraer texto de forma segura (result.text puede lanzar si la respuesta es bloqueada)
+  try {
+    return result.text || '';
+  } catch {
+    // Fallback: extraer de candidates directamente
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    return text || '';
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -138,14 +145,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes)
     const isImage = isImageMimeType(fileType || '');
     console.log(`[RAG Upload] Extrayendo contenido (${isImage ? 'imagen' : 'documento'})...`);
-    const extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
+
+    let extractedText = '';
+    try {
+      extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
+      console.log(`[RAG Upload] Contenido extraido: ${extractedText?.length || 0} chars`);
+    } catch (extractError: any) {
+      console.error(`[RAG Upload] Error extrayendo contenido: ${extractError.message}`);
+      extractedText = `[Error de extraccion: ${extractError.message}]`;
+    }
 
     if (!extractedText || extractedText.trim().length < 10) {
       console.warn(`[RAG Upload] Poco contenido extraido de ${filename} (${extractedText?.length || 0} chars)`);
     }
 
     // 3. Guardar referencia en extraction_results CON la descripcion generada
-    const extractedData = {
+    const extractedDataObj = {
       _ragDocument: true,
       description: extractedText || '',
       isImage,
@@ -160,7 +175,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ) VALUES (
         ${auth.userId}::uuid,
         ${filename},
-        ${JSON.stringify(extractedData)}::jsonb,
+        ${extractedDataObj}::jsonb,
         'rag-direct',
         ${blob.url},
         ${fileType || 'application/pdf'},
@@ -203,9 +218,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
   } catch (error: any) {
-    console.error('[RAG Upload] Error:', error);
+    console.error('[RAG Upload] Error completo:', error.message, error.stack?.substring(0, 500));
     return res.status(500).json({
-      error: 'Error procesando documento',
+      error: `Error procesando documento: ${error.message}`,
       message: error.message
     });
   }

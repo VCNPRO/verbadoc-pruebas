@@ -76,6 +76,15 @@
     },
     "api/extract-hybrid.ts": {
       "maxDuration": 300
+    },
+    "api/rag/upload-and-ingest.ts": {
+      "maxDuration": 120
+    },
+    "api/rag/update-description.ts": {
+      "maxDuration": 120
+    },
+    "api/rag/batch-ingest.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
