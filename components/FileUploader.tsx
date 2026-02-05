@@ -10,9 +10,13 @@ interface FileUploaderProps {
     onFileSelect: (id: string | null) => void;
     onExtractAll?: () => void;
     onExtractSelected?: (selectedIds: string[]) => void;
-    onIngestToRAG?: (selectedIds: string[]) => void; // Nueva función para ingestar a RAG
+    onIngestToRAG?: (selectedIds: string[]) => void;
+    onTranscribeSelected?: (selectedIds: string[]) => void;
+    onHtrTranscribeSelected?: (selectedIds: string[]) => void;
     isLoading?: boolean;
-    isIngesting?: boolean; // Estado de ingesta RAG
+    isIngesting?: boolean;
+    isTranscribing?: boolean;
+    isHtrTranscribing?: boolean;
     onViewFile?: (file: File) => void;
     theme?: any;
     isLightMode?: boolean;
@@ -39,7 +43,7 @@ const StatusIndicator = ({ status }: { status: UploadedFile['status'] }) => {
     }
 };
 
-export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, activeFileId, onFileSelect, onExtractAll, onExtractSelected, onIngestToRAG, isLoading, isIngesting, onViewFile, theme, isLightMode, duplicateFiles }) => {
+export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, activeFileId, onFileSelect, onExtractAll, onExtractSelected, onIngestToRAG, onTranscribeSelected, onHtrTranscribeSelected, isLoading, isIngesting, isTranscribing, isHtrTranscribing, onViewFile, theme, isLightMode, duplicateFiles }) => {
     const cardBg = isLightMode ? '#ffffff' : 'rgba(30, 41, 59, 0.5)';
     const borderColor = isLightMode ? '#dbeafe' : 'rgba(51, 65, 85, 0.5)';
     const textColor = isLightMode ? '#1e3a8a' : '#f1f5f9';
@@ -266,7 +270,21 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
             onIngestToRAG(Array.from(selectedFileIds));
         }
     };
-    
+
+    const handleTranscribeSelected = () => {
+        if (onTranscribeSelected && selectedFileIds.size > 0) {
+            onTranscribeSelected(Array.from(selectedFileIds));
+        }
+    };
+
+    const handleHtrTranscribeSelected = () => {
+        if (onHtrTranscribeSelected && selectedFileIds.size > 0) {
+            onHtrTranscribeSelected(Array.from(selectedFileIds));
+        }
+    };
+
+    const anyBusy = isLoading || isIngesting || isTranscribing || isHtrTranscribing;
+
     return (
         <div
             className="rounded-lg border p-4 md:p-6 flex flex-col h-full transition-colors duration-500"
@@ -353,30 +371,56 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                         <div className="flex gap-2 flex-wrap">
                                             {selectedFileIds.size > 0 && (
                                                 <>
+                                                    {onTranscribeSelected && (
+                                                        <button
+                                                            onClick={handleTranscribeSelected}
+                                                            disabled={anyBusy}
+                                                            className="text-xs px-3 py-1 text-white rounded-md transition-colors hover:opacity-90"
+                                                            style={{
+                                                                backgroundColor: anyBusy ? (isLightMode ? '#d1d5db' : '#334155') : '#2563eb'
+                                                            }}
+                                                            title="Transcripción OCR en lote"
+                                                        >
+                                                            {isTranscribing ? '⏳ Transcribiendo...' : `📝 Transcribir (${selectedFileIds.size})`}
+                                                        </button>
+                                                    )}
+                                                    {onHtrTranscribeSelected && (
+                                                        <button
+                                                            onClick={handleHtrTranscribeSelected}
+                                                            disabled={anyBusy}
+                                                            className="text-xs px-3 py-1 text-white rounded-md transition-colors hover:opacity-90"
+                                                            style={{
+                                                                backgroundColor: anyBusy ? (isLightMode ? '#d1d5db' : '#334155') : '#9333ea'
+                                                            }}
+                                                            title="Transcripción de texto manuscrito"
+                                                        >
+                                                            {isHtrTranscribing ? '⏳ HTR...' : `✍️ HTR (${selectedFileIds.size})`}
+                                                        </button>
+                                                    )}
                                                     {onExtractSelected && (
                                                         <button
                                                             onClick={handleProcessSelected}
-                                                            disabled={isLoading || isIngesting}
+                                                            disabled={anyBusy}
                                                             className="text-xs px-3 py-1 text-white rounded-md transition-colors hover:opacity-90"
                                                             style={{
-                                                                backgroundColor: (isLoading || isIngesting) ? (isLightMode ? '#d1d5db' : '#334155') : '#10b981'
+                                                                backgroundColor: anyBusy ? (isLightMode ? '#d1d5db' : '#334155') : '#10b981'
                                                             }}
                                                             title="Extraer datos con plantilla"
                                                         >
-                                                            📊 Extraer ({selectedFileIds.size})
+                                                            {isLoading ? '⏳ Extrayendo...' : `📊 Extraer con Plantilla (${selectedFileIds.size})`}
                                                         </button>
                                                     )}
                                                     {onIngestToRAG && (
                                                         <button
                                                             onClick={handleIngestToRAG}
-                                                            disabled={isLoading || isIngesting}
+                                                            disabled={anyBusy}
                                                             className="text-xs px-3 py-1 text-white rounded-md transition-colors hover:opacity-90"
                                                             style={{
-                                                                backgroundColor: (isLoading || isIngesting) ? (isLightMode ? '#d1d5db' : '#334155') : '#8b5cf6'
+                                                                backgroundColor: anyBusy ? (isLightMode ? '#d1d5db' : '#334155') : '#8b5cf6'
                                                             }}
-                                                            title="Ingestar para consultas con lenguaje natural"
+                                                            title="Subir documentos a la biblioteca para consultas"
                                                         >
-                                                            {isIngesting ? '⏳ Ingesta...' : `💬 Ingestar RAG (${selectedFileIds.size})`}
+                                                            {isIngesting ? '⏳ Subiendo...' : `📚 Subir a Biblioteca (${selectedFileIds.size})`}
                                                         </button>
                                                     )}
                                                 </>
@@ -384,10 +428,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                             {onExtractAll && (
                                                 <button
                                                     onClick={onExtractAll}
-                                                    disabled={isLoading || isIngesting || !files.some(f => f.status === 'pendiente' || f.status === 'error')}
+                                                    disabled={anyBusy || !files.some(f => f.status === 'pendiente' || f.status === 'error')}
                                                     className="text-xs px-3 py-1 text-white rounded-md transition-colors"
                                                     style={{
-                                                        backgroundColor: (isLoading || isIngesting || !files.some(f => f.status === 'pendiente' || f.status === 'error'))
+                                                        backgroundColor: (anyBusy || !files.some(f => f.status === 'pendiente' || f.status === 'error'))
                                                             ? (isLightMode ? '#d1d5db' : '#334155')
                                                             : accentColor
                                                     }}

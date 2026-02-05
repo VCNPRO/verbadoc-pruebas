@@ -824,68 +824,104 @@ function AppContent() {
         setShowResultsExpanded(true); // Mostrar resultados automáticamente
     };
 
-    const handleFullTranscription = async () => {
-        if (!activeFile) return;
+    // Transcripción OCR en lote
+    const handleTranscribeSelected = async (selectedIds: string[]) => {
+        const filesToProcess = files.filter(f => selectedIds.includes(f.id));
+        if (filesToProcess.length === 0) return;
 
         setIsTranscribing(true);
-        try {
-            const text = await transcribeDocument(activeFile.file, selectedModel);
-            
-            const newHistoryEntry: ExtractionResult = {
-                id: `hist-${Date.now()}`,
-                type: 'transcription',
-                fileId: activeFile.id,
-                fileName: activeFile.file.name,
-                transcription: text,
-                timestamp: new Date().toISOString(),
-            };
-            setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
 
-            setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'completado' as const, transcription: text } : f)
-            );
+        const CONCURRENCY = 10;
+        const queue = [...filesToProcess];
 
-            setShowResultsExpanded(true);
-        } catch (error) {
+        const processFile = async (file: UploadedFile) => {
             setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'error' as const, error: error instanceof Error ? error.message : 'Error desconocido' } : f)
+                currentFiles.map(f => f.id === file.id ? { ...f, status: 'procesando' } : f)
             );
-            alert(`Error en la transcripción: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-        } finally {
-            setIsTranscribing(false);
-        }
+            try {
+                const text = await transcribeDocument(file.file, selectedModel);
+
+                const newHistoryEntry: ExtractionResult = {
+                    id: `hist-${Date.now()}-${Math.random()}`,
+                    type: 'transcription',
+                    fileId: file.id,
+                    fileName: file.file.name,
+                    transcription: text,
+                    timestamp: new Date().toISOString(),
+                };
+                setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
+
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'completado', transcription: text } : f)
+                );
+            } catch (error) {
+                console.error(`Error transcribiendo ${file.file.name}:`, error);
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'error', error: error instanceof Error ? error.message : 'Error desconocido' } : f)
+                );
+            }
+        };
+
+        const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(null).map(async () => {
+            while (queue.length > 0) {
+                const file = queue.shift();
+                if (file) await processFile(file);
+            }
+        });
+
+        await Promise.all(workers);
+        setIsTranscribing(false);
+        setShowResultsExpanded(true);
     };
 
-    const handleHtrTranscription = async () => {
-        if (!activeFile) return;
+    // Transcripción HTR (manuscrita) en lote
+    const handleHtrTranscribeSelected = async (selectedIds: string[]) => {
+        const filesToProcess = files.filter(f => selectedIds.includes(f.id));
+        if (filesToProcess.length === 0) return;
 
         setIsHtrTranscribing(true);
-        try {
-            const text = await transcribeHandwrittenDocument(activeFile.file, 'gemini-2.5-pro');
 
-            const newHistoryEntry: ExtractionResult = {
-                id: `hist-${Date.now()}`,
-                type: 'transcription',
-                fileId: activeFile.id,
-                fileName: activeFile.file.name,
-                transcription: text,
-                timestamp: new Date().toISOString(),
-            };
-            setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
+        const CONCURRENCY = 10;
+        const queue = [...filesToProcess];
 
+        const processFile = async (file: UploadedFile) => {
             setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'completado' as const, transcription: text } : f)
+                currentFiles.map(f => f.id === file.id ? { ...f, status: 'procesando' } : f)
             );
+            try {
+                const text = await transcribeHandwrittenDocument(file.file, 'gemini-2.5-pro');
 
-            setShowResultsExpanded(true);
-        } catch (error) {
-            setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'error' as const, error: error instanceof Error ? error.message : 'Error desconocido' } : f)
-            );
-            alert(`Error en la transcripción HTR: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-        } finally {
-            setIsHtrTranscribing(false);
-        }
+                const newHistoryEntry: ExtractionResult = {
+                    id: `hist-${Date.now()}-${Math.random()}`,
+                    type: 'transcription',
+                    fileId: file.id,
+                    fileName: file.file.name,
+                    transcription: text,
+                    timestamp: new Date().toISOString(),
+                };
+                setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
+
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'completado', transcription: text } : f)
+                );
+            } catch (error) {
+                console.error(`Error HTR ${file.file.name}:`, error);
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'error', error: error instanceof Error ? error.message : 'Error desconocido' } : f)
+                );
+            }
+        };
+
+        const workers = Array(Math.min(CONCURRENCY, queue.length)).fill(null).map(async () => {
+            while (queue.length > 0) {
+                const file = queue.shift();
+                if (file) await processFile(file);
+            }
+        });
+
+        await Promise.all(workers);
+        setIsHtrTranscribing(false);
+        setShowResultsExpanded(true);
     };
 
     const handleBarcodeRead = async () => {
@@ -1830,8 +1866,12 @@ function AppContent() {
                         onExtractAll={handleExtractAll}
                         onExtractSelected={handleExtractSelected}
                         onIngestToRAG={handleIngestToRAG}
+                        onTranscribeSelected={handleTranscribeSelected}
+                        onHtrTranscribeSelected={handleHtrTranscribeSelected}
                         isLoading={isLoading}
                         isIngesting={isIngesting}
+                        isTranscribing={isTranscribing}
+                        isHtrTranscribing={isHtrTranscribing}
                         onViewFile={handleViewFile}
                         theme={currentTheme}
                         isLightMode={isLightMode}
@@ -1905,11 +1945,7 @@ function AppContent() {
                                             prompt={prompt}
                                             setPrompt={setPrompt}
                                             onExtract={handleExtract}
-                                            isLoading={isLoading || isTranscribing || isHtrTranscribing || isBarcodeReading}
-                                            onFullTranscription={handleFullTranscription}
-                                            isTranscribing={isTranscribing}
-                                            onHtrTranscription={handleHtrTranscription}
-                                            isHtrTranscribing={isHtrTranscribing}
+                                            isLoading={isLoading || isBarcodeReading}
                                             onBarcodeRead={handleBarcodeRead}
                                             isBarcodeReading={isBarcodeReading}
                                             theme={currentTheme}

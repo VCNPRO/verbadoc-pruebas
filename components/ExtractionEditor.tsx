@@ -21,13 +21,8 @@ interface ExtractionEditorProps {
     setPrompt: React.Dispatch<React.SetStateAction<string>>;
     onExtract: (modelId?: GeminiModel) => void;
     isLoading?: boolean;
-    onFullTranscription?: () => void;
-    isTranscribing?: boolean;
-    onHtrTranscription?: () => void;
-    isHtrTranscribing?: boolean;
     onBarcodeRead?: () => void;
     isBarcodeReading?: boolean;
-    isGeneratingMetadata?: boolean;
     theme?: any;
     isLightMode?: boolean;
 }
@@ -53,7 +48,7 @@ const EXAMPLE_SCHEMA: SchemaField[] = [
 ];
 
 
-export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, template, onUpdateTemplate, onSaveTemplateChanges, schema, setSchema, prompt, setPrompt, onExtract, isLoading, onFullTranscription, isTranscribing, onHtrTranscription, isHtrTranscribing, onBarcodeRead, isBarcodeReading, isGeneratingMetadata, theme, isLightMode }) => {
+export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, template, onUpdateTemplate, onSaveTemplateChanges, schema, setSchema, prompt, setPrompt, onExtract, isLoading, onBarcodeRead, isBarcodeReading, theme, isLightMode }) => {
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview');
     const [isSearchingImage, setIsSearchingImage] = useState(false);
     const [imageSearchResult, setImageSearchResult] = useState<any>(null);
@@ -417,53 +412,6 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                     </button>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                    <button
-                        onClick={onFullTranscription}
-                        disabled={isLoading || !file}
-                        className="w-full flex items-center justify-center gap-2 text-white font-bold py-3 px-4 rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                        style={{
-                            backgroundColor: isLightMode ? '#1d4ed8' : '#1e40af'
-                        }}
-                    >
-                        {isTranscribing ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Transcribiendo...
-                            </>
-                        ) : isGeneratingMetadata && !isTranscribing && !isHtrTranscribing ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Generando metadatos...
-                            </>
-                        ) : (
-                            `Transcripción Completa`
-                        )}
-                    </button>
-                    <button
-                        onClick={onHtrTranscription}
-                        disabled={isLoading || !file}
-                        className="w-full flex items-center justify-center gap-2 text-white font-bold py-3 px-4 rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                        style={{
-                            backgroundColor: isLightMode ? '#9333ea' : '#7e22ce'
-                        }}
-                    >
-                        {isHtrTranscribing ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Transcribiendo HTR...
-                            </>
-                        ) : isGeneratingMetadata && !isTranscribing && !isHtrTranscribing ? (
-                            <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Generando metadatos...
-                            </>
-                        ) : (
-                            `Transcribir Manuscrito (HTR)`
-                        )}
-                    </button>
-                </div>
-
                 {/* Botón de Lectura de Códigos QR/Barras */}
                 {onBarcodeRead && (
                     <button
@@ -498,7 +446,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                         backgroundColor: accentColor
                     }}
                 >
-                    {isLoading && !isTranscribing && !isHtrTranscribing && !isGeneratingMetadata ? (
+                    {isLoading ? (
                         <>
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                             Extrayendo Datos con {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name}...
