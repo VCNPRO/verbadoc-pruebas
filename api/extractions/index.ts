@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'GET') {
     try {
       console.log('📊 GET /api/extractions - userId:', user.userId, '| clientId:', user.clientId);
-      const { limit = '10000', status, needsReview } = req.query;
+      const { limit = '10000', status, needsReview, folderId } = req.query;
 
       let extractions;
 
@@ -85,6 +85,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const useClientSharing = user.clientId !== null;
 
       try {
+        // Filtro por carpeta RAG (BibliotecaPage)
+        if (folderId && typeof folderId === 'string') {
+          const folderQuery = await sql`
+            SELECT
+              id,
+              filename,
+              created_at
+            FROM extraction_results
+            WHERE folder_id = ${folderId}::uuid
+              AND user_id = ${user.userId}::uuid
+            ORDER BY created_at DESC
+          `;
+          return res.status(200).json({ extractions: folderQuery.rows });
+        }
+
         if (needsReview === 'true') {
           console.log('🔍 Buscando extracciones que REQUIEREN REVISIÓN...');
           // 🔥 FILTRO "Requiere Revisión": errores de validación O status needs_review

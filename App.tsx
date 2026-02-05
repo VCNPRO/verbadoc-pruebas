@@ -97,7 +97,7 @@ function AppContent() {
     const [currentDepartamento, setCurrentDepartamento] = useState<Departamento>('general');
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
-    const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
+    // aiPanelOpen removed - AI panel is now always visible in the right column
     const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
     const [ragPanelOpen, setRagPanelOpen] = useState<boolean>(true);
     const [ragQuery, setRagQuery] = useState<string>('');
@@ -1896,6 +1896,44 @@ function AppContent() {
                         duplicateFiles={duplicateFiles}
                     />
                     </div>
+                    {/* Panel derecho: Asistente IA (siempre desplegado) */}
+                    <div className="hidden lg:block w-80 flex-shrink-0">
+                        <div className="border rounded-lg overflow-hidden h-full" style={{ borderColor: isLightMode ? '#c7d2fe' : '#4338ca', backgroundColor: isLightMode ? '#ffffff' : '#0f172a' }}>
+                            <div
+                                className="px-4 py-2.5"
+                                style={{
+                                    backgroundColor: isLightMode ? '#eef2ff' : '#312e81',
+                                    color: isLightMode ? '#4338ca' : '#a5b4fc',
+                                }}
+                            >
+                                <div className="flex items-center gap-2">
+                                    <span>🤖</span>
+                                    <span className="font-semibold">Asistente IA</span>
+                                </div>
+                            </div>
+                            <div className="p-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+                                <AIAssistantPanel
+                                    file={activeFile?.file || null}
+                                    onSchemaGenerated={(generatedSchema, generatedPrompt) => {
+                                        setSchema(generatedSchema);
+                                        setPrompt(generatedPrompt);
+                                    }}
+                                    onValidationComplete={(validationResult) => {
+                                        console.log('Validación completada:', validationResult);
+                                    }}
+                                    onStartExtraction={(newSchema, newPrompt) => {
+                                        if (activeFile && !isLoading) {
+                                            setSchema(newSchema);
+                                            setPrompt(newPrompt);
+                                            setTimeout(() => handleExtract(), 100);
+                                        }
+                                    }}
+                                    extractedData={activeFile?.extractedData}
+                                    currentSchema={schema}
+                                />
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ZONA DE TRABAJO: Dos columnas - RAG y Config Avanzada */}
@@ -1943,7 +1981,7 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                                 <span className="font-semibold">Configuración Avanzada</span>
-                                <span className="text-sm font-normal opacity-75">· Esquema, Plantillas, IA</span>
+                                <span className="text-sm font-normal opacity-75">· Esquema, Plantillas</span>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${advancedConfigOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1970,75 +2008,35 @@ function AppContent() {
                                             isLightMode={isLightMode}
                                         />
                                     </div>
-                                    {/* Plantillas y Asistente IA */}
-                                    <div className="flex flex-col gap-3">
-                                        <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                                            <button
-                                                onClick={() => setTemplatesPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
-                                                style={{
-                                                    backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
-                                                    color: isLightMode ? '#334155' : '#cbd5e1',
-                                                }}
-                                            >
-                                                <span>Plantillas</span>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${templatesPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </button>
-                                            {templatesPanelOpen && (
-                                                <div className="p-2">
-                                                    <TemplatesPanel
-                                                        onSelectTemplate={handleSelectTemplate}
-                                                        currentSchema={schema}
-                                                        currentPrompt={prompt}
-                                                        onDepartamentoChange={handleDepartamentoChange}
-                                                        currentDepartamento={currentDepartamento}
-                                                        theme={currentTheme}
-                                                        isLightMode={isLightMode}
-                                                        user={user}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                                            <button
-                                                onClick={() => setAiPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
-                                                style={{
-                                                    backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
-                                                    color: isLightMode ? '#334155' : '#cbd5e1',
-                                                }}
-                                            >
-                                                <span>Asistente IA</span>
-                                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${aiPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </button>
-                                            {aiPanelOpen && (
-                                                <div className="p-2">
-                                                    <AIAssistantPanel
-                                                        file={activeFile?.file || null}
-                                                        onSchemaGenerated={(generatedSchema, generatedPrompt) => {
-                                                            setSchema(generatedSchema);
-                                                            setPrompt(generatedPrompt);
-                                                        }}
-                                                        onValidationComplete={(validationResult) => {
-                                                            console.log('Validación completada:', validationResult);
-                                                        }}
-                                                        onStartExtraction={(newSchema, newPrompt) => {
-                                                            if (activeFile && !isLoading) {
-                                                                setSchema(newSchema);
-                                                                setPrompt(newPrompt);
-                                                                setTimeout(() => handleExtract(), 100);
-                                                            }
-                                                        }}
-                                                        extractedData={activeFile?.extractedData}
-                                                        currentSchema={schema}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
+                                    {/* Plantillas */}
+                                    <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
+                                        <button
+                                            onClick={() => setTemplatesPanelOpen(prev => !prev)}
+                                            className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
+                                            style={{
+                                                backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
+                                                color: isLightMode ? '#334155' : '#cbd5e1',
+                                            }}
+                                        >
+                                            <span>Plantillas</span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${templatesPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
+                                        {templatesPanelOpen && (
+                                            <div className="p-2">
+                                                <TemplatesPanel
+                                                    onSelectTemplate={handleSelectTemplate}
+                                                    currentSchema={schema}
+                                                    currentPrompt={prompt}
+                                                    onDepartamentoChange={handleDepartamentoChange}
+                                                    currentDepartamento={currentDepartamento}
+                                                    theme={currentTheme}
+                                                    isLightMode={isLightMode}
+                                                    user={user}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -2169,43 +2167,182 @@ function AppContent() {
 
     // ==================== PAGINA BIBLIOTECA RAG ====================
     const BibliotecaPage = () => {
-        const [ragQuery, setRagQuery] = React.useState('');
-        const bgPage = isLightMode ? '#f0f9ff' : '#0f172a';
-        const textPageColor = isLightMode ? '#1e3a8a' : '#f1f5f9';
-        const accentPageColor = isLightMode ? '#3b82f6' : '#06b6d4';
+        const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
+        const bgCard = isDarkMode ? 'bg-[#1e293b]' : 'bg-white';
+        const bgSecondary = isDarkMode ? 'bg-[#1e293b]' : 'bg-[#e8edf2]';
+        const textPrimary = isDarkMode ? 'text-white' : 'text-[#1e293b]';
+        const textSecondary = isDarkMode ? 'text-slate-400' : 'text-[#475569]';
+        const borderCls = isDarkMode ? 'border-slate-700' : 'border-[#cbd5e1]';
+        const hoverRow = isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]';
+        const bgInput = isDarkMode ? 'bg-[#0f172a] text-white border-slate-600' : 'bg-white border-gray-300';
+
+        const [folders, setFolders] = React.useState<{id:string;name:string;document_count:number;created_at:string}[]>([]);
+        const [docs, setDocs] = React.useState<{id:string;filename:string;created_at:string}[]>([]);
+        const [loading, setLoading] = React.useState(true);
+        const [selectedFolder, setSelectedFolder] = React.useState<string|null>(null);
+        const [selectedFolderName, setSelectedFolderName] = React.useState('');
+        const [loadingDocs, setLoadingDocs] = React.useState(false);
+        const [search, setSearch] = React.useState('');
+
+        React.useEffect(() => {
+            fetch('/api/rag/folders', { credentials: 'include' })
+                .then(r => r.ok ? r.json() : { folders: [] })
+                .then(data => setFolders(data.folders || []))
+                .catch(() => {})
+                .finally(() => setLoading(false));
+        }, []);
+
+        const openFolder = async (folderId: string, folderName: string) => {
+            setSelectedFolder(folderId);
+            setSelectedFolderName(folderName);
+            setLoadingDocs(true);
+            try {
+                const r = await fetch(`/api/extractions?folderId=${folderId}`, { credentials: 'include' });
+                if (r.ok) {
+                    const data = await r.json();
+                    setDocs((data.extractions || data.results || []).map((e: any) => ({ id: e.id, filename: e.filename, created_at: e.created_at })));
+                } else {
+                    setDocs([]);
+                }
+            } catch { setDocs([]); }
+            finally { setLoadingDocs(false); }
+        };
+
+        const filteredFolders = folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
+        const filteredDocs = docs.filter(d => d.filename.toLowerCase().includes(search.toLowerCase()));
 
         return (
-            <div className="min-h-screen flex flex-col" style={{ backgroundColor: bgPage }}>
-                <header
-                    className="backdrop-blur-sm border-b-2 sticky top-0 z-10 transition-colors duration-500 shadow-md"
-                    style={{
-                        backgroundColor: isLightMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(2, 6, 23, 0.7)',
-                        borderBottomColor: isLightMode ? 'rgba(59, 130, 246, 0.5)' : 'rgba(51, 65, 85, 0.5)'
-                    }}
-                >
-                    <div className="px-4 sm:px-6 lg:px-8">
-                        <div className="flex items-center justify-between h-16">
-                            <div className="flex items-center gap-4">
+            <div className={`min-h-screen ${bgPrimary}`}>
+                {/* Header */}
+                <div className={`${bgCard} border-b ${borderCls}`}>
+                    <div className="max-w-7xl mx-auto px-6 py-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h1 className={`text-2xl font-bold ${textPrimary}`}>Biblioteca RAG</h1>
+                                <p className={`${textSecondary} mt-1`}>
+                                    {selectedFolder ? `Carpeta: ${selectedFolderName}` : 'Carpetas y documentos ingestados'}
+                                </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                {selectedFolder && (
+                                    <button
+                                        onClick={() => { setSelectedFolder(null); setDocs([]); setSearch(''); }}
+                                        className={`px-4 py-2 ${textSecondary} border ${borderCls} rounded-lg ${hoverRow}`}
+                                    >
+                                        ← Carpetas
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => navigate('/')}
-                                    className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:opacity-80"
-                                    style={{ backgroundColor: accentPageColor, color: '#ffffff' }}
+                                    className={`px-4 py-2 ${textSecondary} border ${borderCls} rounded-lg ${hoverRow}`}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                    </svg>
-                                    Volver
+                                    ← Volver al inicio
                                 </button>
-                                <h1 className="text-2xl font-bold font-orbitron tracking-wider" style={{ color: textPageColor }}>
-                                    Biblioteca RAG
-                                </h1>
                             </div>
                         </div>
                     </div>
-                </header>
-                <main className="flex-1 p-4 sm:p-6 lg:p-8">
-                    <RAGSearchPanel isLightMode={isLightMode} query={ragQuery} setQuery={setRagQuery} />
-                </main>
+                </div>
+
+                {/* Buscador */}
+                <div className="max-w-7xl mx-auto px-6 py-4">
+                    <div className={`${bgCard} border ${borderCls} rounded-lg p-4`}>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder={selectedFolder ? 'Buscar documento...' : 'Buscar carpeta...'}
+                            className={`w-full px-3 py-2 rounded-md ${bgInput}`}
+                        />
+                    </div>
+                </div>
+
+                {/* Contenido */}
+                <div className="max-w-7xl mx-auto px-6 pb-8">
+                    <div className={`${bgCard} border ${borderCls} rounded-lg overflow-hidden`}>
+                        {loading ? (
+                            <div className="p-12 text-center">
+                                <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                                <p className={textSecondary}>Cargando carpetas...</p>
+                            </div>
+                        ) : !selectedFolder ? (
+                            /* Vista de carpetas */
+                            filteredFolders.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <div className="text-6xl mb-4">📂</div>
+                                    <p className={`${textSecondary} text-lg`}>{search ? 'Sin resultados' : 'No hay carpetas'}</p>
+                                    <p className={`${textSecondary} text-sm mt-2`}>Sube documentos desde "Biblioteca RAG" para crear carpetas</p>
+                                </div>
+                            ) : (
+                                <table className="w-full">
+                                    <thead className={`${bgSecondary} border-b ${borderCls}`}>
+                                        <tr>
+                                            <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Carpeta</th>
+                                            <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Documentos</th>
+                                            <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Fecha</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredFolders.map(folder => (
+                                            <tr
+                                                key={folder.id}
+                                                className={`border-b ${borderCls} ${hoverRow} cursor-pointer`}
+                                                onClick={() => openFolder(folder.id, folder.name)}
+                                            >
+                                                <td className={`px-6 py-4 ${textPrimary} font-medium`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-xl">📁</span>
+                                                        {folder.name}
+                                                    </div>
+                                                </td>
+                                                <td className={`px-6 py-4 ${textSecondary}`}>{folder.document_count} docs</td>
+                                                <td className={`px-6 py-4 ${textSecondary} text-sm`}>
+                                                    {folder.created_at ? new Date(folder.created_at).toLocaleDateString('es-ES') : '-'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )
+                        ) : (
+                            /* Vista de documentos dentro de carpeta */
+                            loadingDocs ? (
+                                <div className="p-12 text-center">
+                                    <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                                    <p className={textSecondary}>Cargando documentos...</p>
+                                </div>
+                            ) : filteredDocs.length === 0 ? (
+                                <div className="p-12 text-center">
+                                    <div className="text-6xl mb-4">📄</div>
+                                    <p className={`${textSecondary} text-lg`}>{search ? 'Sin resultados' : 'Carpeta vacia'}</p>
+                                </div>
+                            ) : (
+                                <table className="w-full">
+                                    <thead className={`${bgSecondary} border-b ${borderCls}`}>
+                                        <tr>
+                                            <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Documento</th>
+                                            <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Fecha</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredDocs.map(doc => (
+                                            <tr key={doc.id} className={`border-b ${borderCls} ${hoverRow}`}>
+                                                <td className={`px-6 py-4 ${textPrimary}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-lg">📄</span>
+                                                        {doc.filename}
+                                                    </div>
+                                                </td>
+                                                <td className={`px-6 py-4 ${textSecondary} text-sm`}>
+                                                    {doc.created_at ? new Date(doc.created_at).toLocaleDateString('es-ES') : '-'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )
+                        )}
+                    </div>
+                </div>
             </div>
         );
     };
