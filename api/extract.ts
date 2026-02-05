@@ -203,7 +203,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
-        const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         // Separar regiones por tipo para el prompt
         const textFields = recalibratedRegions.filter((r: any) => r.type === 'field' || r.type === 'text');
