@@ -1827,16 +1827,16 @@ function AppContent() {
                             onClick={() => navigate('/unprocessable')}
                             className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
-                                backgroundColor: isLightMode ? '#fef2f2' : 'rgba(239, 68, 68, 0.1)',
-                                borderColor: isLightMode ? '#fecaca' : '#7f1d1d',
+                                backgroundColor: isLightMode ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)',
+                                borderColor: isLightMode ? '#a7f3d0' : '#064e3b',
                             }}
                         >
                             <div>
-                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>PDF</p>
-                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>{unprocessableCount}</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>PDF</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{unprocessableCount}</p>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#ef4444' : '#f87171'}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                         </button>
                         {/* 4. Excel */}
