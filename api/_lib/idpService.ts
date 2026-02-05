@@ -16,19 +16,28 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Pr
 }
 
 export const classifyDocument = async (base64Image: string, templates: FormTemplate[], mimeType: string = 'image/jpeg'): Promise<{id: string, confidence: number} | null> => {
+  console.log('[DEBUG-IDP] Entrando en classifyDocument...');
   return withRetry(async () => {
-    const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
+    try {
+      const apiKey = process.env.GOOGLE_API_KEY || "";
+      if (!apiKey) {
+        console.error('[DEBUG-IDP] ¡ERROR FATAL! La variable de entorno GOOGLE_API_KEY no está definida.');
+        throw new Error('La variable de entorno GOOGLE_API_KEY no está definida.');
+      }
+      console.log('[DEBUG-IDP] GOOGLE_API_KEY encontrada. Procediendo a inicializar GenAI.');
 
-    // 🔥 MEJORADO: Incluir nombres y descripciones de las plantillas, no solo IDs
-    const templateDescriptions = templates.map((t, index) => {
-      const regionCount = Array.isArray(t.regions) ? t.regions.length : 0;
-      const fieldTypes = Array.isArray(t.regions)
-        ? [...new Set(t.regions.map((r: any) => r.type))].join(', ')
-        : 'desconocido';
-      return `${index + 1}. ID: "${t.id}" | Nombre: "${t.name}" | Campos: ${regionCount} | Tipos: ${fieldTypes}`;
-    }).join('\n');
+      const ai = new GoogleGenAI({ apiKey });
+      console.log('[DEBUG-IDP] GenAI inicializado. Preparando el prompt de clasificación.');
 
-    const prompt = `TAREA: Clasificar este documento para identificar qué plantilla de formulario coincide mejor.
+      const templateDescriptions = templates.map((t, index) => {
+        const regionCount = Array.isArray(t.regions) ? t.regions.length : 0;
+        const fieldTypes = Array.isArray(t.regions)
+          ? [...new Set(t.regions.map((r: any) => r.type))].join(', ')
+          : 'desconocido';
+        return `${index + 1}. ID: "${t.id}" | Nombre: "${t.name}" | Campos: ${regionCount} | Tipos: ${fieldTypes}`;
+      }).join('\n');
+
+      const prompt = `TAREA: Clasificar este documento para identificar qué plantilla de formulario coincide mejor.
 
 PLANTILLAS DISPONIBLES:
 ${templateDescriptions}
@@ -42,16 +51,27 @@ INSTRUCCIONES:
 IMPORTANTE: Si ninguna plantilla coincide claramente, usa confidence < 0.5
 
 Responde en JSON: { "match_id": "el-id-de-la-plantilla", "confidence": 0.0-1.0, "reason": "breve explicación" }`;
+      
+      console.log('[DEBUG-IDP] Prompt creado. Realizando llamada a Gemini con modelo gemini-2.5-flash...');
+      
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] },
+        config: { responseMimeType: "application/json" }
+      });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] },
-      config: { responseMimeType: "application/json" }
-    });
+      console.log('[DEBUG-IDP] Llamada a Gemini exitosa. Procesando respuesta.');
+      const responseText = response.text || (response.candidates?.[0]?.content?.parts?.[0]?.text) || '{}';
+      const data = JSON.parse(responseText.replace(/```json|```/g, "").trim());
+      
+      console.log(`   [DEBUG-IDP] 📋 Clasificación: "${data.reason}" (${Math.round((data.confidence || 0) * 100)}%)`);
+      return data.match_id ? { id: data.match_id, confidence: data.confidence } : null;
 
-    const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
-    console.log(`   📋 Clasificación: "${data.reason}" (${Math.round((data.confidence || 0) * 100)}%)`);
-    return data.match_id ? { id: data.match_id, confidence: data.confidence } : null;
+    } catch (error) {
+      console.error('[DEBUG-IDP] ❌ ERROR DENTRO DE classifyDocument:', error);
+      // Re-lanzar el error para que sea capturado por el manejador superior
+      throw error;
+    }
   });
 };
 
