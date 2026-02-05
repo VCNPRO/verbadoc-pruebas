@@ -1357,7 +1357,7 @@ function AppContent() {
     }
 
     // Página para usuarios Reviewer (nmd_*)
-    const ReviewerHomePage = () => (
+    const reviewerHomePage = (
         <div
             className="min-h-screen font-sans transition-colors duration-500 flex flex-col"
             style={{
@@ -1518,7 +1518,7 @@ function AppContent() {
     );
 
     // Página Principal
-    const HomePage = () => (
+    const homePage = (
         <div
             className="min-h-screen font-sans transition-colors duration-500 flex flex-col"
             style={{
@@ -2098,7 +2098,7 @@ function AppContent() {
     if (isReviewer) {
         return (
             <Routes>
-                <Route path="/" element={<ReviewerHomePage />} />
+                <Route path="/" element={reviewerHomePage} />
                 <Route path="/resultados" element={<ResultadosPage />} />
                 <Route path="/master-excel" element={<MasterExcelPage />} />
                 <Route path="/unprocessable" element={<UnprocessablePage />} />
@@ -2110,7 +2110,7 @@ function AppContent() {
 
     return (
         <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={homePage} />
             <Route
                 path="/resultados"
                 element={
