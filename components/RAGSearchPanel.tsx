@@ -66,8 +66,13 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
         setSelectedFolderId(data.folder.id);
         setNewFolderName('');
         setShowNewFolder(false);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        alert(errData.error || 'Error al crear la carpeta');
       }
-    } catch {}
+    } catch (err) {
+      alert('Error de conexion al crear la carpeta');
+    }
   };
 
   const handleSubmit = async () => {

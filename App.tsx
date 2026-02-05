@@ -582,7 +582,8 @@ function AppContent() {
                         fileBase64: base64,
                         fileType: file.file.type || 'application/pdf',
                         fileSizeBytes: file.file.size,
-                        folderName
+                        folderName,
+                        transcription: file.transcription || undefined
                     })
                 });
 
@@ -1804,21 +1805,21 @@ function AppContent() {
                                 </div>
                             )}
                         </button>}
-                        {/* 2. Excel */}
+                        {/* 2. Resultados */}
                         <button
-                            onClick={() => navigate('/master-excel')}
+                            onClick={() => navigate('/resultados')}
                             className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
-                                backgroundColor: isLightMode ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)',
-                                borderColor: isLightMode ? '#a7f3d0' : '#064e3b',
+                                backgroundColor: isLightMode ? '#eff6ff' : 'rgba(59, 130, 246, 0.1)',
+                                borderColor: isLightMode ? '#bfdbfe' : '#1e3a5f',
                             }}
                         >
                             <div>
-                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
-                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{masterExcelCount}</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#1e3a8a' : '#60a5fa' }}>{history.length}</p>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#3b82f6' : '#60a5fa'}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                             </svg>
                         </button>
                         {/* 3. PDF */}
@@ -1838,21 +1839,37 @@ function AppContent() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </button>
-                        {/* 4. Resultados (último) */}
+                        {/* 4. Excel */}
                         <button
-                            onClick={() => navigate('/resultados')}
+                            onClick={() => navigate('/master-excel')}
                             className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
-                                backgroundColor: isLightMode ? '#eff6ff' : 'rgba(59, 130, 246, 0.1)',
-                                borderColor: isLightMode ? '#bfdbfe' : '#1e3a5f',
+                                backgroundColor: isLightMode ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)',
+                                borderColor: isLightMode ? '#a7f3d0' : '#064e3b',
                             }}
                         >
                             <div>
-                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
-                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#1e3a8a' : '#60a5fa' }}>{history.length}</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{masterExcelCount}</p>
                             </div>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#3b82f6' : '#60a5fa'}>
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </button>
+                        {/* 5. Biblioteca */}
+                        <button
+                            onClick={() => navigate('/rag')}
+                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            style={{
+                                backgroundColor: isLightMode ? '#f5f3ff' : 'rgba(139, 92, 246, 0.1)',
+                                borderColor: isLightMode ? '#ddd6fe' : '#4c1d95',
+                            }}
+                        >
+                            <div>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#5b21b6' : '#c4b5fd' }}>Biblioteca</p>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#8b5cf6' : '#c4b5fd'}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                             </svg>
                         </button>
                     </div>

@@ -102,8 +102,98 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { filename, fileBase64, fileType, fileSizeBytes, folderId, folderName } = req.body;
+    const { filename, fileBase64, fileType, fileSizeBytes, folderId, folderName, transcription, extractionId } = req.body;
 
+    // ==================== FLUJO B: extractionId sin fileBase64 ====================
+    // Viene de EnhancedResultsPage: asignar carpeta a extraccion existente + ingestar si falta
+    if (extractionId && !fileBase64) {
+      console.log(`📂 [RAG Upload] Flujo B: asignar carpeta a extraccion ${extractionId}`);
+
+      // 1. Buscar extraccion en BD
+      const existing = await sql`
+        SELECT id, filename, extracted_data, user_id
+        FROM extraction_results
+        WHERE id = ${extractionId}::uuid AND user_id = ${auth.userId}::uuid
+        LIMIT 1
+      `;
+
+      if (existing.rows.length === 0) {
+        return res.status(404).json({ error: 'Extraccion no encontrada' });
+      }
+
+      const extraction = existing.rows[0];
+
+      // 2. Resolver folder_id (crear carpeta si folderName)
+      let resolvedFolderId: string | null = folderId || null;
+
+      if (!resolvedFolderId && folderName && typeof folderName === 'string' && folderName.trim()) {
+        const trimmedName = folderName.trim();
+        const existingFolder = await sql`
+          SELECT id FROM rag_folders
+          WHERE user_id = ${auth.userId}::uuid AND name = ${trimmedName}
+          LIMIT 1
+        `;
+
+        if (existingFolder.rows.length > 0) {
+          resolvedFolderId = existingFolder.rows[0].id;
+        } else {
+          const newFolder = await sql`
+            INSERT INTO rag_folders (user_id, name)
+            VALUES (${auth.userId}::uuid, ${trimmedName})
+            RETURNING id
+          `;
+          resolvedFolderId = newFolder.rows[0].id;
+        }
+      }
+
+      // 3. Asignar folder_id a la extraccion
+      if (resolvedFolderId) {
+        try {
+          await sql`
+            UPDATE extraction_results SET folder_id = ${resolvedFolderId}::uuid
+            WHERE id = ${extractionId}::uuid
+          `;
+        } catch (folderErr: any) {
+          console.warn(`[RAG Upload] No se pudo asignar folder_id: ${folderErr.message}`);
+        }
+      }
+
+      // 4. Comprobar si ya esta ingested
+      const embeddingsCount = await sql`
+        SELECT COUNT(*) as cnt FROM rag_embeddings WHERE document_id = ${extractionId}::uuid
+      `;
+      const alreadyIngested = parseInt(embeddingsCount.rows[0].cnt) > 0;
+
+      if (!alreadyIngested) {
+        // Extraer texto de extracted_data
+        const extractedData = extraction.extracted_data;
+        let textToIngest = '';
+        if (typeof extractedData === 'object' && extractedData !== null) {
+          textToIngest = extractedData.description || JSON.stringify(extractedData);
+        } else if (typeof extractedData === 'string') {
+          textToIngest = extractedData;
+        }
+
+        if (textToIngest && textToIngest.trim().length > 10) {
+          await ingestDocument(
+            extractionId,
+            extraction.filename || 'documento',
+            textToIngest,
+            auth.userId
+          );
+          console.log(`✅ [RAG Upload] Flujo B: ingesta completada para ${extractionId}`);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        documentId: extractionId,
+        folderId: resolvedFolderId,
+        message: `Documento asociado a carpeta correctamente`
+      });
+    }
+
+    // ==================== FLUJO A: subida normal con fileBase64 ====================
     if (!filename || !fileBase64) {
       return res.status(400).json({ error: 'Faltan campos: filename, fileBase64' });
     }
@@ -147,12 +237,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.log(`[RAG Upload] Extrayendo contenido (${isImage ? 'imagen' : 'documento'})...`);
 
     let extractedText = '';
-    try {
-      extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
-      console.log(`[RAG Upload] Contenido extraido: ${extractedText?.length || 0} chars`);
-    } catch (extractError: any) {
-      console.error(`[RAG Upload] Error extrayendo contenido: ${extractError.message}`);
-      extractedText = `[Error de extraccion: ${extractError.message}]`;
+    if (transcription && typeof transcription === 'string' && transcription.trim().length > 10) {
+      extractedText = transcription;
+      console.log(`[RAG Upload] Usando transcripcion previa: ${extractedText.length} chars`);
+    } else {
+      try {
+        extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
+        console.log(`[RAG Upload] Contenido extraido: ${extractedText?.length || 0} chars`);
+      } catch (extractError: any) {
+        console.error(`[RAG Upload] Error extrayendo contenido: ${extractError.message}`);
+        extractedText = `[Error de extraccion: ${extractError.message}]`;
+      }
     }
 
     if (!extractedText || extractedText.trim().length < 10) {

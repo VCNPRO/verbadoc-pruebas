@@ -420,7 +420,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                                             }}
                                                             title="Subir documentos a la biblioteca para consultas"
                                                         >
-                                                            {isIngesting ? '⏳ Subiendo...' : `📚 Subir a Biblioteca (${selectedFileIds.size})`}
+                                                            {isIngesting ? '⏳ Subiendo...' : `📚 Biblioteca RAG (${selectedFileIds.size})`}
                                                         </button>
                                                     )}
                                                 </>
