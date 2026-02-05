@@ -167,11 +167,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       blobUrl: blob.url
     };
 
+    // INSERT sin folder_id (puede no existir la columna)
     const docResult = await sql`
       INSERT INTO extraction_results (
         user_id, filename, extracted_data, model_used,
         pdf_blob_url, file_type, file_size_bytes,
-        confidence_score, validation_status, folder_id
+        confidence_score, validation_status
       ) VALUES (
         ${auth.userId}::uuid,
         ${filename},
@@ -181,11 +182,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ${fileType || 'application/pdf'},
         ${fileSizeBytes || buffer.length},
         1.0,
-        'valid',
-        ${resolvedFolderId}::uuid
+        'valid'
       )
       RETURNING id
     `;
+
+    // Intentar asignar folder_id si la columna existe
+    if (resolvedFolderId) {
+      try {
+        await sql`
+          UPDATE extraction_results SET folder_id = ${resolvedFolderId}::uuid
+          WHERE id = ${docResult.rows[0].id}::uuid
+        `;
+      } catch (folderErr: any) {
+        console.warn(`[RAG Upload] No se pudo asignar folder_id (columna puede no existir): ${folderErr.message}`);
+      }
+    }
 
     const documentId = docResult.rows[0].id;
     console.log(`✅ [RAG Upload] Documento guardado: ${documentId}`);
