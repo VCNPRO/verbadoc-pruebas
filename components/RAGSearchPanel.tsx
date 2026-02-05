@@ -113,50 +113,52 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
             }}
           />
         </div>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={isLoading || !query.trim()}
-          style={{
-            padding: '12px 24px',
-            fontSize: '16px',
-            fontWeight: '600',
-            backgroundColor: isLoading || !query.trim() ? (isLightMode ? '#cbd5e1' : '#374151') : accentGreen,
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: isLoading || !query.trim() ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            minWidth: '120px',
-            justifyContent: 'center',
-          }}
-        >
-          {isLoading ? '⏳ Buscando...' : '🔍 Buscar'}
-        </button>
-        {(query || response || error) && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <button
             type="button"
-            onClick={() => {
-              setQuery('');
-              setResponse(null);
-              setError(null);
-            }}
+            onClick={handleSubmit}
+            disabled={isLoading || !query.trim()}
             style={{
-              padding: '12px 16px',
-              fontSize: '16px',
-              backgroundColor: 'transparent',
-              color: textMuted,
-              border: `1px solid ${borderColor}`,
+              padding: '10px 24px',
+              fontSize: '15px',
+              fontWeight: '600',
+              backgroundColor: isLoading || !query.trim() ? (isLightMode ? '#cbd5e1' : '#374151') : accentGreen,
+              color: '#ffffff',
+              border: 'none',
               borderRadius: '8px',
-              cursor: 'pointer',
+              cursor: isLoading || !query.trim() ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              minWidth: '120px',
+              justifyContent: 'center',
             }}
-            title="Limpiar"
           >
-            ✕
+            {isLoading ? '⏳ Buscando...' : '🔍 Buscar'}
           </button>
-        )}
+          {(query || response || error) && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setResponse(null);
+                setError(null);
+              }}
+              style={{
+                padding: '6px 24px',
+                fontSize: '13px',
+                backgroundColor: 'transparent',
+                color: textMuted,
+                border: `1px solid ${borderColor}`,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                minWidth: '120px',
+              }}
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Sugerencias */}
