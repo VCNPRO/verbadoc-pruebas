@@ -842,11 +842,14 @@ function AppContent() {
             setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
 
             setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, transcription: text } : f)
+                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'completado' as const, transcription: text } : f)
             );
-            
+
             setShowResultsExpanded(true);
         } catch (error) {
+            setFiles(currentFiles =>
+                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'error' as const, error: error instanceof Error ? error.message : 'Error desconocido' } : f)
+            );
             alert(`Error en la transcripción: ${error instanceof Error ? error.message : 'Error desconocido'}`);
         } finally {
             setIsTranscribing(false);
@@ -871,11 +874,14 @@ function AppContent() {
             setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
 
             setFiles(currentFiles =>
-                currentFiles.map(f => f.id === activeFile.id ? { ...f, transcription: text } : f)
+                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'completado' as const, transcription: text } : f)
             );
 
             setShowResultsExpanded(true);
         } catch (error) {
+            setFiles(currentFiles =>
+                currentFiles.map(f => f.id === activeFile.id ? { ...f, status: 'error' as const, error: error instanceof Error ? error.message : 'Error desconocido' } : f)
+            );
             alert(`Error en la transcripción HTR: ${error instanceof Error ? error.message : 'Error desconocido'}`);
         } finally {
             setIsHtrTranscribing(false);
