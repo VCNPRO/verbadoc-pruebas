@@ -67,7 +67,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const result = await extractHybrid(pdfBuffer, {
       geminiApiKey: process.env.GOOGLE_API_KEY,
-      geminiModel: model || 'gemini-3-pro-preview',
+      geminiModel: model || 'gemini-3-flash-preview',
     });
 
     // Calcular confianza con el servicio existente

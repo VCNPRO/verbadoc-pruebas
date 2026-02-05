@@ -809,23 +809,54 @@ export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
                   </div>
                 </div>
               ) : (
-                // Documento normal sin errores
-                <div className="text-center">
-                  <div className="text-6xl mb-4">✅</div>
-                  <h2 className="text-2xl font-semibold text-gray-900 mb-2">
-                    Sin errores pendientes
-                  </h2>
-                  <p className="text-gray-600 mb-6">
-                    Todos los errores han sido corregidos o ignorados.
-                    Puedes aprobar el formulario ahora.
-                  </p>
-                  <button
-                    onClick={handleApprove}
-                    disabled={processing}
-                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                  >
-                    Aprobar Formulario
-                  </button>
+                // Documento normal sin errores - mostrar banner + tabla editable
+                <div className="flex-1 flex flex-col p-4 overflow-auto">
+                  {/* Banner compacto verde */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 flex items-center gap-2">
+                    <span className="text-green-600 text-lg">✅</span>
+                    <span className="text-green-800 font-medium text-sm">Sin errores pendientes — Revisa los campos antes de aprobar</span>
+                  </div>
+
+                  {/* Tabla completa de campos editables */}
+                  <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden flex-1">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase w-12"></th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Campo</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 bg-white">
+                        {extraction && extraction.extracted_data && Object.entries(extraction.extracted_data).map(([key, value]) => (
+                          <tr key={key} className="hover:bg-gray-50">
+                            <td className="px-2 py-2 text-center">
+                              <button
+                                onClick={() => handleStartFieldEdit(key, value)}
+                                className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                                title="Editar campo"
+                              >
+                                ✏️
+                              </button>
+                            </td>
+                            <td className="px-4 py-2 text-xs font-mono text-gray-500">{key}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{String(value ?? '')}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Botón aprobar al final */}
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      onClick={handleApprove}
+                      disabled={processing}
+                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
+                    >
+                      Aprobar Formulario
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

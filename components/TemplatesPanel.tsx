@@ -5,7 +5,6 @@ import type { SchemaField, Departamento, TemplateType } from '../types.ts';
 import { DEPARTAMENTOS, getDepartamentoById } from '../utils/departamentosConfig.ts';
 import { SchemaBuilder } from './SchemaBuilder.tsx';
 import { generateSchemaFromPrompt } from '../services/geminiService.ts';
-import { FUNDAE_SCHEMA, FUNDAE_EXTRACTION_PROMPT } from '../src/constants/fundae-template.ts';
 
 export interface Template {
     id: string;
@@ -20,6 +19,7 @@ export interface Template {
     custom?: boolean;
     departamento?: Departamento;
     category?: string;
+    clienteEmpresa?: string; // Empresa que puede ver esta plantilla
 }
 
 interface TemplatesPanelProps {
@@ -93,19 +93,6 @@ const defaultTemplates: Template[] = [
         ],
         prompt: 'Extrae el nombre de la campaña, presupuesto total y fechas de inicio y fin.',
     },
-    {
-        id: 'fundae-oficial-2024',
-        name: '📋 FUNDAE - Cuestionario Oficial Evaluación Calidad',
-        description: 'Formulario oficial FUNDAE según Orden TAS 2307/2007. Incluye datos identificativos, clasificación del participante y 26 valoraciones (escala 1-4).',
-        type: 'otro',
-        icon: 'document',
-        departamento: 'mis_modelos', // Movido a mis_modelos
-        category: 'modelos_propios', // Categoría especial
-        schema: FUNDAE_SCHEMA,
-        prompt: FUNDAE_EXTRACTION_PROMPT,
-        custom: false,
-        archived: false,
-    },
 ];
 
 export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema, currentPrompt, onDepartamentoChange, currentDepartamento, theme, isLightMode, user }: TemplatesPanelProps) {
@@ -124,6 +111,7 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
     const [newSchema, setNewSchema] = useState<SchemaField[]>([{ id: `field-${Date.now()}`, name: '', type: 'STRING' }]);
     const [newPrompt, setNewPrompt] = useState('Extrae la información clave del siguiente documento según el esquema JSON proporcionado.');
     const [isGeneratingSchema, setIsGeneratingSchema] = useState(false);
+    const [isLoadingTemplates, setIsLoadingTemplates] = useState(true);
 
     // Función recursiva para comprobar si hay errores en el esquema
     const schemaHasErrors = (schema: SchemaField[]): boolean => {
@@ -149,24 +137,45 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
         setSelectedDepartamento(currentDepartamento || 'general');
     }, [currentDepartamento]);
 
-    // Load custom templates from localStorage
+    // Load custom templates from API (filtradas por client_id del usuario)
     useEffect(() => {
-        const stored = localStorage.getItem('customTemplates_europa');
-        if (stored) {
+        const loadTemplatesFromAPI = async () => {
             try {
-                setCustomTemplates(JSON.parse(stored));
+                setIsLoadingTemplates(true);
+                const response = await fetch('/api/templates', { credentials: 'include' });
+                if (response.ok) {
+                    const templates = await response.json();
+                    // Mapear campos de BD a formato del componente
+                    const mappedTemplates = templates.map((t: any) => ({
+                        id: t.id,
+                        name: t.name,
+                        description: t.description || '',
+                        type: 'modelo',
+                        icon: 'file',
+                        schema: t.regions || [],
+                        prompt: t.prompt || '',
+                        custom: true,
+                        archived: !t.is_active,
+                    }));
+                    setCustomTemplates(mappedTemplates);
+                    console.log('✅ Plantillas cargadas de API:', mappedTemplates.length);
+                }
             } catch (e) {
-                console.error('Error loading custom templates:', e);
+                console.error('Error loading templates from API:', e);
+            } finally {
+                setIsLoadingTemplates(false);
             }
-        }
+        };
+        loadTemplatesFromAPI();
     }, []);
 
-    // Save custom templates to localStorage
+    // Función legacy (ahora usamos API)
     const saveToLocalStorage = (templates: Template[]) => {
-        localStorage.setItem('customTemplates_europa', JSON.stringify(templates));
+        // Ya no usamos localStorage, las plantillas se guardan en BD via API
+        console.log('📦 Plantillas actualizadas localmente:', templates.length);
     };
 
-    const handleSaveTemplate = () => {
+    const handleSaveTemplate = async () => {
         if (!newTemplateName.trim()) {
             alert('Por favor, ingresa un nombre para la plantilla');
             return;
@@ -188,40 +197,57 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
             return;
         }
 
-        const newTemplate: any = {
-            id: `custom-${Date.now()}`,
-            name: newTemplateName.trim(),
-            description: newTemplateDescription.trim() || 'Plantilla personalizada',
-            type: 'modelo',
-            icon: 'file',
-            schema: JSON.parse(JSON.stringify(schemaToSave)),
-            prompt: promptToSave,
-            custom: true,
-            archived: false
-        };
+        console.log('💾 Guardando nueva plantilla en BD...');
 
-        console.log('💾 Guardando nueva plantilla:', {
-            nombre: newTemplate.name,
-            campos: newTemplate.schema.length,
-            prompt: newTemplate.prompt.substring(0, 50) + '...'
-        });
+        try {
+            // Guardar en BD via API
+            const response = await fetch('/api/templates', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    name: newTemplateName.trim(),
+                    description: newTemplateDescription.trim() || 'Plantilla personalizada',
+                    regions: JSON.parse(JSON.stringify(schemaToSave)),
+                    prompt: promptToSave,
+                }),
+            });
 
-        const updatedTemplates = [...customTemplates, newTemplate];
-        setCustomTemplates(updatedTemplates);
-        saveToLocalStorage(updatedTemplates);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.message || 'Error al guardar');
+            }
 
-        console.log('✅ Plantilla guardada exitosamente. Total plantillas:', updatedTemplates.length);
+            const savedTemplate = await response.json();
+            
+            // Añadir a la lista local
+            const newTemplate: any = {
+                id: savedTemplate.id,
+                name: savedTemplate.name,
+                description: savedTemplate.description || '',
+                type: 'modelo',
+                icon: 'file',
+                schema: savedTemplate.regions || schemaToSave,
+                prompt: promptToSave,
+                custom: true,
+                archived: false
+            };
 
-        setNewTemplateName('');
-        setNewTemplateDescription('');
-        setShowSaveDialog(false);
-        setIsCreatingTemplate(false);
-        // Reset new schema/prompt
-        setNewSchema([{ id: `field-${Date.now()}`, name: '', type: 'STRING' }]);
-        setNewPrompt('Extrae la información clave del siguiente documento según el esquema JSON proporcionado.');
+            setCustomTemplates(prev => [...prev, newTemplate]);
+            console.log('✅ Plantilla guardada en BD:', newTemplate.name);
 
-        // Mostrar confirmación al usuario
-        alert(`✅ Plantilla "${newTemplate.name}" guardada correctamente`);
+            setNewTemplateName('');
+            setNewTemplateDescription('');
+            setShowSaveDialog(false);
+            setIsCreatingTemplate(false);
+            setNewSchema([{ id: `field-${Date.now()}`, name: '', type: 'STRING' }]);
+            setNewPrompt('Extrae la información clave del siguiente documento según el esquema JSON proporcionado.');
+
+            alert(`✅ Plantilla "${newTemplate.name}" guardada correctamente`);
+        } catch (error: any) {
+            console.error('❌ Error al guardar plantilla:', error);
+            alert(`Error al guardar: ${error.message}`);
+        }
     };
 
     const handleGenerateSchemaFromPrompt = async () => {
@@ -242,12 +268,29 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
         }
     };
 
-    const handleArchiveTemplate = (templateId: string) => {
-        const updatedTemplates = customTemplates.map(t =>
-            t.id === templateId ? { ...t, archived: !t.archived } : t
-        );
-        setCustomTemplates(updatedTemplates);
-        saveToLocalStorage(updatedTemplates);
+    const handleArchiveTemplate = async (templateId: string) => {
+        const template = customTemplates.find(t => t.id === templateId);
+        if (!template) return;
+        
+        try {
+            const response = await fetch(`/api/templates?id=${templateId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ is_active: template.archived }), // toggle
+            });
+            
+            if (!response.ok) throw new Error('Error al actualizar');
+            
+            const updatedTemplates = customTemplates.map(t =>
+                t.id === templateId ? { ...t, archived: !t.archived } : t
+            );
+            setCustomTemplates(updatedTemplates);
+            console.log(`📋 Plantilla ${template.archived ? 'activada' : 'archivada'}`);
+        } catch (error) {
+            console.error('Error al archivar:', error);
+            alert('Error al archivar la plantilla');
+        }
     };
 
     const handlePauseTemplate = (templateId: string) => {
@@ -258,11 +301,25 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
         saveToLocalStorage(updatedTemplates);
     };
 
-    const handleDeleteTemplate = (templateId: string) => {
-        if (confirm('¿Estás seguro de que quieres eliminar esta plantilla?')) {
+    const handleDeleteTemplate = async (templateId: string) => {
+        if (!confirm('¿Estás seguro de que quieres eliminar esta plantilla?')) return;
+        
+        try {
+            const response = await fetch(`/api/templates?id=${templateId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+            
+            if (!response.ok && response.status !== 204) {
+                throw new Error('Error al eliminar');
+            }
+            
             const updatedTemplates = customTemplates.filter(t => t.id !== templateId);
             setCustomTemplates(updatedTemplates);
-            saveToLocalStorage(updatedTemplates);
+            console.log('🗑️ Plantilla eliminada');
+        } catch (error) {
+            console.error('Error al eliminar:', error);
+            alert('Error al eliminar la plantilla');
         }
     };
 
@@ -273,19 +330,33 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
         }
     };
 
-    // Helper para verificar visibilidad por rol
+    // Helper para verificar visibilidad por empresa y rol
     const canViewTemplate = (t: Template) => {
         if (t.archived) return false;
-        if (t.category === 'modelos_propios') {
-            return user?.role === 'admin' || user?.subscription === 'premium';
+        
+        // Admin siempre ve todo
+        if (user?.role === 'admin') return true;
+        
+        // Plantillas con clienteEmpresa solo visibles para usuarios de esa empresa
+        if (t.clienteEmpresa) {
+            const userCompany = user?.company_name?.toLowerCase()?.trim();
+            const templateCompany = t.clienteEmpresa.toLowerCase().trim();
+            return userCompany === templateCompany;
         }
+        
+        // Plantillas de modelos_propios sin clienteEmpresa (legacy)
+        if (t.category === 'modelos_propios' && !t.clienteEmpresa) {
+            return false; // Ocultar plantillas legacy sin empresa asignada
+        }
+        
         return true;
     };
 
     // Filtrar plantillas por departamento seleccionado y permisos
+    // Excluir plantillas con clienteEmpresa (se muestran en Mis Modelos)
     const filteredTemplates = selectedDepartamento === 'general'
-        ? defaultTemplates.filter(t => canViewTemplate(t))
-        : defaultTemplates.filter(t => t.departamento === selectedDepartamento && canViewTemplate(t));
+        ? defaultTemplates.filter(t => canViewTemplate(t) && !t.clienteEmpresa)
+        : defaultTemplates.filter(t => t.departamento === selectedDepartamento && canViewTemplate(t) && !t.clienteEmpresa);
 
     const filteredArchivedTemplates = selectedDepartamento === 'general'
         ? defaultTemplates.filter(t => t.archived)
@@ -293,6 +364,11 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
 
     const activeCustomTemplates = customTemplates.filter(t => !t.archived);
     const archivedCustomTemplates = customTemplates.filter(t => t.archived);
+    
+    // Plantillas predefinidas del cliente (ej: FUNDAE para Normadat)
+    const clientPredefinedTemplates = defaultTemplates.filter(t => 
+        t.clienteEmpresa && canViewTemplate(t)
+    );
     const currentDepartamentoInfo = getDepartamentoById(selectedDepartamento);
 
     const renderIcon = (iconType: Template['icon']) => {
@@ -489,16 +565,29 @@ export function TemplatesPanel({ onSelectTemplate, onSaveTemplate, currentSchema
                                         <span>Crear Nueva Plantilla</span>
                                     </button>
 
-                                    {/* Plantillas personalizadas */}
-                                    {activeCustomTemplates.length > 0 ? (
+                                    {/* Plantillas predefinidas del cliente (ej: FUNDAE para Normadat) */}
+                                    {clientPredefinedTemplates.length > 0 && (
                                         <div className="space-y-2">
+                                            <p className="text-xs font-medium" style={{ color: textSecondary }}>📋 Plantillas de tu empresa:</p>
+                                            {clientPredefinedTemplates.map(template => (
+                                                <TemplateCard key={template.id} template={template} showActions={false} />
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Plantillas personalizadas */}
+                                    {activeCustomTemplates.length > 0 && (
+                                        <div className="space-y-2 mt-3">
+                                            <p className="text-xs font-medium" style={{ color: textSecondary }}>🔧 Tus plantillas:</p>
                                             {activeCustomTemplates.map(template => (
                                                 <TemplateCard key={template.id} template={template} showActions={true} />
                                             ))}
                                         </div>
-                                    ) : (
+                                    )}
+                                    
+                                    {clientPredefinedTemplates.length === 0 && activeCustomTemplates.length === 0 && (
                                         <div className="text-center py-4 text-xs" style={{ color: textSecondary }}>
-                                            <p>No tienes plantillas personalizadas</p>
+                                            <p>No tienes plantillas</p>
                                             <p className="mt-1">Crea una para empezar</p>
                                         </div>
                                     )}

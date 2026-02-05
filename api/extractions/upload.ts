@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn(`⚠️ No se encontró la extracción ${extractionId} para el usuario ${userId}`);
     }
 
-    // Validación OpenCV de checkboxes (no bloqueante)
+    // Validación OpenCV de checkboxes + merge de valores
     if (OPENCV_CONFIG.enabled) {
       try {
         // Cargar datos extraídos para comparar
@@ -67,25 +67,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (extraction.rows[0]?.extracted_data) {
           const extractedData = extraction.rows[0].extracted_data;
           const opencvResult = await validateWithOpenCV(blob.url, extractedData);
-          if (opencvResult.comparison) {
-            // Guardar resultado OpenCV campo por campo en la extracción
-            await sql`
-              UPDATE extraction_results
-              SET extracted_data = jsonb_set(
-                COALESCE(extracted_data, '{}'::jsonb),
-                '{_opencv}',
-                ${JSON.stringify({
-                  total_compared: opencvResult.comparison.total_compared,
-                  matches: opencvResult.comparison.matches,
-                  discrepancies: opencvResult.comparison.discrepancies,
-                  discrepancy_fields: opencvResult.comparison.discrepancy_fields,
-                  recommendation: opencvResult.comparison.recommendation,
-                  mode: opencvResult.mode,
-                })}::jsonb
-              )
-              WHERE id = ${extractionId as string}::UUID
-            `;
+
+          // Merge: aplicar valores OpenCV al extracted_data
+          const mergedData = { ...extractedData };
+          applyOpenCVResult(mergedData, opencvResult);
+
+          // Guardar metadata de comparación
+          // comparison viene del servidor Python (dentro de opencv) o del TS (nivel superior)
+          const comparison = (opencvResult.opencv as any)?.comparison || opencvResult.comparison;
+          if (comparison) {
+            mergedData._opencv = {
+              total_compared: comparison.total_compared || 0,
+              matches: comparison.matches || 0,
+              discrepancies: comparison.discrepancies || comparison.discrepancy || 0,
+              match_rate: comparison.match_rate || 0,
+              recommendation: comparison.recommendation,
+              fields: comparison.fields || [],
+              mode: opencvResult.mode,
+              merged_count: mergedData._opencv_merged_count || 0,
+            };
+            delete mergedData._opencv_merged_count;
           }
+
+          // Actualizar BD con datos merged + needs_review si aplica
+          const needsReview = mergedData.validation_status === 'needs_review';
+          await sql`
+            UPDATE extraction_results
+            SET
+              extracted_data = ${JSON.stringify(mergedData)}::jsonb,
+              needs_review = ${needsReview}
+            WHERE id = ${extractionId as string}::UUID
+          `;
+
+          console.log(`[OpenCV] Merge completado para ${extractionId}. needs_review=${needsReview}`);
         }
       } catch (opencvError: any) {
         console.error(`[OpenCV] Error (no bloqueante): ${opencvError.message}`);

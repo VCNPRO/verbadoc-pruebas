@@ -54,7 +54,7 @@ const EXAMPLE_SCHEMA: SchemaField[] = [
 
 
 export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, template, onUpdateTemplate, onSaveTemplateChanges, schema, setSchema, prompt, setPrompt, onExtract, isLoading, onFullTranscription, isTranscribing, onHtrTranscription, isHtrTranscribing, onBarcodeRead, isBarcodeReading, isGeneratingMetadata, theme, isLightMode }) => {
-    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-pro-preview');
+    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview');
     const [isSearchingImage, setIsSearchingImage] = useState(false);
     const [imageSearchResult, setImageSearchResult] = useState<any>(null);
     const [showImageSearch, setShowImageSearch] = useState(false);

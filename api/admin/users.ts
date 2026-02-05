@@ -65,6 +65,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
+    // PATCH - Actualizar usuario
+    if (req.method === 'PATCH') {
+      const { userId, email, name, role, company_name, password } = req.body;
+
+      if (!userId) {
+        return res.status(400).json({ error: 'userId es requerido' });
+      }
+
+      // Verificar que el usuario existe
+      const userToUpdate = await UserDB.findById(userId);
+      if (!userToUpdate) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+
+      // Construir objeto de actualización
+      const updates: any = {};
+
+      if (email !== undefined) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          return res.status(400).json({ error: 'Email inválido' });
+        }
+        updates.email = email.toLowerCase();
+      }
+
+      if (name !== undefined) updates.name = name;
+      if (company_name !== undefined) updates.company_name = company_name;
+
+      if (role !== undefined) {
+        const validRoles = ['user', 'admin', 'reviewer'];
+        if (!validRoles.includes(role)) {
+          return res.status(400).json({ error: 'Rol inválido' });
+        }
+        updates.role = role;
+      }
+
+      if (password !== undefined) {
+        if (password.length < 6) {
+          return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+        }
+        updates.password = await bcrypt.hash(password, 12);
+      }
+
+      // Actualizar usuario
+      const updatedUser = await UserDB.update(userId, updates);
+
+      if (updatedUser) {
+        const { password: _, ...safeUser } = updatedUser;
+        return res.status(200).json({
+          success: true,
+          message: 'Usuario actualizado exitosamente',
+          user: safeUser,
+        });
+      } else {
+        return res.status(500).json({ error: 'No se pudo actualizar el usuario' });
+      }
+    }
+
     // DELETE - Eliminar usuario
     if (req.method === 'DELETE') {
       const { userId } = req.body;
@@ -93,7 +151,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Método no permitido
-    res.setHeader('Allow', ['GET', 'POST', 'DELETE']);
+    res.setHeader('Allow', ['GET', 'POST', 'PATCH', 'DELETE']);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
 
   } catch (error: any) {

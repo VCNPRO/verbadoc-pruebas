@@ -38,7 +38,7 @@ const ACTION_LABELS: Record<string, string> = {
   logout: '🚪 Cierre sesión',
   login_failed: '❌ Login fallido',
   view_review: '👁️ Ver revisión',
-  view_unprocessable: '👁️ Ver no procesables',
+  view_unprocessable: '👁️ Ver PDF',
   view_master_excel: '👁️ Ver Excel Master',
   view_admin_panel: '👁️ Ver admin',
   download_excel: '📥 Descarga Excel',

@@ -52,3 +52,4 @@ ocr_output.json
 *.pdf
 
 check_client_ids.cjs
+.env*.local

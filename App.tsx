@@ -20,6 +20,7 @@ import { EnhancedResultsPage } from './components/EnhancedResultsPage.tsx';
 import { ChatbotLaia } from './components/ChatbotLaia.tsx';
 import { AdminDashboard } from './components/AdminDashboard.tsx';
 import { AIAssistantPanel } from './components/AIAssistantPanel.tsx';
+import { RAGSearchPanel } from './components/RAGSearchPanel.tsx';
 // Fix: Use explicit file extension in import.
 import type { UploadedFile, ExtractionResult, SchemaField, SchemaFieldType, Departamento } from './types.ts';
 import { logActivity } from './src/utils/activityLogger.ts';
@@ -29,6 +30,8 @@ import { getDepartamentoById, getDefaultTheme } from './utils/departamentosConfi
 // ✅ Sistema de autenticación real activado
 import { AuthProvider, useAuth } from './src/contexts/AuthContext.tsx';
 import { AuthModal } from './src/components/AuthModal.tsx';
+import { ResetPasswordPage } from './src/components/auth/ResetPasswordPage.tsx';
+import { PricingPage } from './src/components/PricingPage.tsx';
 // ✅ API de extracciones (BD en lugar de localStorage)
 import { createExtraction, getExtractions, deleteExtraction, UnprocessableDocumentError, type ApiExtraction } from './src/services/extractionAPI.ts';
 // ✅ Componentes de revisión (Fase 5)
@@ -45,8 +48,8 @@ import UnprocessablePage from './src/components/UnprocessablePage.tsx';
 import TemplateEditorPage from './src/pages/TemplateEditorPage.tsx';
 // ✅ Servicio de sincronización
 import { SyncService } from './src/services/syncService.ts';
-// ✅ Plantilla FUNDAE por defecto
-import { FUNDAE_SCHEMA, FUNDAE_EXTRACTION_PROMPT } from './src/constants/fundae-template.ts';
+// ✅ Plantilla genérica por defecto (modo sin FUNDAE)
+import { GENERIC_SCHEMA, GENERIC_EXTRACTION_PROMPT } from './src/constants/generic-template.ts';
 
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
@@ -83,6 +86,7 @@ function AppContent() {
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
     const [history, setHistory] = useState<ExtractionResult[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isIngesting, setIsIngesting] = useState<boolean>(false); // Estado para ingesta RAG
     const [extractionProgress, setExtractionProgress] = useState<{ total: number; completed: number; errors: number; startTime: number | null }>({ total: 0, completed: 0, errors: 0, startTime: null });
     const [viewingFile, setViewingFile] = useState<File | null>(null);
     const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
@@ -93,8 +97,10 @@ function AppContent() {
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
     const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
     const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
+    const [ragPanelOpen, setRagPanelOpen] = useState<boolean>(false);
+    const [ragQuery, setRagQuery] = useState<string>('');
     const [advancedConfigOpen, setAdvancedConfigOpen] = useState<boolean>(false);
-    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-pro-preview' as GeminiModel); // Modelo fijo
+    const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview' as GeminiModel); // Modelo fijo
     const [isDarkMode, setIsDarkMode] = useState<boolean>(true); // Default to dark mode
 
     const [isTranscribing, setIsTranscribing] = useState<boolean>(false);
@@ -159,8 +165,8 @@ function AppContent() {
     }, [files, history]);
 
     // State for the editor, which can be reused across different files
-    const [prompt, setPrompt] = useState<string>(FUNDAE_EXTRACTION_PROMPT);
-    const [schema, setSchema] = useState<SchemaField[]>(FUNDAE_SCHEMA);
+    const [prompt, setPrompt] = useState<string>(GENERIC_EXTRACTION_PROMPT);
+    const [schema, setSchema] = useState<SchemaField[]>(GENERIC_SCHEMA);
 
     // Obtener el tema basado en el departamento actual
     const currentTheme = useMemo(() => {
@@ -173,6 +179,7 @@ function AppContent() {
 
     // Determinar si es usuario reviewer (nmd_*)
     const isReviewer = user?.role === 'reviewer';
+    const isNormadat = user?.company_name?.toLowerCase()?.trim() === 'normadat';
 
     // ✅ Cargar historial desde la base de datos al iniciar (reemplaza localStorage)
     useEffect(() => {
@@ -249,7 +256,7 @@ function AppContent() {
                     setMasterExcelCount(masterData.stats?.total || masterData.rows?.length || 0);
                 }
 
-                // Cargar contador de No Procesables
+                // Cargar contador de PDF
                 const unprocessableResponse = await fetch('/api/unprocessable', {
                     credentials: 'include'
                 });
@@ -533,6 +540,71 @@ function AppContent() {
 
         setIsLoading(false);
         setShowResultsExpanded(true); // Mostrar resultados automáticamente
+    };
+
+    // 💬 INGESTAR A RAG - Para "Pregúntale al Documento"
+    const handleIngestToRAG = async (selectedIds: string[]) => {
+        const filesToIngest = files.filter(f => selectedIds.includes(f.id));
+        if (filesToIngest.length === 0) return;
+
+        setIsIngesting(true);
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const file of filesToIngest) {
+            try {
+                // Actualizar estado visual
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'procesando' } : f)
+                );
+
+                // Convertir archivo a base64
+                const arrayBuffer = await file.file.arrayBuffer();
+                const base64 = btoa(
+                    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+                );
+
+                // Llamar al endpoint de ingesta
+                const response = await fetch('/api/rag/upload-and-ingest', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filename: file.file.name,
+                        fileBase64: base64,
+                        fileType: file.file.type || 'application/pdf',
+                        fileSizeBytes: file.file.size
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setFiles(currentFiles =>
+                        currentFiles.map(f => f.id === file.id ? { ...f, status: 'completado' } : f)
+                    );
+                    successCount++;
+                    console.log(`✅ [RAG] ${file.file.name} ingestado: ${result.ingestion.chunksCreated} chunks`);
+                } else {
+                    throw new Error(result.error || 'Error en ingesta');
+                }
+            } catch (error: any) {
+                console.error(`❌ [RAG] Error ingesta ${file.file.name}:`, error);
+                setFiles(currentFiles =>
+                    currentFiles.map(f => f.id === file.id ? { ...f, status: 'error', error: error.message } : f)
+                );
+                errorCount++;
+            }
+        }
+
+        setIsIngesting(false);
+
+        // Notificación de resultado
+        if (errorCount === 0) {
+            alert(`✅ ${successCount} documento(s) ingestados correctamente.\n\nAhora puedes usar "Pregúntale al Documento" para hacer consultas.`);
+        } else {
+            alert(`⚠️ Ingesta completada:\n✅ ${successCount} exitosos\n❌ ${errorCount} con errores`);
+        }
     };
 
     const handleExtractAll = async () => {
@@ -1275,6 +1347,11 @@ function AppContent() {
     }
 
     // Mostrar modal de autenticación si no hay usuario
+    // Ruta pública de reset-password
+    if (window.location.pathname === '/reset-password') {
+        return <ResetPasswordPage />;
+    }
+
     if (!user) {
         return <AuthModal isLightMode={!isDarkMode} />;
     }
@@ -1310,17 +1387,17 @@ function AppContent() {
                                     Extracción Inteligente de Datos
                                 </p>
                             </div>
-                            <span className="text-xs px-2 py-1 rounded bg-amber-500 text-white font-semibold">
+                            <span className="text-base px-2 py-1 rounded bg-amber-500 text-white font-semibold">
                                 REVIEWER
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
-                            <span className="text-sm" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
-                                trabajando para: &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || 'Normadat'}</strong>&nbsp; por &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
+                            <span className="text-base" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
+                                trabajando para <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ' por ' : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
                             </span>
                             <button
                                 onClick={logout}
-                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-xs font-semibold shadow hover:shadow-md"
+                                className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-base font-semibold shadow hover:shadow-md"
                                 style={{
                                     backgroundColor: isLightMode ? '#ef4444' : '#dc2626',
                                     borderColor: isLightMode ? '#dc2626' : '#b91c1c',
@@ -1337,24 +1414,21 @@ function AppContent() {
             <main className="flex-1 p-8">
                 <div className="max-w-4xl mx-auto">
                     <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Revisión
+                        Panel de Usuario
                     </h2>
                     <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-                        <h3 className={`text-sm font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                        <h3 className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                             Totales
                         </h3>
                         <div className="flex gap-6">
-                            <div className="text-center">
-                                <span className={`text-2xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-blue-600'}`}>{reviewCount}</span>
-                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Pendientes revisión</p>
-                            </div>
+                            
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{masterExcelCount}</span>
-                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Excel Master</p>
+                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Excel Master</p>
                             </div>
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>{unprocessableCount}</span>
-                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>No procesables</p>
+                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>PDF</p>
                             </div>
                         </div>
                     </div>
@@ -1363,27 +1437,22 @@ function AppContent() {
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Botón Revisar */}
+                        {/* Botón Resultados */}
                         <button
-                            onClick={() => navigate('/review')}
+                            onClick={() => navigate('/resultados')}
                             className="p-6 rounded-xl border-2 transition-all hover:scale-105 hover:shadow-xl text-left"
                             style={{
                                 backgroundColor: isDarkMode ? '#1e293b' : '#ffffff',
-                                borderColor: isDarkMode ? '#f97316' : '#f59e0b'
+                                borderColor: isDarkMode ? '#3b82f6' : '#2563eb'
                             }}
                         >
-                            <div className="text-4xl mb-4">📋</div>
+                            <div className="text-4xl mb-4">📊</div>
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                Revisar Formularios
+                                Resultados
                             </h3>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Formularios con errores pendientes de revisión
+                            <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Ver resultados de extracción
                             </p>
-                            {reviewCount > 0 && (
-                                <span className="inline-block mt-3 px-3 py-1 bg-orange-500 text-white text-sm font-bold rounded-full">
-                                    {reviewCount} pendientes
-                                </span>
-                            )}
                         </button>
 
                         {/* Botón Excel Master */}
@@ -1399,17 +1468,17 @@ function AppContent() {
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 Excel Master
                             </h3>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                 Ver todos los formularios procesados
                             </p>
                             {masterExcelCount > 0 && (
-                                <span className="inline-block mt-3 px-3 py-1 bg-emerald-600 text-white text-sm font-bold rounded-full">
+                                <span className="inline-block mt-3 px-3 py-1 bg-emerald-600 text-white text-base font-bold rounded-full">
                                     {masterExcelCount} registros
                                 </span>
                             )}
                         </button>
 
-                        {/* Botón No Procesables */}
+                        {/* Botón PDF */}
                         <button
                             onClick={() => navigate('/unprocessable')}
                             className="p-6 rounded-xl border-2 transition-all hover:scale-105 hover:shadow-xl text-left"
@@ -1420,13 +1489,13 @@ function AppContent() {
                         >
                             <div className="text-4xl mb-4">⚠️</div>
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                No Procesables
+                                PDF
                             </h3>
-                            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Documentos que no pudieron procesarse
+                            <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Documentos PDF del cliente
                             </p>
                             {unprocessableCount > 0 && (
-                                <span className="inline-block mt-3 px-3 py-1 bg-red-600 text-white text-sm font-bold rounded-full">
+                                <span className="inline-block mt-3 px-3 py-1 bg-red-600 text-white text-base font-bold rounded-full">
                                     {unprocessableCount} documentos
                                 </span>
                             )}
@@ -1436,7 +1505,7 @@ function AppContent() {
             </main>
 
             <footer
-                className="border-t py-4 px-8 text-center text-sm"
+                className="border-t py-4 px-8 text-center text-base"
                 style={{
                     backgroundColor: isDarkMode ? '#0f172a' : '#ffffff',
                     borderTopColor: isDarkMode ? '#334155' : '#dbeafe',
@@ -1484,19 +1553,19 @@ function AppContent() {
                                 </p>
                             </div>
                             <span
-                                className="text-xs font-sans transition-colors duration-500"
+                                className="text-base font-sans transition-colors duration-500"
                                 style={{
                                     color: isLightMode ? '#64748b' : '#94a3b8'
                                 }}
                             >
-                                trabajando para: &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name || 'Normadat'}</strong>&nbsp; por &nbsp;<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
+                                trabajando para <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ' por ' : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
                             </span>
                         </div>
                         <div className="flex items-center gap-4">
                             {/* Config Button - cuadrado */}
                             <button
                                 onClick={() => setIsConfigModalOpen(true)}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#6366f1' : '#4f46e5',
                                     borderColor: isLightMode ? '#4f46e5' : '#6366f1',
@@ -1509,12 +1578,11 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                             </button>
-                            {/* Modelo IA fijo: Gemini 3 Pro */}
-                            {/* Resultados, Revisar, Excel, No Proc → movidos al panel lateral */}
+                            {/* Modelo IA fijo: Gemini 2.5 Flash */}
                             {/* Botón Plantillas - cuadrado */}
                             <button
                                 onClick={() => navigate('/templates')}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#8b5cf6' : '#7c3aed',
                                     borderColor: isLightMode ? '#7c3aed' : '#a78bfa',
@@ -1527,7 +1595,7 @@ function AppContent() {
                             {/* Botón Ayuda - cuadrado */}
                             <button
                                 onClick={() => setIsHelpModalOpen(true)}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-xs transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
                                 style={{
                                     backgroundColor: isLightMode ? '#2563eb' : '#0891b2',
                                     borderColor: isLightMode ? '#1d4ed8' : '#06b6d4',
@@ -1537,6 +1605,40 @@ function AppContent() {
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </button>
+
+                            {/* Botón Admin - solo para admin */}
+                            {user?.role === 'admin' && (
+                            <button
+                                onClick={() => navigate('/admin')}
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                style={{
+                                    backgroundColor: isLightMode ? '#dc2626' : '#b91c1c',
+                                    borderColor: isLightMode ? '#b91c1c' : '#ef4444',
+                                    color: '#ffffff'
+                                }}
+                                title="Panel de Administración"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                            </button>
+                            )}
+                            {/* Botón Planes */}
+                            <button
+                                onClick={() => navigate('/pricing')}
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                style={{
+                                    backgroundColor: isLightMode ? '#059669' : '#047857',
+                                    borderColor: isLightMode ? '#047857' : '#10b981',
+                                    color: '#ffffff'
+                                }}
+                                title="Ver Planes y Precios"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                                 </svg>
                             </button>
 
@@ -1573,10 +1675,10 @@ function AppContent() {
                         <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: isLightMode ? '#3b82f6' : '#60a5fa', borderTopColor: 'transparent' }} />
                         <div className="flex-1">
                             <div className="flex items-center justify-between mb-1">
-                                <span className="text-sm font-semibold" style={{ color: isLightMode ? '#1e3a8a' : '#93c5fd' }}>
+                                <span className="text-base font-semibold" style={{ color: isLightMode ? '#1e3a8a' : '#93c5fd' }}>
                                     Procesando {extractionProgress.completed}/{extractionProgress.total} formularios
                                 </span>
-                                <span className="text-xs font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                <span className="text-base font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
                                     {(() => {
                                         const elapsed = Math.floor((Date.now() - (extractionProgress.startTime || Date.now())) / 1000);
                                         const min = Math.floor(elapsed / 60);
@@ -1603,8 +1705,8 @@ function AppContent() {
                 <div className="flex gap-4">
                     {/* Panel lateral: tarjetas de navegacion */}
                     <div className="hidden lg:flex flex-col gap-2 w-48 flex-shrink-0">
-                        {/* 1. Revisión (más alto, con totales) */}
-                        <button
+                        {/* 1. Revisión (más alto, con totales) - Solo para Normadat */}
+                        {isNormadat && <button
                             onClick={() => navigate('/review')}
                             className="flex flex-col p-4 rounded-lg border-2 transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
@@ -1612,10 +1714,10 @@ function AppContent() {
                                 borderColor: isLightMode ? '#fde68a' : '#78350f',
                             }}
                         >
-                            <p className="text-sm font-bold mb-2" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>Revisión</p>
+                            <p className="text-base font-bold mb-2" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>Revisión</p>
                             <div className="flex items-center justify-between w-full mb-1.5">
                                 <p className="text-[10px] font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>Totales</p>
-                                <p className="text-sm font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewStats.total}</p>
+                                <p className="text-base font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewStats.total}</p>
                             </div>
                             {reviewStats.total > 0 && (
                                 <div className="w-full space-y-1">
@@ -1645,7 +1747,7 @@ function AppContent() {
                                     </div>
                                 </div>
                             )}
-                        </button>
+                        </button>}
                         {/* 2. Excel */}
                         <button
                             onClick={() => navigate('/master-excel')}
@@ -1656,14 +1758,14 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{masterExcelCount}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                         </button>
-                        {/* 3. No Procesables */}
+                        {/* 3. PDF */}
                         <button
                             onClick={() => navigate('/unprocessable')}
                             className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
@@ -1673,7 +1775,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>No Proc.</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#991b1b' : '#fca5a5' }}>PDF</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>{unprocessableCount}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#ef4444' : '#f87171'}>
@@ -1690,7 +1792,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-xs font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#1e3a8a' : '#60a5fa' }}>{history.length}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#3b82f6' : '#60a5fa'}>
@@ -1707,7 +1809,9 @@ function AppContent() {
                         onFileSelect={handleFileSelect}
                         onExtractAll={handleExtractAll}
                         onExtractSelected={handleExtractSelected}
+                        onIngestToRAG={handleIngestToRAG}
                         isLoading={isLoading}
+                        isIngesting={isIngesting}
                         onViewFile={handleViewFile}
                         theme={currentTheme}
                         isLightMode={isLightMode}
@@ -1716,12 +1820,40 @@ function AppContent() {
                     </div>
                 </div>
 
-                {/* Configuracion avanzada - colapsable */}
-                <div className="mt-4">
+                {/* ZONA DE TRABAJO: Dos columnas - RAG y Config Avanzada */}
+                <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+                    {/* COLUMNA IZQUIERDA: Pregúntale al Documento */}
+                    <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#10b981' : '#059669' }}>
+                        <div
+                            className="flex items-center justify-between px-4 py-2.5 cursor-pointer"
+                            onClick={() => setRagPanelOpen(prev => !prev)}
+                            style={{
+                                backgroundColor: isLightMode ? '#ecfdf5' : '#064e3b',
+                                color: isLightMode ? '#047857' : '#6ee7b7',
+                            }}
+                        >
+                            <div className="flex items-center gap-2">
+                                <span>💬</span>
+                                <span className="font-semibold">Pregúntale al Documento</span>
+                                <span className="text-sm font-normal opacity-75">· Consulta con lenguaje natural</span>
+                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${ragPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        {ragPanelOpen && (
+                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0f172a' }}>
+                                <RAGSearchPanel isLightMode={isLightMode} query={ragQuery} setQuery={setRagQuery} />
+                            </div>
+                        )}
+                    </div>
+
+                    {/* COLUMNA DERECHA: Configuración Avanzada */}
                     <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
-                        <button
+                        <div
+                            className="flex items-center justify-between px-4 py-2.5 cursor-pointer"
                             onClick={() => setAdvancedConfigOpen(prev => !prev)}
-                            className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold transition-colors"
                             style={{
                                 backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
                                 color: isLightMode ? '#475569' : '#94a3b8',
@@ -1732,20 +1864,18 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <span>Configuracion avanzada</span>
-                                <span className="text-xs font-normal" style={{ color: isLightMode ? '#94a3b8' : '#64748b' }}>
-                                    Esquema, Plantillas, Asistente IA
-                                </span>
+                                <span className="font-semibold">Configuración Avanzada</span>
+                                <span className="text-sm font-normal opacity-75">· Esquema, Plantillas, IA</span>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${advancedConfigOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
-                        </button>
+                        </div>
                         {advancedConfigOpen && (
-                            <div className="p-4">
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="p-4" style={{ backgroundColor: isLightMode ? '#ffffff' : '#0f172a' }}>
+                                <div className="flex flex-col gap-4">
                                     {/* Esquema y Prompt */}
-                                    <div className="lg:col-span-2">
+                                    <div>
                                         <ExtractionEditor
                                             file={activeFile}
                                             template={selectedTemplate}
@@ -1771,7 +1901,7 @@ function AppContent() {
                                         <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
                                             <button
                                                 onClick={() => setTemplatesPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
                                                 style={{
                                                     backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
                                                     color: isLightMode ? '#334155' : '#cbd5e1',
@@ -1800,7 +1930,7 @@ function AppContent() {
                                         <div className="border rounded-lg overflow-hidden" style={{ borderColor: isLightMode ? '#e2e8f0' : '#334155' }}>
                                             <button
                                                 onClick={() => setAiPanelOpen(prev => !prev)}
-                                                className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors"
+                                                className="w-full flex items-center justify-between px-3 py-2 text-base font-semibold transition-colors"
                                                 style={{
                                                     backgroundColor: isLightMode ? '#f1f5f9' : '#1e293b',
                                                     color: isLightMode ? '#334155' : '#cbd5e1',
@@ -1840,6 +1970,7 @@ function AppContent() {
                             </div>
                         )}
                     </div>
+
                 </div>
             </main>
 
@@ -1881,7 +2012,7 @@ function AppContent() {
                             <h4 className="font-bold mb-2" style={{ color: isLightMode ? '#1e3a8a' : '#10b981' }}>
                                 verbadoc
                             </h4>
-                            <p className="text-sm" style={{ color: isLightMode ? '#475569' : '#94a3b8' }}>
+                            <p className="text-base" style={{ color: isLightMode ? '#475569' : '#94a3b8' }}>
                                 Extracción inteligente de datos con IA procesada en Europa
                             </p>
                         </div>
@@ -1895,7 +2026,7 @@ function AppContent() {
                                 <a
                                     href="#"
                                     onClick={(e) => { e.preventDefault(); setIsSettingsModalOpen(true); }}
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     Política de Privacidad
@@ -1903,7 +2034,7 @@ function AppContent() {
                                 <a
                                     href="#"
                                     onClick={(e) => { e.preventDefault(); setIsSettingsModalOpen(true); }}
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     Términos y Condiciones
@@ -1911,7 +2042,7 @@ function AppContent() {
                                 <a
                                     href="#"
                                     onClick={(e) => { e.preventDefault(); setIsSettingsModalOpen(true); }}
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     Cumplimiento RGPD
@@ -1927,14 +2058,14 @@ function AppContent() {
                             <div className="space-y-1">
                                 <a
                                     href="mailto:legal@verbadoc.com"
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     legal@verbadoc.com
                                 </a>
                                 <a
                                     href="mailto:soporte@verbadoc.com"
-                                    className="block text-sm hover:underline transition-colors"
+                                    className="block text-base hover:underline transition-colors"
                                     style={{ color: isLightMode ? '#475569' : '#94a3b8' }}
                                 >
                                     soporte@verbadoc.com
@@ -1946,10 +2077,10 @@ function AppContent() {
                     {/* Copyright */}
                     <div className="border-t pt-4" style={{ borderTopColor: isLightMode ? '#e5e7eb' : '#334155' }}>
                         <div className="flex flex-col md:flex-row justify-between items-center gap-2">
-                            <p className="text-xs" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
+                            <p className="text-base" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
                                 © 2025 verbadoc. Todos los derechos reservados. • Procesamiento 100% en Europa 🇪🇺
                             </p>
-                            <p className="text-xs" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
+                            <p className="text-base" style={{ color: isLightMode ? '#64748b' : '#64748b' }}>
                                 v2.0 • Powered by Google Gemini AI (Bélgica)
                             </p>
                         </div>
@@ -1968,8 +2099,7 @@ function AppContent() {
         return (
             <Routes>
                 <Route path="/" element={<ReviewerHomePage />} />
-                <Route path="/review" element={<ReviewListPage />} />
-                <Route path="/review/:id" element={<ReviewPanel />} />
+                <Route path="/resultados" element={<ResultadosPage />} />
                 <Route path="/master-excel" element={<MasterExcelPage />} />
                 <Route path="/unprocessable" element={<UnprocessablePage />} />
                 {/* Cualquier otra ruta redirige al inicio */}
@@ -2034,6 +2164,8 @@ function AppContent() {
                     </ProtectedRoute>
                 }
             />
+            {/* Pricing Page - Pública */}
+            <Route path="/pricing" element={<PricingPage />} />
         </Routes>
     );
 // Limpieza automática de localStorage (ejecutar al cargar el módulo)

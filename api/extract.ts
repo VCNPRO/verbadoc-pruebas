@@ -303,7 +303,7 @@ Responde en JSON con TODOS los campos solicitados:
 }`;
 
         const response = await ai.models.generateContent({
-          model: 'gemini-3-pro-preview',
+          model: 'gemini-3-flash-preview',
           contents: {
             parts: [
               { inlineData: { mimeType: 'application/pdf', data: base64Image } },

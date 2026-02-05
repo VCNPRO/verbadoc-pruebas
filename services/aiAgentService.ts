@@ -304,7 +304,7 @@ const callVertexAIAPIRaw = async (file: File, prompt: string, model: GeminiModel
  */
 export async function classifyDocument(
   file: File,
-  model: GeminiModel = 'gemini-3-pro-preview',
+  model: GeminiModel = 'gemini-3-flash-preview',
   apiKey?: string
 ): Promise<DocumentClassification> {
 
@@ -559,7 +559,7 @@ export async function validateExtractedData(
   extractedData: object,
   schema: SchemaField[],
   originalFile?: File,
-  model: GeminiModel = 'gemini-3-pro-preview',
+  model: GeminiModel = 'gemini-3-flash-preview',
   barcodeData?: BarcodeDetectionResult
 ): Promise<ValidationResult> {
 

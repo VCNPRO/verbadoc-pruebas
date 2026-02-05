@@ -98,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Llamar a Gemini directamente con el prompt del frontend
     const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || "" });
 
-    const modelId = model || 'gemini-3-pro-preview';
+    const modelId = model || 'gemini-3-flash-preview';
     console.log(`🤖 Usando modelo: ${modelId}`);
 
     // Construir el prompt final
@@ -141,14 +141,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const nonEmptyFields = Object.entries(extractedData).filter(([_, v]) => v && v !== '' && v !== 'NC' && v !== null).length;
     console.log(`📊 Campos extraídos: ${nonEmptyFields}/${fieldCount}`);
 
-    // Verificar campos críticos FUNDAE
-    const expediente = extractedData.numero_expediente || extractedData['1. Nº expediente'] || '';
-    const accion = extractedData.numero_accion || extractedData['4. Nº Acción'] || '';
-    const grupo = extractedData.numero_grupo || extractedData['5. Nº grupo'] || '';
-
-    if (expediente || accion || grupo) {
-      console.log(`🔍 Campos FUNDAE: exp="${expediente}", acc="${accion}", grp="${grupo}"`);
-    }
+    // Log de campos extraídos (modo genérico)
+    console.log(`📊 Campos extraídos correctamente`)
 
     return res.status(200).json({
       extractedData,

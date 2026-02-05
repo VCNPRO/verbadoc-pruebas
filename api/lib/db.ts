@@ -84,32 +84,14 @@ export const UserDB = {
   },
 
   // Update user
-  update: async (id: string, updates: Partial<Pick<User, 'email' | 'password' | 'name'>>): Promise<User | null> => {
-    const setClauses: string[] = [];
-    const values: any[] = [];
-
-    if (updates.email !== undefined) {
-      setClauses.push('email = $' + (values.length + 1));
-      values.push(updates.email.toLowerCase());
-    }
-    if (updates.password !== undefined) {
-      setClauses.push('password = $' + (values.length + 1));
-      values.push(updates.password);
-    }
-    if (updates.name !== undefined) {
-      setClauses.push('name = $' + (values.length + 1));
-      values.push(updates.name);
-    }
-
-    if (setClauses.length === 0) return null;
-
-    setClauses.push('updated_at = CURRENT_TIMESTAMP');
-
+  update: async (id: string, updates: Partial<Pick<User, 'email' | 'password' | 'name' | 'role' | 'company_name'>>): Promise<User | null> => {
     const result = await sql<User>`
       UPDATE users
       SET email = COALESCE(${updates.email?.toLowerCase() || null}, email),
           password = COALESCE(${updates.password || null}, password),
           name = COALESCE(${updates.name !== undefined ? updates.name : null}, name),
+          role = COALESCE(${updates.role || null}, role),
+          company_name = COALESCE(${updates.company_name !== undefined ? updates.company_name : null}, company_name),
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
       RETURNING id, email, password, name, role, client_id, company_name, created_at, updated_at

@@ -47,6 +47,11 @@ export type AccessAction =
   | 'update_role'
   | 'update_column_mapping'
   | 'activate_column_mapping'
+  // RAG actions (Preguntale al Documento)
+  | 'rag_query'
+  | 'rag_ingest'
+  | 'rag_batch_ingest'
+  | 'rag_delete'
   // Other
   | 'export_consolidated'
   | 'send_to_review';

@@ -33,7 +33,7 @@ import {
 
 import { ExtractionResultDB, ValidationErrorDB } from '../lib/extractionDB.js';
 import { loadCityCodesCatalog } from './cityCodes.js';
-import { OPENCV_CONFIG, validatePdfWithOpenCV, applyOpenCVResult, type OpenCVValidationOutput } from './opencvValidator.js';
+import { OPENCV_CONFIG, validateWithOpenCV, applyOpenCVResult, type OpenCVValidationOutput } from './opencvValidator.js';
 
 // ============================================================================
 // TIPOS
@@ -670,19 +670,19 @@ export async function validateFundaeBatch(
  * Ejecuta validación OpenCV sobre un PDF y aplica resultado según modo configurado.
  * No-op si OPENCV_CONFIG.enabled = false.
  *
- * @param pdfBlobUrl - URL pública del PDF en Vercel Blob Storage
+ * @param pdfPath - Ruta al PDF del formulario
  * @param extractedData - Datos extraídos por Gemini (se modifica in-place)
  * @param pageIndex - Página a analizar (0-based), default 1 (segunda página)
  * @returns Resultado de la validación OpenCV, o null si deshabilitado
  */
 export async function runOpenCVValidation(
-  pdfBlobUrl: string,
+  pdfUrl: string,
   extractedData: Record<string, any>,
   pageIndex = 1
 ): Promise<OpenCVValidationOutput | null> {
   if (!OPENCV_CONFIG.enabled) return null;
 
-  const opencvResult = await validatePdfWithOpenCV(pdfBlobUrl, extractedData, pageIndex);
+  const opencvResult = await validateWithOpenCV(pdfUrl, extractedData, pageIndex);
   applyOpenCVResult(extractedData, opencvResult);
   return opencvResult;
 }

@@ -1,0 +1,593 @@
+/**
+ * RAG SERVICE - "Preguntale al Documento"
+ * api/lib/ragService.ts
+ *
+ * Retrieval-Augmented Generation usando pgvector (PostgreSQL)
+ * Sin dependencias externas - todo en Vercel Postgres
+ *
+ * GDPR/ENS Compliant - Datos en EU
+ */
+
+import { sql } from '@vercel/postgres';
+import { GoogleGenAI } from '@google/genai';
+
+// ============================================================================
+// CONFIGURATION
+// ============================================================================
+
+const EMBEDDING_MODEL = 'text-embedding-004'; // Gemini embedding (768 dims)
+const GENERATION_MODEL = 'gemini-2.0-flash';
+
+const DEFAULT_CHUNK_SIZE = 500; // palabras
+const DEFAULT_CHUNK_OVERLAP = 50;
+const DEFAULT_TOP_K = 5;
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
+
+export interface RAGChunk {
+  id: string;
+  text: string;
+  documentId: string;
+  chunkIndex: number;
+  metadata?: Record<string, any>;
+}
+
+export interface RAGSearchResult {
+  chunk: RAGChunk;
+  score: number;
+  documentName?: string;
+}
+
+export interface RAGAnswer {
+  answer: string;
+  sources: Array<{
+    documentId: string;
+    documentName: string;
+    chunkIndex: number;
+    snippet: string;
+    score: number;
+  }>;
+  confidence: number;
+  tokensUsed?: number;
+}
+
+// ============================================================================
+// GEMINI CLIENT
+// ============================================================================
+
+let genaiClient: GoogleGenAI | null = null;
+
+function getGenAIClient(): GoogleGenAI {
+  if (!genaiClient) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    if (!apiKey) {
+      throw new Error('GEMINI_API_KEY o GOOGLE_API_KEY no configurada');
+    }
+    genaiClient = new GoogleGenAI({ apiKey });
+  }
+  return genaiClient;
+}
+
+// ============================================================================
+// EMBEDDING GENERATION
+// ============================================================================
+
+/**
+ * Genera vector embedding con Gemini (768 dimensiones)
+ */
+export async function generateEmbedding(text: string): Promise<number[]> {
+  const client = getGenAIClient();
+
+  try {
+    const result = await client.models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents: [{ parts: [{ text }] }],
+    });
+
+    const embedding = result.embeddings?.[0]?.values;
+    if (!embedding || embedding.length === 0) {
+      throw new Error('No se genero embedding');
+    }
+
+    return embedding;
+  } catch (error: any) {
+    console.error('[RAG] Error generando embedding:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Genera embeddings en batch
+ */
+export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const embeddings: number[][] = [];
+  const batchSize = 10;
+
+  for (let i = 0; i < texts.length; i += batchSize) {
+    const batch = texts.slice(i, i + batchSize);
+    const batchPromises = batch.map(text => generateEmbedding(text));
+    const batchResults = await Promise.all(batchPromises);
+    embeddings.push(...batchResults);
+
+    if (i + batchSize < texts.length) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+
+  return embeddings;
+}
+
+// ============================================================================
+// TEXT CHUNKING
+// ============================================================================
+
+/**
+ * Divide texto en chunks con overlap
+ */
+export function chunkText(
+  text: string,
+  chunkSize: number = DEFAULT_CHUNK_SIZE,
+  overlap: number = DEFAULT_CHUNK_OVERLAP
+): string[] {
+  if (!text || text.trim().length === 0) return [];
+
+  const normalizedText = text.replace(/\s+/g, ' ').trim();
+  const words = normalizedText.split(' ');
+
+  if (words.length <= chunkSize) return [normalizedText];
+
+  const chunks: string[] = [];
+  let startIndex = 0;
+
+  while (startIndex < words.length) {
+    const endIndex = Math.min(startIndex + chunkSize, words.length);
+    const chunk = words.slice(startIndex, endIndex).join(' ');
+    chunks.push(chunk);
+    startIndex += chunkSize - overlap;
+    if (startIndex <= 0) break;
+  }
+
+  return chunks;
+}
+
+/**
+ * Chunking inteligente que respeta oraciones
+ */
+export function chunkTextSmart(
+  text: string,
+  maxChunkSize: number = DEFAULT_CHUNK_SIZE,
+  overlap: number = DEFAULT_CHUNK_OVERLAP
+): string[] {
+  if (!text || text.trim().length === 0) return [];
+
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const chunks: string[] = [];
+  let currentChunk: string[] = [];
+  let currentWordCount = 0;
+
+  for (const sentence of sentences) {
+    const sentenceWords = sentence.split(/\s+/).length;
+
+    if (currentWordCount + sentenceWords > maxChunkSize && currentChunk.length > 0) {
+      chunks.push(currentChunk.join(' '));
+
+      const overlapSentences: string[] = [];
+      let overlapWords = 0;
+      for (let i = currentChunk.length - 1; i >= 0 && overlapWords < overlap; i--) {
+        overlapSentences.unshift(currentChunk[i]);
+        overlapWords += currentChunk[i].split(/\s+/).length;
+      }
+
+      currentChunk = overlapSentences;
+      currentWordCount = overlapWords;
+    }
+
+    currentChunk.push(sentence);
+    currentWordCount += sentenceWords;
+  }
+
+  if (currentChunk.length > 0) {
+    chunks.push(currentChunk.join(' '));
+  }
+
+  return chunks;
+}
+
+// ============================================================================
+// PGVECTOR OPERATIONS
+// ============================================================================
+
+/**
+ * Inserta embeddings en PostgreSQL
+ */
+export async function upsertEmbeddings(
+  embeddings: Array<{
+    documentId: string;
+    userId: string;
+    documentName: string;
+    chunkIndex: number;
+    chunkText: string;
+    embedding: number[];
+    metadata?: Record<string, any>;
+  }>
+): Promise<void> {
+  for (const item of embeddings) {
+    const vectorStr = `[${item.embedding.join(',')}]`;
+
+    await sql`
+      INSERT INTO rag_embeddings (
+        document_id, user_id, document_name, chunk_index, chunk_text, embedding, metadata
+      ) VALUES (
+        ${item.documentId}::uuid,
+        ${item.userId}::uuid,
+        ${item.documentName},
+        ${item.chunkIndex},
+        ${item.chunkText},
+        ${vectorStr}::vector,
+        ${item.metadata ? JSON.stringify(item.metadata) : null}::jsonb
+      )
+      ON CONFLICT (document_id, chunk_index)
+      DO UPDATE SET
+        chunk_text = EXCLUDED.chunk_text,
+        embedding = EXCLUDED.embedding,
+        metadata = EXCLUDED.metadata
+    `;
+  }
+}
+
+/**
+ * Busca embeddings similares en PostgreSQL
+ */
+export async function searchSimilar(
+  queryEmbedding: number[],
+  userId: string,
+  topK: number = DEFAULT_TOP_K,
+  documentIds?: string[]
+): Promise<RAGSearchResult[]> {
+  const vectorStr = `[${queryEmbedding.join(',')}]`;
+
+  let result;
+
+  if (documentIds && documentIds.length > 0) {
+    result = await sql`
+      SELECT
+        id,
+        document_id,
+        document_name,
+        chunk_index,
+        chunk_text,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity
+      FROM rag_embeddings
+      WHERE user_id = ${userId}::uuid
+        AND document_id = ANY(${documentIds}::uuid[])
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${topK}
+    `;
+  } else {
+    result = await sql`
+      SELECT
+        id,
+        document_id,
+        document_name,
+        chunk_index,
+        chunk_text,
+        1 - (embedding <=> ${vectorStr}::vector) as similarity
+      FROM rag_embeddings
+      WHERE user_id = ${userId}::uuid
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${topK}
+    `;
+  }
+
+  return result.rows.map(row => ({
+    chunk: {
+      id: row.id,
+      text: row.chunk_text,
+      documentId: row.document_id,
+      chunkIndex: row.chunk_index,
+    },
+    score: parseFloat(row.similarity) || 0,
+    documentName: row.document_name,
+  }));
+}
+
+/**
+ * Elimina embeddings de un documento
+ */
+export async function deleteByDocumentId(documentId: string): Promise<void> {
+  await sql`DELETE FROM rag_embeddings WHERE document_id = ${documentId}::uuid`;
+  await sql`DELETE FROM rag_document_chunks WHERE document_id = ${documentId}::uuid`;
+  console.log(`[RAG] Eliminado documento: ${documentId}`);
+}
+
+/**
+ * Elimina embeddings de un usuario (RGPD)
+ */
+export async function deleteByUserId(userId: string): Promise<void> {
+  await sql`DELETE FROM rag_embeddings WHERE user_id = ${userId}::uuid`;
+  console.log(`[RAG] Eliminados embeddings del usuario: ${userId}`);
+}
+
+// ============================================================================
+// ANSWER GENERATION
+// ============================================================================
+
+/**
+ * Genera respuesta con contexto
+ */
+export async function generateAnswer(
+  query: string,
+  context: RAGSearchResult[],
+  language: string = 'es'
+): Promise<RAGAnswer> {
+  const client = getGenAIClient();
+
+  if (context.length === 0) {
+    return {
+      answer: language === 'es'
+        ? 'No se encontraron documentos relevantes para responder a tu pregunta.'
+        : 'No relevant documents found to answer your question.',
+      sources: [],
+      confidence: 0,
+    };
+  }
+
+  const contextParts = context.map((result, idx) => {
+    const sourceRef = `[Fuente ${idx + 1}: ${result.documentName || result.chunk.documentId}]`;
+    return `${sourceRef}\n${result.chunk.text}`;
+  });
+  const contextString = contextParts.join('\n\n---\n\n');
+
+  const systemPrompt = `Eres un asistente experto que responde preguntas basandose UNICAMENTE en los documentos proporcionados.
+
+REGLAS:
+1. Responde SOLO con informacion de los documentos
+2. Si no hay informacion suficiente, dilo claramente
+3. Cita las fuentes usando [Fuente X]
+4. Se preciso y conciso
+5. Responde en espanol
+
+DOCUMENTOS:
+${contextString}`;
+
+  try {
+    const result = await client.models.generateContent({
+      model: GENERATION_MODEL,
+      contents: [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'user', parts: [{ text: `Pregunta: ${query}` }] }
+      ],
+      config: {
+        temperature: 0.3,
+        maxOutputTokens: 1024,
+      }
+    });
+
+    const answer = result.text || '';
+    const avgScore = context.reduce((sum, r) => sum + r.score, 0) / context.length;
+
+    return {
+      answer,
+      sources: context.map((result, idx) => ({
+        documentId: result.chunk.documentId,
+        documentName: result.documentName || result.chunk.documentId,
+        chunkIndex: result.chunk.chunkIndex,
+        snippet: result.chunk.text.substring(0, 200) + '...',
+        score: Math.round(result.score * 100) / 100,
+      })),
+      confidence: Math.round(avgScore * 100) / 100,
+      tokensUsed: result.usageMetadata?.totalTokenCount,
+    };
+  } catch (error: any) {
+    console.error('[RAG] Error generando respuesta:', error.message);
+    throw error;
+  }
+}
+
+// ============================================================================
+// FULL RAG PIPELINE
+// ============================================================================
+
+/**
+ * Pipeline completo: embedding -> busqueda -> respuesta
+ */
+export async function ragQuery(
+  query: string,
+  userId: string,
+  filters?: {
+    documentIds?: string[];
+  },
+  topK: number = DEFAULT_TOP_K
+): Promise<RAGAnswer> {
+  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..."`);
+
+  const queryEmbedding = await generateEmbedding(query);
+  const searchResults = await searchSimilar(
+    queryEmbedding,
+    userId,
+    topK,
+    filters?.documentIds
+  );
+  const answer = await generateAnswer(query, searchResults);
+
+  return answer;
+}
+
+// ============================================================================
+// DOCUMENT INGESTION
+// ============================================================================
+
+/**
+ * Ingesta un documento al sistema RAG
+ */
+export async function ingestDocument(
+  documentId: string,
+  documentName: string,
+  text: string,
+  userId: string,
+  metadata?: Record<string, any>
+): Promise<{ chunksCreated: number; vectorsUploaded: number }> {
+  console.log(`[RAG] Ingestando documento: ${documentId}`);
+
+  const chunks = chunkTextSmart(text);
+  console.log(`[RAG] ${chunks.length} chunks creados`);
+
+  if (chunks.length === 0) {
+    return { chunksCreated: 0, vectorsUploaded: 0 };
+  }
+
+  const embeddings = await generateEmbeddings(chunks);
+
+  const embeddingsData = chunks.map((chunkText, index) => ({
+    documentId,
+    userId,
+    documentName,
+    chunkIndex: index,
+    chunkText,
+    embedding: embeddings[index],
+    metadata,
+  }));
+
+  await upsertEmbeddings(embeddingsData);
+
+  // Guardar referencia en rag_document_chunks
+  for (let i = 0; i < chunks.length; i++) {
+    await sql`
+      INSERT INTO rag_document_chunks (document_id, chunk_index, chunk_text, pinecone_id)
+      VALUES (${documentId}::uuid, ${i}, ${chunks[i]}, ${`${documentId}_chunk_${i}`})
+      ON CONFLICT (document_id, chunk_index) DO UPDATE
+      SET chunk_text = EXCLUDED.chunk_text
+    `;
+  }
+
+  console.log(`[RAG] Documento ${documentId} ingestado: ${chunks.length} chunks`);
+
+  return {
+    chunksCreated: chunks.length,
+    vectorsUploaded: embeddings.length,
+  };
+}
+
+// ============================================================================
+// AUDIT LOGGING
+// ============================================================================
+
+/**
+ * Log de consultas RAG (RGPD/ENS)
+ */
+export async function logRagQuery(
+  userId: string,
+  query: string,
+  response: string,
+  documentIds: string[],
+  confidenceScore: number,
+  ipAddress?: string,
+  userAgent?: string
+): Promise<string | null> {
+  try {
+    const docIdsStr = documentIds.length > 0 ? `{${documentIds.join(',')}}` : null;
+
+    const result = await sql`
+      INSERT INTO rag_queries (
+        user_id, query, response, document_ids, confidence_score, ip_address, user_agent
+      ) VALUES (
+        ${userId}::uuid,
+        ${query},
+        ${response},
+        ${docIdsStr}::uuid[],
+        ${confidenceScore},
+        ${ipAddress || null}::inet,
+        ${userAgent || null}
+      )
+      RETURNING id
+    `;
+
+    return result.rows[0]?.id || null;
+  } catch (error) {
+    console.error('[RAG] Error logging query:', error);
+    return null;
+  }
+}
+
+/**
+ * Historial de consultas de un usuario
+ */
+export async function getRagQueryHistory(
+  userId: string,
+  limit: number = 50
+): Promise<any[]> {
+  const result = await sql`
+    SELECT id, user_id, query, response, document_ids, confidence_score, created_at
+    FROM rag_queries
+    WHERE user_id = ${userId}::uuid
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `;
+
+  return result.rows;
+}
+
+// ============================================================================
+// STATS
+// ============================================================================
+
+/**
+ * Estadisticas del indice RAG
+ */
+export async function getRagStats(userId?: string): Promise<{
+  totalEmbeddings: number;
+  totalDocuments: number;
+  totalChunks: number;
+}> {
+  if (userId) {
+    const result = await sql`
+      SELECT
+        COUNT(*) as total_embeddings,
+        COUNT(DISTINCT document_id) as total_documents
+      FROM rag_embeddings
+      WHERE user_id = ${userId}::uuid
+    `;
+
+    return {
+      totalEmbeddings: parseInt(result.rows[0]?.total_embeddings || '0'),
+      totalDocuments: parseInt(result.rows[0]?.total_documents || '0'),
+      totalChunks: parseInt(result.rows[0]?.total_embeddings || '0'),
+    };
+  }
+
+  const result = await sql`
+    SELECT
+      COUNT(*) as total_embeddings,
+      COUNT(DISTINCT document_id) as total_documents
+    FROM rag_embeddings
+  `;
+
+  return {
+    totalEmbeddings: parseInt(result.rows[0]?.total_embeddings || '0'),
+    totalDocuments: parseInt(result.rows[0]?.total_documents || '0'),
+    totalChunks: parseInt(result.rows[0]?.total_embeddings || '0'),
+  };
+}
+
+// ============================================================================
+// EXPORTS
+// ============================================================================
+
+export default {
+  generateEmbedding,
+  generateEmbeddings,
+  chunkText,
+  chunkTextSmart,
+  upsertEmbeddings,
+  searchSimilar,
+  deleteByDocumentId,
+  deleteByUserId,
+  generateAnswer,
+  ragQuery,
+  ingestDocument,
+  logRagQuery,
+  getRagQueryHistory,
+  getRagStats,
+};
