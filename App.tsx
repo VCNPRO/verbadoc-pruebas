@@ -99,7 +99,7 @@ function AppContent() {
     const [showResultsExpanded, setShowResultsExpanded] = useState<boolean>(false);
     const [aiPanelOpen, setAiPanelOpen] = useState<boolean>(false);
     const [templatesPanelOpen, setTemplatesPanelOpen] = useState<boolean>(false);
-    const [ragPanelOpen, setRagPanelOpen] = useState<boolean>(false);
+    const [ragPanelOpen, setRagPanelOpen] = useState<boolean>(true);
     const [ragQuery, setRagQuery] = useState<string>('');
     const [advancedConfigOpen, setAdvancedConfigOpen] = useState<boolean>(false);
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview' as GeminiModel); // Modelo fijo
