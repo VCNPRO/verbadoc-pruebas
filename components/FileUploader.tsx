@@ -306,8 +306,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                 onDrop={onDrop}
                                 style={{
                                     borderColor: isDragging ? accentColor : (isLightMode ? '#93c5fd' : '#475569'),
-                                    backgroundColor: isDragging ? (isLightMode ? '#eff6ff' : 'rgba(71, 85, 105, 0.5)') : 'transparent',
-                                    minHeight: '320px'
+                                    backgroundColor: isDragging ? (isLightMode ? '#eff6ff' : 'rgba(71, 85, 105, 0.5)') : 'transparent'
                                 }}
                                 className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg transition-colors"
                             >

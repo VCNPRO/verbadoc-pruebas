@@ -1808,7 +1808,7 @@ function AppContent() {
                         {/* 2. Resultados */}
                         <button
                             onClick={() => navigate('/resultados')}
-                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            className="flex-1 flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
                                 backgroundColor: isLightMode ? '#eff6ff' : 'rgba(59, 130, 246, 0.1)',
                                 borderColor: isLightMode ? '#bfdbfe' : '#1e3a5f',
@@ -1825,7 +1825,7 @@ function AppContent() {
                         {/* 3. PDF */}
                         <button
                             onClick={() => navigate('/unprocessable')}
-                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            className="flex-1 flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
                                 backgroundColor: isLightMode ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)',
                                 borderColor: isLightMode ? '#a7f3d0' : '#064e3b',
@@ -1842,7 +1842,7 @@ function AppContent() {
                         {/* 4. Excel */}
                         <button
                             onClick={() => navigate('/master-excel')}
-                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            className="flex-1 flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
                                 backgroundColor: isLightMode ? '#ecfdf5' : 'rgba(16, 185, 129, 0.1)',
                                 borderColor: isLightMode ? '#a7f3d0' : '#064e3b',
@@ -1859,7 +1859,7 @@ function AppContent() {
                         {/* 5. Biblioteca */}
                         <button
                             onClick={() => navigate('/rag')}
-                            className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
+                            className="flex-1 flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-md hover:scale-[1.02] text-left"
                             style={{
                                 backgroundColor: isLightMode ? '#f5f3ff' : 'rgba(139, 92, 246, 0.1)',
                                 borderColor: isLightMode ? '#ddd6fe' : '#4c1d95',
