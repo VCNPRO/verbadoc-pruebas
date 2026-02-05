@@ -302,7 +302,7 @@ Responde SOLO con un JSON con este formato:
 }`;
 
     try {
-        const result = await callVertexAIAPI('extract', {
+        const result = await callVertexAIAPI('transcribe', {
             model: modelId,
             contents: {
                 role: 'user',
@@ -428,7 +428,7 @@ export const transcribeDocument = async (
     console.log(`🇪🇺 Región: europe-west1 (Bélgica)`);
 
     try {
-        const result = await callVertexAIAPI('extract', {
+        const result = await callVertexAIAPI('transcribe', {
             model: modelId,
             contents: {
                 role: 'user',
@@ -437,7 +437,6 @@ export const transcribeDocument = async (
                     generativePart
                 ]
             },
-            // No se especifica responseMimeType para obtener texto plano
         });
 
         console.log(`✅ Transcripción completada`);
@@ -466,7 +465,7 @@ export const transcribeHandwrittenDocument = async (
     console.log(`🇪🇺 Región: europe-west1 (Bélgica)`);
 
     try {
-        const result = await callVertexAIAPI('extract', {
+        const result = await callVertexAIAPI('transcribe', {
             model: modelId,
             contents: {
                 role: 'user',
@@ -517,7 +516,7 @@ Devuelve la respuesta únicamente en formato JSON con la siguiente estructura:
     console.log(`🧠 Generando metadatos con el modelo: ${modelId}`);
 
     try {
-        const result = await callVertexAIAPI('extract', {
+        const result = await callVertexAIAPI('transcribe', {
             model: modelId,
             contents: {
                 role: 'user',
@@ -647,7 +646,7 @@ IMPORTANTE: Este es un documento escaneado (imagen). Por favor:
     console.log(`🇪🇺 Región: europe-west1 (Bélgica)`);
 
     try {
-        const result = await callVertexAIAPI('extract', {
+        const result = await callVertexAIAPI('extract-ai', {
             model: modelId,
             contents: {
                 role: 'user',
@@ -656,6 +655,7 @@ IMPORTANTE: Este es un documento escaneado (imagen). Por favor:
                     generativePart
                 ]
             },
+            schema: validSchemaFields,
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: vertexAISchema,
@@ -986,7 +986,7 @@ Proporciona la respuesta en formato JSON con los siguientes campos:
 - confidence: string (opcional, nivel de confianza: "alta", "media", "baja")`;
 
     try {
-        const result = await callVertexAIAPI('extract', {
+        const result = await callVertexAIAPI('transcribe', {
             model: modelId,
             contents: {
                 role: 'user',
