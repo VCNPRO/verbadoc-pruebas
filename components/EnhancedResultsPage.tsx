@@ -153,7 +153,10 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
         setRagIngesting(true);
 
         try {
-            const body: any = { extractionId: selectedResult.id };
+            const body: any = {
+                extractionId: selectedResult.id,
+                filename: selectedResult.fileName
+            };
 
             if (ragNewFolderName.trim()) {
                 body.folderName = ragNewFolderName.trim();

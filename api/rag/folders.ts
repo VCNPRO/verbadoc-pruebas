@@ -50,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           COUNT(er.id)::int AS document_count
         FROM rag_folders f
         LEFT JOIN extraction_results er ON er.folder_id = f.id
-        WHERE f.user_id = ${userId}
+        WHERE f.user_id = ${userId}::uuid
         GROUP BY f.id, f.name, f.created_at
         ORDER BY f.name ASC
       `;
@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         const result = await sql`
           INSERT INTO rag_folders (user_id, name)
-          VALUES (${userId}, ${trimmedName})
+          VALUES (${userId}::uuid, ${trimmedName})
           RETURNING id, name, created_at
         `;
 
@@ -113,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const result = await sql`
         DELETE FROM rag_folders
-        WHERE id = ${folderId} AND user_id = ${userId}
+        WHERE id = ${folderId}::uuid AND user_id = ${userId}::uuid
       `;
 
       if ((result.rowCount ?? 0) === 0) {

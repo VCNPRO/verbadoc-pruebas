@@ -109,19 +109,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (extractionId && !fileBase64) {
       console.log(`📂 [RAG Upload] Flujo B: asignar carpeta a extraccion ${extractionId}`);
 
-      // 1. Buscar extraccion en BD
-      const existing = await sql`
-        SELECT id, filename, extracted_data, user_id
-        FROM extraction_results
-        WHERE id = ${extractionId}::uuid AND user_id = ${auth.userId}::uuid
-        LIMIT 1
-      `;
+      // Validar si extractionId es UUID valido (los IDs locales son "hist-..." y no son UUID)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const isValidUuid = uuidRegex.test(extractionId);
 
-      if (existing.rows.length === 0) {
-        return res.status(404).json({ error: 'Extraccion no encontrada' });
+      // 1. Buscar extraccion en BD (por UUID o por filename como fallback)
+      let existing;
+      if (isValidUuid) {
+        existing = await sql`
+          SELECT id, filename, extracted_data, user_id
+          FROM extraction_results
+          WHERE id = ${extractionId}::uuid AND user_id = ${auth.userId}::uuid
+          LIMIT 1
+        `;
+      }
+
+      // Fallback: buscar por filename si el ID no es UUID o no se encontro
+      if ((!existing || existing.rows.length === 0) && filename) {
+        console.log(`[RAG Upload] Flujo B: buscando por filename "${filename}"`);
+        existing = await sql`
+          SELECT id, filename, extracted_data, user_id
+          FROM extraction_results
+          WHERE filename = ${filename} AND user_id = ${auth.userId}::uuid
+          ORDER BY created_at DESC
+          LIMIT 1
+        `;
+      }
+
+      if (!existing || existing.rows.length === 0) {
+        return res.status(404).json({ error: 'Documento no encontrado en la base de datos. Primero sube el documento a la Biblioteca RAG.' });
       }
 
       const extraction = existing.rows[0];
+      const realDocId = extraction.id;
 
       // 2. Resolver folder_id (crear carpeta si folderName)
       let resolvedFolderId: string | null = folderId || null;
@@ -151,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
           await sql`
             UPDATE extraction_results SET folder_id = ${resolvedFolderId}::uuid
-            WHERE id = ${extractionId}::uuid
+            WHERE id = ${realDocId}::uuid
           `;
         } catch (folderErr: any) {
           console.warn(`[RAG Upload] No se pudo asignar folder_id: ${folderErr.message}`);
@@ -160,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // 4. Comprobar si ya esta ingested
       const embeddingsCount = await sql`
-        SELECT COUNT(*) as cnt FROM rag_embeddings WHERE document_id = ${extractionId}::uuid
+        SELECT COUNT(*) as cnt FROM rag_embeddings WHERE document_id = ${realDocId}::uuid
       `;
       const alreadyIngested = parseInt(embeddingsCount.rows[0].cnt) > 0;
 
@@ -176,18 +196,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (textToIngest && textToIngest.trim().length > 10) {
           await ingestDocument(
-            extractionId,
+            realDocId,
             extraction.filename || 'documento',
             textToIngest,
             auth.userId
           );
-          console.log(`✅ [RAG Upload] Flujo B: ingesta completada para ${extractionId}`);
+          console.log(`✅ [RAG Upload] Flujo B: ingesta completada para ${realDocId}`);
         }
       }
 
       return res.status(200).json({
         success: true,
-        documentId: extractionId,
+        documentId: realDocId,
         folderId: resolvedFolderId,
         message: `Documento asociado a carpeta correctamente`
       });
