@@ -44,8 +44,6 @@ import { ColumnMappingEditor } from './src/components/admin/ColumnMappingEditor.
 import MasterExcelPage from './src/components/MasterExcelPage.tsx';
 // ✅ Unprocessable Page (Documentos no procesables)
 import UnprocessablePage from './src/components/UnprocessablePage.tsx';
-// ✅ IDP Template Editor
-import TemplateEditorPage from './src/pages/TemplateEditorPage.tsx';
 // ✅ Servicio de sincronización
 import { SyncService } from './src/services/syncService.ts';
 // ✅ Plantilla genérica por defecto (modo sin FUNDAE)
@@ -1579,19 +1577,6 @@ function AppContent() {
                                 </svg>
                             </button>
                             {/* Modelo IA fijo: Gemini 2.5 Flash */}
-                            {/* Botón Plantillas - cuadrado */}
-                            <button
-                                onClick={() => navigate('/templates')}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
-                                style={{
-                                    backgroundColor: isLightMode ? '#8b5cf6' : '#7c3aed',
-                                    borderColor: isLightMode ? '#7c3aed' : '#a78bfa',
-                                    color: '#ffffff'
-                                }}
-                                title="Editor de Plantillas de Extracción"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
-                            </button>
                             {/* Botón Ayuda - cuadrado */}
                             <button
                                 onClick={() => setIsHelpModalOpen(true)}
@@ -2153,8 +2138,6 @@ function AppContent() {
             <Route path="/master-excel" element={<MasterExcelPage />} />
             {/* ✅ Unprocessable - Ver documentos no procesables */}
             <Route path="/unprocessable" element={<UnprocessablePage />} />
-            {/* ✅ IDP Template Editor */}
-            <Route path="/templates" element={<TemplateEditorPage />} />
             {/* Admin Dashboard */}
             <Route
                 path="/admin"
