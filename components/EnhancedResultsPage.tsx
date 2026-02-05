@@ -5,6 +5,12 @@ import { JsonViewer } from './JsonViewer.tsx';
 import { DocumentChat } from './DocumentChat.tsx';
 import { downloadExcel, downloadCSV, downloadPDF as downloadExtractionPDF, downloadTextAsPDF } from '../utils/exportUtils.ts';
 
+interface RagFolder {
+    id: string;
+    name: string;
+    document_count: number;
+}
+
 interface EnhancedResultsPageProps {
     results: ExtractionResult[];
     theme?: any;
@@ -50,6 +56,13 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
     const [excelTransposed, setExcelTransposed] = useState<boolean>(false);
     const [historyExcelTransposed, setHistoryExcelTransposed] = useState<boolean>(false);
 
+    // Estados RAG - Ingestar a carpeta
+    const [ragFolders, setRagFolders] = useState<RagFolder[]>([]);
+    const [showRagIngest, setShowRagIngest] = useState(false);
+    const [ragSelectedFolderId, setRagSelectedFolderId] = useState<string>('');
+    const [ragNewFolderName, setRagNewFolderName] = useState('');
+    const [ragIngesting, setRagIngesting] = useState(false);
+
     // Seleccionar primer resultado automáticamente
     useEffect(() => {
         if (results.length > 0 && !selectedResult) {
@@ -59,6 +72,61 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
             setSelectedResult(results.length > 0 ? results[0] : null);
         }
     }, [results, selectedResult]);
+
+    // Cargar carpetas RAG cuando se abre el modal de ingestar
+    const loadRagFolders = async () => {
+        try {
+            const response = await fetch('/api/rag/folders', { credentials: 'include' });
+            if (response.ok) {
+                const data = await response.json();
+                setRagFolders(data.folders || []);
+            }
+        } catch (error) {
+            console.error('Error cargando carpetas RAG:', error);
+        }
+    };
+
+    const handleOpenRagIngest = () => {
+        loadRagFolders();
+        setShowRagIngest(true);
+    };
+
+    const handleRagIngest = async () => {
+        if (!selectedResult) return;
+        setRagIngesting(true);
+
+        try {
+            const body: any = { extractionId: selectedResult.id };
+
+            if (ragNewFolderName.trim()) {
+                body.folderName = ragNewFolderName.trim();
+            } else if (ragSelectedFolderId) {
+                body.folderId = ragSelectedFolderId;
+            }
+
+            const response = await fetch('/api/rag/upload-and-ingest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(body)
+            });
+
+            if (response.ok) {
+                alert('Documento asociado a carpeta RAG correctamente');
+                setShowRagIngest(false);
+                setRagSelectedFolderId('');
+                setRagNewFolderName('');
+            } else {
+                const err = await response.json();
+                alert(err.error || 'Error al ingestar');
+            }
+        } catch (error) {
+            console.error('Error ingesting to RAG:', error);
+            alert('Error al ingestar documento');
+        } finally {
+            setRagIngesting(false);
+        }
+    };
 
     // Colores
     const cardBg = isLightMode ? '#ffffff' : 'rgba(30, 41, 59, 0.5)';
@@ -699,16 +767,26 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                         {selectedResult.type === 'extraction' ? 'Extracción de Datos' : 'Transcripción de Texto'} • {new Date(selectedResult.timestamp).toLocaleString()}
                                     </p>
                                 </div>
-                                {onDeleteResult && (
+                                <div className="flex gap-2">
                                     <button
-                                        onClick={() => onDeleteResult(selectedResult.id)}
+                                        onClick={handleOpenRagIngest}
                                         className="px-3 py-2 rounded text-xs font-medium transition-all hover:opacity-90"
-                                        style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
-                                        title="Borrar este resultado"
+                                        style={{ backgroundColor: accentColor, color: '#ffffff' }}
+                                        title="Asociar a carpeta RAG"
                                     >
-                                        🗑️ Borrar
+                                        📚 Carpeta RAG
                                     </button>
-                                )}
+                                    {onDeleteResult && (
+                                        <button
+                                            onClick={() => onDeleteResult(selectedResult.id)}
+                                            className="px-3 py-2 rounded text-xs font-medium transition-all hover:opacity-90"
+                                            style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
+                                            title="Borrar este resultado"
+                                        >
+                                            🗑️ Borrar
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
@@ -930,6 +1008,73 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                 </div>
             </div>
         </main>
+
+        {/* Modal: Ingestar a carpeta RAG */}
+        {showRagIngest && selectedResult && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+                <div
+                    className="rounded-xl p-6 shadow-2xl border max-w-md w-full mx-4"
+                    style={{ backgroundColor: isLightMode ? '#ffffff' : '#1e293b', borderColor }}
+                >
+                    <h3 className="text-lg font-bold mb-1" style={{ color: textColor }}>
+                        📚 Asociar a carpeta RAG
+                    </h3>
+                    <p className="text-sm mb-4" style={{ color: textSecondary }}>
+                        {selectedResult.fileName}
+                    </p>
+
+                    {/* Seleccionar carpeta existente */}
+                    <label className="text-xs font-medium mb-1 block" style={{ color: textSecondary }}>
+                        Carpeta existente:
+                    </label>
+                    <select
+                        value={ragSelectedFolderId}
+                        onChange={(e) => { setRagSelectedFolderId(e.target.value); setRagNewFolderName(''); }}
+                        className="w-full px-3 py-2 rounded text-sm border mb-3 focus:outline-none focus:ring-2"
+                        style={{ backgroundColor: isLightMode ? '#f9fafb' : '#0f172a', borderColor, color: textColor }}
+                    >
+                        <option value="">Sin carpeta</option>
+                        {ragFolders.map(folder => (
+                            <option key={folder.id} value={folder.id}>
+                                {folder.name} ({folder.document_count} docs)
+                            </option>
+                        ))}
+                    </select>
+
+                    {/* O crear nueva */}
+                    <label className="text-xs font-medium mb-1 block" style={{ color: textSecondary }}>
+                        O crear nueva carpeta:
+                    </label>
+                    <input
+                        type="text"
+                        value={ragNewFolderName}
+                        onChange={(e) => { setRagNewFolderName(e.target.value); setRagSelectedFolderId(''); }}
+                        placeholder="Nombre de la nueva carpeta..."
+                        className="w-full px-3 py-2 rounded text-sm border mb-4 focus:outline-none focus:ring-2"
+                        style={{ backgroundColor: isLightMode ? '#f9fafb' : '#0f172a', borderColor, color: textColor }}
+                    />
+
+                    {/* Botones */}
+                    <div className="flex gap-2 justify-end">
+                        <button
+                            onClick={() => { setShowRagIngest(false); setRagNewFolderName(''); setRagSelectedFolderId(''); }}
+                            className="px-4 py-2 rounded text-sm font-medium border transition-all hover:opacity-80"
+                            style={{ borderColor, color: textSecondary }}
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleRagIngest}
+                            disabled={ragIngesting || (!ragSelectedFolderId && !ragNewFolderName.trim())}
+                            className="px-4 py-2 rounded text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
+                            style={{ backgroundColor: accentColor, color: '#ffffff' }}
+                        >
+                            {ragIngesting ? 'Guardando...' : 'Guardar'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
         </div>
     );
 };

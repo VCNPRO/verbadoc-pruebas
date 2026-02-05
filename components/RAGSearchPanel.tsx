@@ -5,7 +5,13 @@
  * Panel de consultas con lenguaje natural
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface RagFolder {
+  id: string;
+  name: string;
+  document_count: number;
+}
 
 interface RAGSource {
   documentId: string;
@@ -31,6 +37,39 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
   const [response, setResponse] = useState<RAGResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Estado de carpetas
+  const [folders, setFolders] = useState<RagFolder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>('');
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+
+  // Cargar carpetas al montar
+  useEffect(() => {
+    fetch('/api/rag/folders', { credentials: 'include' })
+      .then(res => res.ok ? res.json() : { folders: [] })
+      .then(data => setFolders(data.folders || []))
+      .catch(() => {});
+  }, []);
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return;
+    try {
+      const res = await fetch('/api/rag/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ name: newFolderName.trim() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFolders(prev => [...prev, data.folder].sort((a, b) => a.name.localeCompare(b.name)));
+        setSelectedFolderId(data.folder.id);
+        setNewFolderName('');
+        setShowNewFolder(false);
+      }
+    } catch {}
+  };
+
   const handleSubmit = async () => {
     if (!query.trim() || isLoading) return;
 
@@ -43,7 +82,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ query: query.trim(), topK: 5 }),
+        body: JSON.stringify({ query: query.trim(), topK: 5, folderId: selectedFolderId || undefined }),
       });
 
       const data = await res.json();
@@ -73,6 +112,82 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
 
   return (
     <div style={{ backgroundColor: bgMain, color: textColor }}>
+      {/* Selector de carpeta */}
+      <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <label style={{ fontSize: '13px', color: textMuted, whiteSpace: 'nowrap' }}>Carpeta:</label>
+        <select
+          value={selectedFolderId}
+          onChange={(e) => setSelectedFolderId(e.target.value)}
+          style={{
+            flex: 1,
+            padding: '6px 10px',
+            fontSize: '13px',
+            backgroundColor: bgInput,
+            color: textColor,
+            border: `1px solid ${borderColor}`,
+            borderRadius: '6px',
+            outline: 'none',
+          }}
+        >
+          <option value="">Todas las carpetas</option>
+          {folders.map(f => (
+            <option key={f.id} value={f.id}>{f.name} ({f.document_count})</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={() => setShowNewFolder(!showNewFolder)}
+          style={{
+            padding: '6px 10px',
+            fontSize: '13px',
+            backgroundColor: 'transparent',
+            color: accentGreen,
+            border: `1px solid ${borderColor}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+          }}
+          title="Nueva carpeta"
+        >+</button>
+      </div>
+
+      {showNewFolder && (
+        <div style={{ marginBottom: '12px', display: 'flex', gap: '8px' }}>
+          <input
+            type="text"
+            value={newFolderName}
+            onChange={(e) => setNewFolderName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleCreateFolder(); }}
+            placeholder="Nombre de la carpeta..."
+            style={{
+              flex: 1,
+              padding: '6px 10px',
+              fontSize: '13px',
+              backgroundColor: bgInput,
+              color: textColor,
+              border: `1px solid ${borderColor}`,
+              borderRadius: '6px',
+              outline: 'none',
+            }}
+            autoFocus
+          />
+          <button
+            type="button"
+            onClick={handleCreateFolder}
+            disabled={!newFolderName.trim()}
+            style={{
+              padding: '6px 16px',
+              fontSize: '13px',
+              fontWeight: '600',
+              backgroundColor: !newFolderName.trim() ? (isLightMode ? '#cbd5e1' : '#374151') : accentGreen,
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: !newFolderName.trim() ? 'not-allowed' : 'pointer',
+            }}
+          >Crear</button>
+        </div>
+      )}
+
       {/* Zona de escritura */}
       <div
         style={{

@@ -72,13 +72,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { filename, fileBase64, fileType, fileSizeBytes } = req.body;
+    const { filename, fileBase64, fileType, fileSizeBytes, folderId, folderName } = req.body;
 
     if (!filename || !fileBase64) {
       return res.status(400).json({ error: 'Faltan campos: filename, fileBase64' });
     }
 
     console.log(`📄 [RAG Upload] Procesando: ${filename}`);
+
+    // Resolver folder_id
+    let resolvedFolderId: string | null = folderId || null;
+
+    if (!resolvedFolderId && folderName && typeof folderName === 'string' && folderName.trim()) {
+      const trimmedName = folderName.trim();
+      const existing = await sql`
+        SELECT id FROM rag_folders
+        WHERE user_id = ${auth.userId}::uuid AND name = ${trimmedName}
+        LIMIT 1
+      `;
+
+      if (existing.rows.length > 0) {
+        resolvedFolderId = existing.rows[0].id;
+      } else {
+        const newFolder = await sql`
+          INSERT INTO rag_folders (user_id, name)
+          VALUES (${auth.userId}::uuid, ${trimmedName})
+          RETURNING id
+        `;
+        resolvedFolderId = newFolder.rows[0].id;
+      }
+    }
 
     // 1. Subir archivo a Vercel Blob
     const buffer = Buffer.from(fileBase64, 'base64');
@@ -94,7 +117,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       INSERT INTO extraction_results (
         user_id, filename, extracted_data, model_used,
         pdf_blob_url, file_type, file_size_bytes,
-        confidence_score, validation_status
+        confidence_score, validation_status, folder_id
       ) VALUES (
         ${auth.userId}::uuid,
         ${filename},
@@ -104,7 +127,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ${fileType || 'application/pdf'},
         ${fileSizeBytes || buffer.length},
         1.0,
-        'valid'
+        'valid',
+        ${resolvedFolderId}::uuid
       )
       RETURNING id
     `;
@@ -136,6 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       success: true,
       documentId,
       filename,
+      folderId: resolvedFolderId,
       blobUrl: blob.url,
       ingestion: {
         chunksCreated: ingestResult.chunksCreated,

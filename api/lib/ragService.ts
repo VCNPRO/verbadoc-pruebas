@@ -244,13 +244,31 @@ export async function searchSimilar(
   queryEmbedding: number[],
   userId: string,
   topK: number = DEFAULT_TOP_K,
-  documentIds?: string[]
+  documentIds?: string[],
+  folderId?: string
 ): Promise<RAGSearchResult[]> {
   const vectorStr = `[${queryEmbedding.join(',')}]`;
 
   let result;
 
-  if (documentIds && documentIds.length > 0) {
+  if (folderId) {
+    // Filtrar por carpeta: buscar embeddings de documentos que pertenecen a la carpeta
+    result = await sql`
+      SELECT
+        re.id,
+        re.document_id,
+        re.document_name,
+        re.chunk_index,
+        re.chunk_text,
+        1 - (re.embedding <=> ${vectorStr}::vector) as similarity
+      FROM rag_embeddings re
+      INNER JOIN extraction_results er ON er.id = re.document_id
+      WHERE re.user_id = ${userId}::uuid
+        AND er.folder_id = ${folderId}::uuid
+      ORDER BY re.embedding <=> ${vectorStr}::vector
+      LIMIT ${topK}
+    `;
+  } else if (documentIds && documentIds.length > 0) {
     result = await sql`
       SELECT
         id,
@@ -398,17 +416,19 @@ export async function ragQuery(
   userId: string,
   filters?: {
     documentIds?: string[];
+    folderId?: string;
   },
   topK: number = DEFAULT_TOP_K
 ): Promise<RAGAnswer> {
-  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..."`);
+  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..."${filters?.folderId ? ` (carpeta: ${filters.folderId})` : ''}`);
 
   const queryEmbedding = await generateEmbedding(query);
   const searchResults = await searchSimilar(
     queryEmbedding,
     userId,
     topK,
-    filters?.documentIds
+    filters?.documentIds,
+    filters?.folderId
   );
   const answer = await generateAnswer(query, searchResults);
 

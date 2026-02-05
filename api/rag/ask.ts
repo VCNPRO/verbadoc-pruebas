@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // POST: Process RAG query
     if (req.method === 'POST') {
-      const { query, documentIds, projectId, topK = 5 } = req.body;
+      const { query, documentIds, projectId, folderId, topK = 5 } = req.body;
 
       // Validate query
       if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -85,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         userId,
         {
           documentIds: documentIds || undefined,
-          projectId: projectId || undefined,
+          folderId: folderId || undefined,
         },
         effectiveTopK
       );
