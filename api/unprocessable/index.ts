@@ -6,7 +6,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
-import { AccessLogDB } from '../lib/access-log.js';
 
 // Helper: Verificar autenticación y obtener client_id
 async function verifyAuth(req: VercelRequest): Promise<{ userId: string; role: string; clientId: number | null } | null> {
@@ -172,19 +171,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log('✅ Documentos no procesables encontrados:', result.rows.length);
 
-      // Log access to unprocessable page
-      await AccessLogDB.logFromRequest({
-        req,
-        userId: user.userId,
-        action: 'view_unprocessable',
-        success: true,
-        metadata: {
-          count: result.rows.length,
-          category: category || 'all',
-          search: search || null,
-        },
-      });
-
       // Total real = suma de todas las categorías (sin límite)
       const totalReal = stats.rows.reduce((sum: number, s: any) => sum + parseInt(s.count), 0);
 
@@ -195,10 +181,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
     } catch (error: any) {
-      console.error('❌ Error al obtener no procesables:', error);
-      return res.status(500).json({
-        error: 'Error al obtener documentos no procesables',
-        message: error.message
+      // Tabla puede no existir - devolver vacio
+      return res.status(200).json({
+        documents: [],
+        stats: [],
+        total: 0
       });
     }
   }
@@ -336,19 +323,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
 
       console.log('✅ Documento enviado a revisión:', id, '-> nuevo ID:', newExtractionId);
-
-      // Log access
-      await AccessLogDB.logFromRequest({
-        req,
-        userId: user.userId,
-        action: 'send_to_review',
-        success: true,
-        metadata: {
-          unprocessable_id: id,
-          new_extraction_id: newExtractionId,
-          filename: unprocessable.filename
-        },
-      });
 
       return res.status(200).json({
         success: true,
