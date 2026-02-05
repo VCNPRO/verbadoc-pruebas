@@ -1867,6 +1867,7 @@ function AppContent() {
                         >
                             <div>
                                 <p className="text-base font-semibold" style={{ color: isLightMode ? '#5b21b6' : '#c4b5fd' }}>Biblioteca</p>
+                                <p className="text-lg font-bold" style={{ color: isLightMode ? '#7c3aed' : '#a78bfa' }}>RAG</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#8b5cf6' : '#c4b5fd'}>
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -2166,6 +2167,49 @@ function AppContent() {
         </div>
     );
 
+    // ==================== PAGINA BIBLIOTECA RAG ====================
+    const BibliotecaPage = () => {
+        const [ragQuery, setRagQuery] = React.useState('');
+        const bgPage = isLightMode ? '#f0f9ff' : '#0f172a';
+        const textPageColor = isLightMode ? '#1e3a8a' : '#f1f5f9';
+        const accentPageColor = isLightMode ? '#3b82f6' : '#06b6d4';
+
+        return (
+            <div className="min-h-screen flex flex-col" style={{ backgroundColor: bgPage }}>
+                <header
+                    className="backdrop-blur-sm border-b-2 sticky top-0 z-10 transition-colors duration-500 shadow-md"
+                    style={{
+                        backgroundColor: isLightMode ? 'rgba(255, 255, 255, 0.8)' : 'rgba(2, 6, 23, 0.7)',
+                        borderBottomColor: isLightMode ? 'rgba(59, 130, 246, 0.5)' : 'rgba(51, 65, 85, 0.5)'
+                    }}
+                >
+                    <div className="px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-16">
+                            <div className="flex items-center gap-4">
+                                <button
+                                    onClick={() => navigate('/')}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:opacity-80"
+                                    style={{ backgroundColor: accentPageColor, color: '#ffffff' }}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                    </svg>
+                                    Volver
+                                </button>
+                                <h1 className="text-2xl font-bold font-orbitron tracking-wider" style={{ color: textPageColor }}>
+                                    Biblioteca RAG
+                                </h1>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+                <main className="flex-1 p-4 sm:p-6 lg:p-8">
+                    <RAGSearchPanel isLightMode={isLightMode} query={ragQuery} setQuery={setRagQuery} />
+                </main>
+            </div>
+        );
+    };
+
     // Retornar rutas
     // Si es reviewer, mostrar rutas restringidas
     if (isReviewer) {
@@ -2231,7 +2275,7 @@ function AppContent() {
             {/* ✅ Unprocessable - Ver documentos no procesables */}
             <Route path="/unprocessable" element={<UnprocessablePage />} />
             {/* ✅ Nuevas rutas */}
-            <Route path="/rag" element={<RAGSearchPanel isDarkMode={isDarkMode} />} />
+            <Route path="/rag" element={<BibliotecaPage />} />
             <Route path="/guia" element={<UserGuidePage isDarkMode={isDarkMode} />} />
             {/* Admin Dashboard */}
             <Route
