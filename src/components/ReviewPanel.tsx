@@ -34,9 +34,10 @@ import { PdfViewerOptimized, type PdfHighlight } from './PdfViewerOptimized';
 interface ReviewPanelProps {
   // Modo: 'single' para revisar uno específico, 'list' para mostrar lista
   mode?: 'single' | 'list';
+  isDarkMode?: boolean;
 }
 
-export default function ReviewPanel({ mode = 'single' }: ReviewPanelProps) {
+export default function ReviewPanel({ mode = 'single', isDarkMode = false }: ReviewPanelProps) {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 

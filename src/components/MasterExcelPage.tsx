@@ -1,14 +1,13 @@
 /**
  * MasterExcelPage.tsx
  *
- * Página para ver todos los formularios procesados y descargar el Excel master
+ * Pagina para ver todos los formularios procesados y descargar el Excel master
  * Ruta: /master-excel
  */
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
-import PinModal, { requiresPin } from './PinModal.tsx';
 import { PdfViewerOptimized } from './PdfViewerOptimized';
 
 interface MasterExcelRow {
@@ -25,39 +24,34 @@ interface MasterExcelRow {
   updated_at: string;
 }
 
-interface Stats {
-  total_rows: number;
-  pending: number;
-  valid: number;
-  needs_review: number;
-  approved: number;
-  rejected: number;
-  with_discrepancies: number;
-  fully_validated: number;
+interface MasterExcelPageProps {
+  isDarkMode?: boolean;
 }
 
-export default function MasterExcelPage() {
+export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // Theme variables
+  const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
+  const bgSecondary = isDarkMode ? 'bg-[#1e293b]' : 'bg-[#e8edf2]';
+  const textPrimary = isDarkMode ? 'text-white' : 'text-[#1e293b]';
+  const textSecondary = isDarkMode ? 'text-slate-400' : 'text-[#475569]';
+  const border = isDarkMode ? 'border-slate-700' : 'border-[#cbd5e1]';
+  const bgCard = isDarkMode ? 'bg-[#1e293b]' : 'bg-white';
+  const hoverRow = isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]';
+
   const [rows, setRows] = useState<MasterExcelRow[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
-
-  // PIN Modal para eliminar
-  const [showPinModal, setShowPinModal] = useState(false);
-  const [pendingDeleteAction, setPendingDeleteAction] = useState<(() => void) | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Ordenación
+  // Sorting
   const [sortField, setSortField] = useState<'filename' | 'created_at'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Función para cambiar ordenación
   const handleSort = (field: 'filename' | 'created_at') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -67,7 +61,6 @@ export default function MasterExcelPage() {
     }
   };
 
-  // Filas ordenadas
   const sortedRows = [...rows].sort((a, b) => {
     const aValue = sortField === 'filename' ? a.filename.toLowerCase() : new Date(a.created_at).getTime();
     const bValue = sortField === 'filename' ? b.filename.toLowerCase() : new Date(b.created_at).getTime();
@@ -77,15 +70,14 @@ export default function MasterExcelPage() {
   });
 
   const [viewingRow, setViewingRow] = useState<MasterExcelRow | null>(null);
-  const [sendingToReview, setSendingToReview] = useState(false);
 
-  // Estado para edición inline en modal y visor PDF
+  // Inline editing state and PDF viewer in modal
   const [modalPdfUrl, setModalPdfUrl] = useState<string | null>(null);
   const [modalEditingField, setModalEditingField] = useState<string | null>(null);
   const [modalEditValue, setModalEditValue] = useState('');
   const [savingField, setSavingField] = useState(false);
 
-  // Cargar PDF cuando se abre el modal de un row
+  // Load PDF when modal opens
   useEffect(() => {
     if (!viewingRow) {
       setModalPdfUrl(null);
@@ -93,7 +85,6 @@ export default function MasterExcelPage() {
       return;
     }
 
-    // Intentar obtener el PDF desde la extracción asociada
     const loadPdf = async () => {
       try {
         const response = await fetch(`/api/extractions/${viewingRow.extraction_id}`, {
@@ -108,9 +99,8 @@ export default function MasterExcelPage() {
           }
         }
       } catch (e) {
-        console.warn('No se pudo cargar PDF de la extracción:', e);
+        console.warn('No se pudo cargar PDF de la extraccion:', e);
       }
-      // Fallback: intentar sessionStorage
       const pdfData = sessionStorage.getItem(`pdf_${viewingRow.extraction_id}`);
       if (pdfData) {
         try {
@@ -137,7 +127,7 @@ export default function MasterExcelPage() {
     };
   }, [viewingRow?.id]);
 
-  // Guardar campo editado en el modal
+  // Save edited field in modal
   const handleModalSaveField = async (key: string) => {
     if (!viewingRow) return;
     try {
@@ -153,12 +143,10 @@ export default function MasterExcelPage() {
 
       if (!response.ok) throw new Error('Error al guardar');
 
-      // Actualizar localmente
       const updatedRow = { ...viewingRow, row_data: updatedData };
       setViewingRow(updatedRow);
       setRows(prev => prev.map(r => r.id === viewingRow.id ? updatedRow : r));
       setModalEditingField(null);
-      console.log(`✅ Campo "${key}" actualizado`);
     } catch (err: any) {
       console.error('Error al guardar campo:', err);
       alert('Error al guardar el campo. Intenta de nuevo.');
@@ -175,7 +163,6 @@ export default function MasterExcelPage() {
     try {
       setLoading(true);
       setError('');
-      setSelectedIds(new Set());
 
       const params = new URLSearchParams();
       if (statusFilter !== 'all') {
@@ -195,9 +182,6 @@ export default function MasterExcelPage() {
 
       const data = await response.json();
       setRows(data.rows || []);
-      setStats(data.stats);
-
-      console.log('✅ Formularios cargados:', data.rows.length);
     } catch (err: any) {
       console.error('Error:', err);
       setError(err.message);
@@ -220,20 +204,15 @@ export default function MasterExcelPage() {
         throw new Error(error.message || 'Error al descargar Excel');
       }
 
-      // Obtener el blob del Excel
       const blob = await response.blob();
-
-      // Crear URL temporal y descargar
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `FUNDAE_Master_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `Master_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-
-      console.log('✅ Excel descargado');
     } catch (err: any) {
       console.error('Error al descargar:', err);
       setError(err.message);
@@ -242,159 +221,17 @@ export default function MasterExcelPage() {
     }
   };
 
-  const handleDeleteSelected = () => {
-    if (selectedIds.size === 0) return;
-
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar ${selectedIds.size} registros?`)) {
-      return;
-    }
-
-    // Si el usuario requiere PIN, mostrar modal
-    if (requiresPin(user?.email)) {
-      setPendingDeleteAction(() => executeDeleteSelected);
-      setShowPinModal(true);
-      return;
-    }
-
-    executeDeleteSelected();
-  };
-
-  const executeDeleteSelected = async () => {
-    try {
-      setDeleting(true);
-      const response = await fetch('/api/master-excel', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) throw new Error('Error al eliminar registros');
-
-      await loadData();
-      alert('Registros eliminados correctamente');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const handleDeleteAll = () => {
-    if (!window.confirm('¿ESTÁS ABSOLUTAMENTE SEGURO? Esta acción eliminará TODOS los registros del Excel Master y no se puede deshacer.')) {
-      return;
-    }
-
-    // Si el usuario requiere PIN, mostrar modal
-    if (requiresPin(user?.email)) {
-      setPendingDeleteAction(() => executeDeleteAll);
-      setShowPinModal(true);
-      return;
-    }
-
-    executeDeleteAll();
-  };
-
-  const executeDeleteAll = async () => {
-    try {
-      setDeleting(true);
-      const response = await fetch('/api/master-excel', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deleteAll: true }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) throw new Error('Error al eliminar todos los registros');
-
-      await loadData();
-      alert('Se han eliminado todos los registros correctamente');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  // Enviar seleccionados a Revisión
-  const handleSendToReview = async () => {
-    if (selectedIds.size === 0) return;
-
-    if (!window.confirm(`¿Enviar ${selectedIds.size} registro(s) a Revisión? Desaparecerán del Excel Master hasta que los apruebes de nuevo.`)) {
-      return;
-    }
-
-    try {
-      setSendingToReview(true);
-      setError('');
-
-      const response = await fetch('/api/master-excel/send-to-review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Error al enviar a revisión');
-      }
-
-      const result = await response.json();
-      console.log('✅ Enviados a revisión:', result.count);
-
-      // Recargar datos (los enviados desaparecerán)
-      await loadData();
-
-      alert(`${result.count} registro(s) enviado(s) a Revisión correctamente`);
-    } catch (err: any) {
-      console.error('Error:', err);
-      setError(err.message);
-    } finally {
-      setSendingToReview(false);
-    }
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedIds.size === rows.length) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(rows.map(r => r.id)));
-    }
-  };
-
-  const toggleSelectRow = (id: string) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
-    setSelectedIds(newSelected);
-  };
-
-  const getStatusBadge = (status: string) => {
-    const badges = {
-      pending: { text: 'Pendiente', class: 'bg-yellow-100 text-yellow-800' },
-      valid: { text: 'Válido', class: 'bg-green-100 text-green-800' },
-      needs_review: { text: 'Requiere Revisión', class: 'bg-red-100 text-red-800' },
-      approved: { text: 'Aprobado', class: 'bg-blue-100 text-blue-800' },
-      rejected: { text: 'Rechazado', class: 'bg-gray-100 text-gray-800' }
-    };
-    return badges[status as keyof typeof badges] || badges.pending;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${bgPrimary}`}>
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className={`${bgCard} border-b ${border}`}>
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Excel Master FUNDAE
+              <h1 className={`text-2xl font-bold ${textPrimary}`}>
+                Excel Master
               </h1>
-              <p className="text-gray-600 mt-1">
+              <p className={`${textSecondary} mt-1`}>
                 Todos los formularios procesados listos para exportar
               </p>
             </div>
@@ -402,135 +239,67 @@ export default function MasterExcelPage() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate('/')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg hover:bg-gray-50"
+                className={`px-4 py-2 ${textSecondary} hover:${textPrimary} border ${border} rounded-lg ${hoverRow}`}
               >
                 ← Volver al inicio
               </button>
               <button
                 onClick={() => navigate('/review')}
-                className="px-4 py-2 text-orange-600 hover:text-orange-900 border border-orange-200 rounded-lg hover:bg-orange-50 font-medium"
+                className="px-4 py-2 text-orange-500 hover:text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/10 font-medium"
               >
-                📋 Revisar
+                Revisar
               </button>
               <button
                 onClick={() => navigate('/unprocessable')}
-                className="px-4 py-2 text-red-600 hover:text-red-900 border border-red-200 rounded-lg hover:bg-red-50 font-medium"
+                className="px-4 py-2 text-red-500 hover:text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 font-medium"
               >
-                ⚠️ No Procesables
+                No Procesables
               </button>
-              {/* Solo test@test.eu puede eliminar todo */}
-              {rows.length > 0 && user?.email === 'test@test.eu' && (
-                <button
-                  onClick={handleDeleteAll}
-                  disabled={deleting}
-                  className="px-4 py-2 border border-red-300 text-red-600 hover:bg-red-50 font-medium rounded-lg transition-colors flex items-center gap-2"
-                >
-                  🗑️ Eliminar Todo
-                </button>
-              )}
-              
-              {/* Enviar a Revisión - visible para todos cuando hay selección */}
-              {selectedIds.size > 0 && (
-                <button
-                  onClick={handleSendToReview}
-                  disabled={sendingToReview}
-                  className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors flex items-center gap-2 animate-in fade-in slide-in-from-right-2"
-                >
-                  {sendingToReview ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      📝 Enviar a Revisión ({selectedIds.size})
-                    </>
-                  )}
-                </button>
-              )}
 
-              {/* Solo test@test.eu puede eliminar seleccionados */}
-              {selectedIds.size > 0 && user?.email === 'test@test.eu' && (
-                <button
-                  onClick={handleDeleteSelected}
-                  disabled={deleting}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors flex items-center gap-2 animate-in fade-in slide-in-from-right-2"
-                >
-                  🗑️ Eliminar seleccionados ({selectedIds.size})
-                </button>
-              )}
-
-              {/* Reviewers no pueden descargar Excel */}
               {user?.role !== 'reviewer' && (
                 <button
                   onClick={handleDownloadExcel}
                   disabled={downloading || rows.length === 0}
                   className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
-                {downloading ? (
-                  <>
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                    Generando...
-                  </>
-                ) : (
-                  <>
-                    📥 Descargar Excel Master
-                  </>
-                )}
+                  {downloading ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                      Generando...
+                    </>
+                  ) : (
+                    'Descargar Excel Master'
+                  )}
                 </button>
               )}
             </div>
           </div>
-
-          {/* Estadísticas */}
-          {stats && (
-            <div className="mt-6 grid grid-cols-4 gap-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="text-sm text-blue-600 font-medium">Total Formularios</div>
-                <div className="text-2xl font-bold text-blue-900 mt-1">{stats.total || 0}</div>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="text-sm text-green-600 font-medium">Aprobados</div>
-                <div className="text-2xl font-bold text-green-900 mt-1">{stats.approved || 0}</div>
-              </div>
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="text-sm text-yellow-600 font-medium">Pendientes</div>
-                <div className="text-2xl font-bold text-yellow-900 mt-1">{stats.pending || 0}</div>
-              </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <div className="text-sm text-purple-600 font-medium">Válidos</div>
-                <div className="text-2xl font-bold text-purple-900 mt-1">{stats.valid || 0}</div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* Filters */}
       <div className="max-w-7xl mx-auto px-6 py-4">
-        <div className="bg-white border border-gray-200 rounded-lg p-4 flex gap-4">
-          {/* Filtro por estado */}
+        <div className={`${bgCard} border ${border} rounded-lg p-4 flex gap-4`}>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
               Estado
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className={`w-full px-3 py-2 border ${border} rounded-md ${bgCard} ${textPrimary}`}
             >
               <option value="all">Todos</option>
               <option value="pending">Pendientes</option>
-              <option value="valid">Válidos</option>
-              <option value="needs_review">Requiere Revisión</option>
+              <option value="valid">Validos</option>
+              <option value="needs_review">Requiere Revision</option>
               <option value="approved">Aprobados</option>
               <option value="rejected">Rechazados</option>
             </select>
           </div>
 
-          {/* Búsqueda */}
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
               Buscar
             </label>
             <input
@@ -539,7 +308,7 @@ export default function MasterExcelPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && loadData()}
               placeholder="Expediente, CIF, empresa..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+              className={`w-full px-3 py-2 border ${border} rounded-md ${bgCard} ${textPrimary}`}
             />
           </div>
 
@@ -557,125 +326,89 @@ export default function MasterExcelPage() {
       {/* Error */}
       {error && (
         <div className="max-w-7xl mx-auto px-6 mb-4">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-800">{error}</p>
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+            <p className="text-red-400">{error}</p>
           </div>
         </div>
       )}
 
-      {/* Tabla */}
+      {/* Table */}
       <div className="max-w-7xl mx-auto px-6 pb-8">
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <div className={`${bgCard} border ${border} rounded-lg overflow-hidden`}>
           {loading ? (
             <div className="p-12 text-center">
               <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className="text-gray-600">Cargando formularios...</p>
+              <p className={textSecondary}>Cargando formularios...</p>
             </div>
           ) : rows.length === 0 ? (
             <div className="p-12 text-center">
-              <p className="text-gray-600 text-lg">No hay formularios procesados</p>
-              <p className="text-gray-500 text-sm mt-2">
-                Los formularios que proceses aparecerán aquí automáticamente
+              <p className={`${textSecondary} text-lg`}>No hay formularios procesados</p>
+              <p className={`${textSecondary} text-sm mt-2`}>
+                Los formularios que proceses apareceran aqui automaticamente
               </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
+                <thead className={`${bgSecondary} border-b ${border}`}>
                   <tr>
-                    <th className="px-4 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={rows.length > 0 && selectedIds.size === rows.length}
-                        onChange={toggleSelectAll}
-                        className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                      />
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expediente</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CIF</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Empresa</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>#</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Expediente</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>CIF</th>
+                    <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Empresa</th>
                     <th
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase cursor-pointer ${hoverRow} select-none`}
                       onClick={() => handleSort('filename')}
                     >
                       Archivo {sortField === 'filename' && (sortDirection === 'asc' ? '▲' : '▼')}
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Validación</th>
                     <th
-                      className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none"
+                      className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase cursor-pointer ${hoverRow} select-none`}
                       onClick={() => handleSort('created_at')}
                     >
                       Fecha {sortField === 'created_at' && (sortDirection === 'asc' ? '▲' : '▼')}
                     </th>
-                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    <th className={`px-4 py-3 text-right text-xs font-medium ${textSecondary} uppercase`}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sortedRows.map((row, idx) => {
-                    const badge = getStatusBadge(row.validation_status);
-                    const isSelected = selectedIds.has(row.id);
-                    return (
-                      <tr 
-                        key={row.id} 
-                        className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isSelected ? 'bg-indigo-50' : ''}`}
-                      >
-                        <td className="px-4 py-3">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelectRow(row.id)}
-                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">{row.row_number}</td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                          {row.row_data?.numero_expediente || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {row.row_data?.nif_empresa || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {row.row_data?.razon_social?.substring(0, 30) || 'N/A'}
-                          {row.row_data?.razon_social?.length > 30 && '...'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          {row.filename.substring(0, 25)}
-                          {row.filename.length > 25 && '...'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded ${badge.class}`}>
-                            {badge.text}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {row.cross_validation_match ? (
-                            <span className="text-green-600 text-sm">✓ Validado</span>
-                          ) : row.discrepancy_count > 0 ? (
-                            <span className="text-yellow-600 text-sm">{row.discrepancy_count} discrepancias</span>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-500">
-                          {new Date(row.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                        <td className="px-4 py-3 text-right flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setViewingRow(row)}
-                            className="text-indigo-500 hover:text-indigo-700 p-1 rounded transition-colors"
-                            title="Ver datos del formulario"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-                              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {sortedRows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className={`border-b ${border} ${hoverRow} transition-colors`}
+                    >
+                      <td className={`px-4 py-3 text-sm ${textPrimary}`}>{row.row_number}</td>
+                      <td className={`px-4 py-3 text-sm font-medium ${textPrimary}`}>
+                        {row.row_data?.numero_expediente || 'N/A'}
+                      </td>
+                      <td className={`px-4 py-3 text-sm ${textSecondary}`}>
+                        {row.row_data?.nif_empresa || 'N/A'}
+                      </td>
+                      <td className={`px-4 py-3 text-sm ${textSecondary}`}>
+                        {row.row_data?.razon_social?.substring(0, 30) || 'N/A'}
+                        {row.row_data?.razon_social?.length > 30 && '...'}
+                      </td>
+                      <td className={`px-4 py-3 text-sm ${textSecondary}`}>
+                        {row.filename.substring(0, 25)}
+                        {row.filename.length > 25 && '...'}
+                      </td>
+                      <td className={`px-4 py-3 text-sm ${textSecondary}`}>
+                        {new Date(row.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setViewingRow(row)}
+                          className="text-indigo-500 hover:text-indigo-400 p-1 rounded transition-colors"
+                          title="Ver datos del formulario"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -683,34 +416,34 @@ export default function MasterExcelPage() {
         </div>
       </div>
 
-      {/* Modal Visor de Datos con PDF */}
+      {/* Modal: Data Viewer with PDF */}
       {viewingRow && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-[95vw] max-w-[1400px] h-[90vh] overflow-hidden flex flex-col">
-            {/* Header del Modal */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+          <div className={`${bgCard} rounded-xl shadow-2xl w-[95vw] max-w-[1400px] h-[90vh] overflow-hidden flex flex-col`}>
+            {/* Modal Header */}
+            <div className={`${bgSecondary} px-6 py-4 border-b ${border} flex items-center justify-between flex-shrink-0`}>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className={`text-lg font-semibold ${textPrimary}`}>
                   Datos del Formulario
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className={`text-sm ${textSecondary} mt-1`}>
                   {viewingRow.filename} - Expediente: {viewingRow.row_data?.numero_expediente || 'N/A'}
                 </p>
               </div>
               <button
                 onClick={() => setViewingRow(null)}
-                className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                className={`p-2 ${hoverRow} rounded-lg transition-colors`}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 ${textSecondary}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
 
-            {/* Contenido 50/50: PDF izquierda + Datos editables derecha */}
+            {/* Content 50/50: PDF left + Editable data right */}
             <div className="flex-1 flex overflow-hidden">
-              {/* Izquierda: Visor PDF (50%) */}
-              <div className="w-1/2 h-full bg-gray-200 border-r border-gray-300 flex items-center justify-center">
+              {/* Left: PDF Viewer (50%) */}
+              <div className={`w-1/2 h-full ${bgSecondary} border-r ${border} flex items-center justify-center`}>
                 {modalPdfUrl ? (
                   <PdfViewerOptimized
                     pdfUrl={modalPdfUrl}
@@ -721,30 +454,30 @@ export default function MasterExcelPage() {
                   />
                 ) : (
                   <div className="text-center p-8">
-                    <div className="text-gray-400 text-5xl mb-4">📄</div>
-                    <p className="text-gray-500 font-medium">PDF no disponible</p>
-                    <p className="text-gray-400 text-sm mt-1">No se encontró el archivo original</p>
+                    <div className={`${textSecondary} text-5xl mb-4`}>📄</div>
+                    <p className={`${textSecondary} font-medium`}>PDF no disponible</p>
+                    <p className={`${textSecondary} text-sm mt-1`}>No se encontro el archivo original</p>
                   </div>
                 )}
               </div>
 
-              {/* Derecha: Tabla editable (50%) */}
+              {/* Right: Editable table (50%) */}
               <div className="w-1/2 h-full flex flex-col overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-4">
-                  <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                  <div className={`${bgSecondary} rounded-lg border ${border} overflow-hidden`}>
                     <table className="w-full">
-                      <thead className="bg-gray-100 sticky top-0">
+                      <thead className={`${isDarkMode ? 'bg-[#334155]' : 'bg-[#dde3ea]'} sticky top-0`}>
                         <tr>
-                          <th className="px-2 py-2 text-center text-xs font-semibold text-gray-600 uppercase w-12"></th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase w-1/3">Campo</th>
-                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Valor</th>
+                          <th className={`px-2 py-2 text-center text-xs font-semibold ${textSecondary} uppercase w-12`}></th>
+                          <th className={`px-3 py-2 text-left text-xs font-semibold ${textSecondary} uppercase w-1/3`}>Campo</th>
+                          <th className={`px-3 py-2 text-left text-xs font-semibold ${textSecondary} uppercase`}>Valor</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className={`divide-y ${border}`}>
                         {viewingRow.row_data && Object.entries(viewingRow.row_data)
                           .sort(([a], [b]) => a.localeCompare(b))
                           .map(([key, value]) => (
-                            <tr key={key} className="hover:bg-white transition-colors">
+                            <tr key={key} className={`${hoverRow} transition-colors`}>
                               <td className="px-2 py-2 text-center">
                                 {modalEditingField === key ? (
                                   <div className="flex gap-1">
@@ -758,7 +491,7 @@ export default function MasterExcelPage() {
                                     </button>
                                     <button
                                       onClick={() => setModalEditingField(null)}
-                                      className="px-1.5 py-1 text-xs bg-gray-400 text-white rounded hover:bg-gray-500"
+                                      className="px-1.5 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
                                       title="Cancelar"
                                     >
                                       ✕
@@ -777,10 +510,10 @@ export default function MasterExcelPage() {
                                   </button>
                                 )}
                               </td>
-                              <td className="px-3 py-2 text-xs font-mono text-gray-500">
+                              <td className={`px-3 py-2 text-xs font-mono ${textSecondary}`}>
                                 {key}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-900">
+                              <td className={`px-3 py-2 text-sm ${textPrimary}`}>
                                 {modalEditingField === key ? (
                                   <input
                                     type="text"
@@ -790,12 +523,12 @@ export default function MasterExcelPage() {
                                       if (e.key === 'Enter') handleModalSaveField(key);
                                       if (e.key === 'Escape') setModalEditingField(null);
                                     }}
-                                    className="w-full px-2 py-1 border border-blue-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className={`w-full px-2 py-1 border border-blue-400 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${bgCard} ${textPrimary}`}
                                     autoFocus
                                   />
                                 ) : (
                                   value === null || value === undefined || value === 'null'
-                                    ? <span className="text-gray-400 italic">-</span>
+                                    ? <span className={`${textSecondary} italic`}>-</span>
                                     : typeof value === 'object'
                                       ? JSON.stringify(value)
                                       : String(value)
@@ -807,25 +540,25 @@ export default function MasterExcelPage() {
                     </table>
                   </div>
 
-                  {/* Metadatos */}
+                  {/* Metadata */}
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div className="bg-blue-50 rounded-lg p-3">
-                      <span className="text-blue-600 font-medium">Estado:</span>
-                      <span className="ml-2 text-blue-900">{viewingRow.validation_status}</span>
+                    <div className={`${isDarkMode ? 'bg-blue-900/30' : 'bg-blue-50'} rounded-lg p-3`}>
+                      <span className="text-blue-400 font-medium">Estado:</span>
+                      <span className={`ml-2 ${textPrimary}`}>{viewingRow.validation_status}</span>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-3">
-                      <span className="text-green-600 font-medium">Validación cruzada:</span>
-                      <span className="ml-2 text-green-900">
+                    <div className={`${isDarkMode ? 'bg-green-900/30' : 'bg-green-50'} rounded-lg p-3`}>
+                      <span className="text-green-400 font-medium">Validacion cruzada:</span>
+                      <span className={`ml-2 ${textPrimary}`}>
                         {viewingRow.cross_validation_match ? 'Coincide' : 'No coincide'}
                       </span>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <span className="text-gray-600 font-medium">Versión:</span>
-                      <span className="ml-2 text-gray-900">{viewingRow.version}</span>
+                    <div className={`${bgSecondary} rounded-lg p-3`}>
+                      <span className={`${textSecondary} font-medium`}>Version:</span>
+                      <span className={`ml-2 ${textPrimary}`}>{viewingRow.version}</span>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3">
-                      <span className="text-gray-600 font-medium">Fecha:</span>
-                      <span className="ml-2 text-gray-900">
+                    <div className={`${bgSecondary} rounded-lg p-3`}>
+                      <span className={`${textSecondary} font-medium`}>Fecha:</span>
+                      <span className={`ml-2 ${textPrimary}`}>
                         {new Date(viewingRow.created_at).toLocaleString('es-ES')}
                       </span>
                     </div>
@@ -833,10 +566,10 @@ export default function MasterExcelPage() {
                 </div>
 
                 {/* Footer */}
-                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex justify-end flex-shrink-0">
+                <div className={`${bgSecondary} px-4 py-3 border-t ${border} flex justify-end flex-shrink-0`}>
                   <button
                     onClick={() => setViewingRow(null)}
-                    className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-lg transition-colors"
+                    className={`px-6 py-2 ${isDarkMode ? 'bg-slate-600 hover:bg-slate-500' : 'bg-gray-200 hover:bg-gray-300'} ${textPrimary} font-medium rounded-lg transition-colors`}
                   >
                     Cerrar
                   </button>
@@ -846,21 +579,6 @@ export default function MasterExcelPage() {
           </div>
         </div>
       )}
-
-      {/* PIN Modal */}
-      <PinModal
-        isOpen={showPinModal}
-        onClose={() => {
-          setShowPinModal(false);
-          setPendingDeleteAction(null);
-        }}
-        onSuccess={() => {
-          if (pendingDeleteAction) {
-            pendingDeleteAction();
-          }
-        }}
-        action="eliminar registros"
-      />
     </div>
   );
 }

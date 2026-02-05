@@ -48,6 +48,10 @@ import UnprocessablePage from './src/components/UnprocessablePage.tsx';
 import { SyncService } from './src/services/syncService.ts';
 // ✅ Plantilla genérica por defecto (modo sin FUNDAE)
 import { GENERIC_SCHEMA, GENERIC_EXTRACTION_PROMPT } from './src/constants/generic-template.ts';
+// ✅ Nuevos componentes
+import UserGuidePage from './src/components/UserGuidePage.tsx';
+// ✅ Hook de módulos
+import { useModules } from './src/hooks/useModules.ts';
 
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
@@ -2085,8 +2089,12 @@ function AppContent() {
             <Routes>
                 <Route path="/" element={reviewerHomePage} />
                 <Route path="/resultados" element={<ResultadosPage />} />
-                <Route path="/master-excel" element={<MasterExcelPage />} />
+                <Route path="/review" element={<ReviewListPage isDarkMode={isDarkMode} />} />
+                <Route path="/review/:id" element={<ReviewPanel isDarkMode={isDarkMode} />} />
+                <Route path="/master-excel" element={<MasterExcelPage isDarkMode={isDarkMode} />} />
                 <Route path="/unprocessable" element={<UnprocessablePage />} />
+                <Route path="/guia" element={<UserGuidePage isDarkMode={isDarkMode} />} />
+                <Route path="/pricing" element={<PricingPage isDarkMode={isDarkMode} />} />
                 {/* Cualquier otra ruta redirige al inicio */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -2115,8 +2123,8 @@ function AppContent() {
                 }
             />
             {/* ✅ Fase 5: Sistema de Revisión */}
-            <Route path="/review" element={<ReviewListPage />} />
-            <Route path="/review/:id" element={<ReviewPanel />} />
+            <Route path="/review" element={<ReviewListPage isDarkMode={isDarkMode} />} />
+            <Route path="/review/:id" element={<ReviewPanel isDarkMode={isDarkMode} />} />
             {/* ✅ Fase 2: Admin - Gestión de Excel y Mapeo */}
             <Route
                 path="/admin/excel-management"
@@ -2135,9 +2143,12 @@ function AppContent() {
                 }
             />
             {/* ✅ Master Excel - Ver todos los formularios procesados */}
-            <Route path="/master-excel" element={<MasterExcelPage />} />
+            <Route path="/master-excel" element={<MasterExcelPage isDarkMode={isDarkMode} />} />
             {/* ✅ Unprocessable - Ver documentos no procesables */}
             <Route path="/unprocessable" element={<UnprocessablePage />} />
+            {/* ✅ Nuevas rutas */}
+            <Route path="/rag" element={<RAGSearchPanel isDarkMode={isDarkMode} />} />
+            <Route path="/guia" element={<UserGuidePage isDarkMode={isDarkMode} />} />
             {/* Admin Dashboard */}
             <Route
                 path="/admin"
@@ -2148,7 +2159,7 @@ function AppContent() {
                 }
             />
             {/* Pricing Page - Pública */}
-            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/pricing" element={<PricingPage isDarkMode={isDarkMode} />} />
         </Routes>
     );
 // Limpieza automática de localStorage (ejecutar al cargar el módulo)
