@@ -238,7 +238,7 @@ Responde ahora:`
                     )}
 
                     {/* Input de pregunta */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 relative z-10">
                         <input
                             type="text"
                             value={question}
@@ -248,9 +248,10 @@ Responde ahora:`
                             disabled={isAsking}
                             className="flex-1 px-3 py-2 rounded text-sm border focus:outline-none focus:ring-2"
                             style={{
-                                backgroundColor: isLightMode ? '#ffffff' : '#1e293b',
+                                backgroundColor: isLightMode ? '#ffffff' : '#0f172a',
                                 borderColor: borderColor,
-                                color: textColor
+                                color: isLightMode ? '#1e3a8a' : '#f8fafc',
+                                opacity: isAsking ? 0.7 : 1
                             }}
                         />
                         <button

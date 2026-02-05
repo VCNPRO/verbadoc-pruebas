@@ -48,7 +48,7 @@ import { SyncService } from './src/services/syncService.ts';
 // ✅ Plantilla FUNDAE por defecto
 import { FUNDAE_SCHEMA, FUNDAE_EXTRACTION_PROMPT } from './src/constants/fundae-template.ts';
 
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
 
 pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@5.4.530/build/pdf.worker.min.mjs';
@@ -1958,7 +1958,7 @@ function AppContent() {
             </footer>
 
             {/* Chatbot Laia */}
-            <ChatbotLaia isLightMode={isLightMode} />
+            {useLocation().pathname !== '/resultados' && <ChatbotLaia isLightMode={isLightMode} />}
         </div>
     );
 
