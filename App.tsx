@@ -110,6 +110,23 @@ function AppContent() {
     const [isBarcodeReading, setIsBarcodeReading] = useState<boolean>(false);
     const [, setTimerTick] = useState(0);
 
+    // Estado para modal de selección de carpeta RAG
+    const [ragFolderModal, setRagFolderModal] = useState<{
+        open: boolean;
+        pendingFileIds: string[];
+        folders: Array<{ id: string; name: string }>;
+        selectedFolderId: string;
+        newFolderName: string;
+        isCreatingFolder: boolean;
+    }>({
+        open: false,
+        pendingFileIds: [],
+        folders: [],
+        selectedFolderId: '',
+        newFolderName: '',
+        isCreatingFolder: false,
+    });
+
     // Timer para actualizar el reloj de progreso cada segundo
     useEffect(() => {
         if (!isLoading || !extractionProgress.startTime) return;
@@ -598,35 +615,34 @@ function AppContent() {
         });
     };
 
-    const handleIngestToRAG = async (selectedIds: string[]) => {
-        const filesToIngest = files.filter(f => selectedIds.includes(f.id));
+    // Función interna para ejecutar la ingesta con carpeta ya definida
+    const executeRagIngest = async (fileIds: string[], folderName?: string) => {
+        const filesToIngest = files.filter(f => fileIds.includes(f.id));
         if (filesToIngest.length === 0) return;
 
         setIsIngesting(true);
         let successCount = 0;
         let errorCount = 0;
+        let lastFolderName = folderName;
 
         for (const file of filesToIngest) {
             try {
-                // Actualizar estado visual
                 setFiles(currentFiles =>
                     currentFiles.map(f => f.id === file.id ? { ...f, status: 'procesando' } : f)
                 );
 
-                // Comprimir imagen si es necesario (max 3MB)
                 const { base64, mimeType, wasCompressed } = await compressImageIfNeeded(file.file);
 
                 if (wasCompressed) {
                     console.log(`📦 ${file.file.name} comprimido de ${(file.file.size / 1024 / 1024).toFixed(2)} MB`);
                 }
 
-                // Detectar nombre de carpeta si viene de subida de carpeta
+                // Si viene de carpeta, usar su nombre; si no, usar el folderName proporcionado
                 const relativePath = (file.file as any).webkitRelativePath || '';
-                const folderName = relativePath.includes('/')
+                const detectedFolderName = relativePath.includes('/')
                     ? relativePath.split('/')[0]
-                    : undefined;
+                    : folderName;
 
-                // Llamar al endpoint de ingesta
                 const response = await fetch('/api/rag/upload-and-ingest', {
                     method: 'POST',
                     credentials: 'include',
@@ -636,7 +652,7 @@ function AppContent() {
                         fileBase64: base64,
                         fileType: wasCompressed ? mimeType : (file.file.type || 'application/pdf'),
                         fileSizeBytes: wasCompressed ? Math.round(base64.length * 0.75) : file.file.size,
-                        folderName,
+                        folderName: detectedFolderName,
                         transcription: file.transcription || undefined
                     })
                 });
@@ -648,7 +664,6 @@ function AppContent() {
                         currentFiles.map(f => f.id === file.id ? { ...f, status: 'completado' } : f)
                     );
 
-                    // Agregar al historial para que aparezca en Resultados con descripcion visible
                     const newHistoryEntry: ExtractionResult = {
                         id: result.documentId,
                         type: 'extraction' as const,
@@ -665,7 +680,8 @@ function AppContent() {
                     setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
 
                     successCount++;
-                    console.log(`✅ [RAG] ${file.file.name} ingestado: ${result.ingestion.chunksCreated} chunks`);
+                    lastFolderName = detectedFolderName || lastFolderName;
+                    console.log(`✅ [RAG] ${file.file.name} ingestado: ${result.ingestion?.chunksCreated || 0} chunks`);
                 } else {
                     throw new Error(result.error || 'Error en ingesta');
                 }
@@ -679,13 +695,73 @@ function AppContent() {
         }
 
         setIsIngesting(false);
-        if (successCount > 0) setShowResultsExpanded(true);
 
-        // Notificacion de resultado
-        if (errorCount === 0) {
-            alert(`✅ ${successCount} documento(s) ingestados correctamente.\n\nPuedes ver la descripcion generada en Resultados y corregirla si es necesario.`);
+        // Mostrar toast con resultado y enlace a biblioteca
+        const folderInfo = lastFolderName ? ` en "${lastFolderName}"` : '';
+        if (successCount > 0 && errorCount === 0) {
+            showToast(`✅ ${successCount} documento${successCount > 1 ? 's' : ''} añadido${successCount > 1 ? 's' : ''}${folderInfo}`, 'success', true);
+        } else if (successCount > 0 && errorCount > 0) {
+            showToast(`⚠️ ${successCount} añadido${successCount > 1 ? 's' : ''}, ${errorCount} error${errorCount > 1 ? 'es' : ''}${folderInfo}`, 'warning', true);
         } else {
-            alert(`⚠️ Ingesta completada:\n✅ ${successCount} exitosos\n❌ ${errorCount} con errores`);
+            showToast(`❌ Error al añadir documentos`, 'error', false);
+        }
+    };
+
+    // Toast helper con opción de ir a biblioteca
+    const showToast = (message: string, type: 'success' | 'warning' | 'error', showLink: boolean) => {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-4 right-4 px-5 py-3 rounded-lg shadow-lg z-[9999] flex items-center gap-3 ${
+            type === 'success' ? 'bg-green-600 text-white' :
+            type === 'warning' ? 'bg-yellow-600 text-white' :
+            'bg-red-600 text-white'
+        }`;
+        toast.innerHTML = `
+            <span>${message}</span>
+            ${showLink ? `<button id="toast-go-lib" style="background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 4px; font-size: 13px;">Ver Biblioteca</button>` : ''}
+        `;
+        document.body.appendChild(toast);
+
+        if (showLink) {
+            toast.querySelector('#toast-go-lib')?.addEventListener('click', () => {
+                navigate('/biblioteca');
+                toast.remove();
+            });
+        }
+
+        setTimeout(() => toast.remove(), 5000);
+    };
+
+    const handleIngestToRAG = async (selectedIds: string[]) => {
+        const filesToIngest = files.filter(f => selectedIds.includes(f.id));
+        if (filesToIngest.length === 0) return;
+
+        // Verificar si TODOS los archivos vienen de una carpeta (webkitRelativePath)
+        const allFromFolder = filesToIngest.every(f => {
+            const path = (f.file as any).webkitRelativePath || '';
+            return path.includes('/');
+        });
+
+        if (allFromFolder) {
+            // Subida de carpeta: usar nombre de carpeta automáticamente
+            await executeRagIngest(selectedIds);
+        } else {
+            // Archivos sueltos: mostrar modal para elegir carpeta
+            try {
+                const res = await fetch('/api/rag/folders', { credentials: 'include' });
+                const data = res.ok ? await res.json() : { folders: [] };
+
+                setRagFolderModal({
+                    open: true,
+                    pendingFileIds: selectedIds,
+                    folders: data.folders || [],
+                    selectedFolderId: '',
+                    newFolderName: '',
+                    isCreatingFolder: false,
+                });
+            } catch {
+                // Si falla cargar carpetas, proceder sin carpeta
+                await executeRagIngest(selectedIds);
+            }
         }
     };
 
@@ -2152,6 +2228,128 @@ function AppContent() {
                 isDarkMode={isDarkMode}
                 onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
             />
+
+            {/* Modal de selección de carpeta RAG */}
+            {ragFolderModal.open && (
+                <div
+                    className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]"
+                    onClick={() => setRagFolderModal(prev => ({ ...prev, open: false }))}
+                >
+                    <div
+                        className="rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+                        style={{ backgroundColor: isLightMode ? '#ffffff' : '#1e293b' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div
+                            className="px-6 py-4 border-b"
+                            style={{
+                                backgroundColor: isLightMode ? '#ecfdf5' : '#064e3b',
+                                borderColor: isLightMode ? '#a7f3d0' : '#065f46',
+                            }}
+                        >
+                            <h3 className="text-lg font-semibold" style={{ color: isLightMode ? '#047857' : '#6ee7b7' }}>
+                                📚 Guardar en Biblioteca RAG
+                            </h3>
+                            <p className="text-sm mt-1" style={{ color: isLightMode ? '#059669' : '#a7f3d0' }}>
+                                {ragFolderModal.pendingFileIds.length} documento{ragFolderModal.pendingFileIds.length > 1 ? 's' : ''}
+                            </p>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-6 space-y-4">
+                            {/* Selector de carpeta */}
+                            <div>
+                                <label className="block text-sm font-medium mb-2" style={{ color: isLightMode ? '#374151' : '#e5e7eb' }}>
+                                    Carpeta de destino
+                                </label>
+                                <select
+                                    value={ragFolderModal.selectedFolderId}
+                                    onChange={(e) => setRagFolderModal(prev => ({ ...prev, selectedFolderId: e.target.value, newFolderName: '' }))}
+                                    className="w-full px-4 py-3 rounded-lg border text-base"
+                                    style={{
+                                        backgroundColor: isLightMode ? '#f9fafb' : '#0f172a',
+                                        borderColor: isLightMode ? '#d1d5db' : '#475569',
+                                        color: isLightMode ? '#111827' : '#f3f4f6',
+                                    }}
+                                >
+                                    <option value="">Sin carpeta (raíz)</option>
+                                    {ragFolderModal.folders.map(f => (
+                                        <option key={f.id} value={f.id}>{f.name}</option>
+                                    ))}
+                                    <option value="__new__">+ Crear nueva carpeta...</option>
+                                </select>
+                            </div>
+
+                            {/* Input nueva carpeta */}
+                            {ragFolderModal.selectedFolderId === '__new__' && (
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: isLightMode ? '#374151' : '#e5e7eb' }}>
+                                        Nombre de la nueva carpeta
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={ragFolderModal.newFolderName}
+                                        onChange={(e) => setRagFolderModal(prev => ({ ...prev, newFolderName: e.target.value }))}
+                                        placeholder="Ej: Manuscritos 1920"
+                                        className="w-full px-4 py-3 rounded-lg border text-base"
+                                        style={{
+                                            backgroundColor: isLightMode ? '#f9fafb' : '#0f172a',
+                                            borderColor: isLightMode ? '#d1d5db' : '#475569',
+                                            color: isLightMode ? '#111827' : '#f3f4f6',
+                                        }}
+                                        autoFocus
+                                    />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div
+                            className="px-6 py-4 border-t flex justify-end gap-3"
+                            style={{ borderColor: isLightMode ? '#e5e7eb' : '#374151' }}
+                        >
+                            <button
+                                onClick={() => setRagFolderModal(prev => ({ ...prev, open: false }))}
+                                className="px-5 py-2.5 rounded-lg border text-sm font-medium"
+                                style={{
+                                    borderColor: isLightMode ? '#d1d5db' : '#475569',
+                                    color: isLightMode ? '#374151' : '#d1d5db',
+                                }}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    const { selectedFolderId, newFolderName, pendingFileIds } = ragFolderModal;
+
+                                    let folderName: string | undefined;
+
+                                    // Si quiere crear nueva carpeta
+                                    if (selectedFolderId === '__new__' && newFolderName.trim()) {
+                                        folderName = newFolderName.trim();
+                                    } else if (selectedFolderId && selectedFolderId !== '__new__') {
+                                        // Carpeta existente: obtener nombre
+                                        const folder = ragFolderModal.folders.find(f => f.id === selectedFolderId);
+                                        folderName = folder?.name;
+                                    }
+
+                                    // Cerrar modal
+                                    setRagFolderModal(prev => ({ ...prev, open: false }));
+
+                                    // Ejecutar ingesta
+                                    await executeRagIngest(pendingFileIds, folderName);
+                                }}
+                                disabled={ragFolderModal.selectedFolderId === '__new__' && !ragFolderModal.newFolderName.trim()}
+                                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{ backgroundColor: '#10b981' }}
+                            >
+                                📚 Guardar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Footer */}
             <footer
