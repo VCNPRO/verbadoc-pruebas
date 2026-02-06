@@ -842,8 +842,23 @@ function AppContent() {
             try {
                 const text = await transcribeDocument(file.file, selectedModel);
 
+                // Guardar en BD para que esté disponible en Biblioteca RAG
+                const savedExtraction = await createExtraction({
+                    filename: file.file.name,
+                    extractedData: {
+                        _transcription: true,
+                        transcription: text,
+                        type: 'ocr'
+                    },
+                    modelUsed: `OCR - ${selectedModel}`,
+                    fileType: file.file.type,
+                    fileSizeBytes: file.file.size,
+                    confidenceScore: 1.0,
+                    validationStatus: 'valid',
+                });
+
                 const newHistoryEntry: ExtractionResult = {
-                    id: `hist-${Date.now()}-${Math.random()}`,
+                    id: savedExtraction.id, // UUID real de la BD
                     type: 'transcription',
                     fileId: file.id,
                     fileName: file.file.name,
@@ -892,8 +907,23 @@ function AppContent() {
             try {
                 const text = await transcribeHandwrittenDocument(file.file, 'gemini-2.5-pro');
 
+                // Guardar en BD para que esté disponible en Biblioteca RAG
+                const savedExtraction = await createExtraction({
+                    filename: file.file.name,
+                    extractedData: {
+                        _transcription: true,
+                        transcription: text,
+                        type: 'htr'
+                    },
+                    modelUsed: 'HTR - gemini-2.5-pro',
+                    fileType: file.file.type,
+                    fileSizeBytes: file.file.size,
+                    confidenceScore: 1.0,
+                    validationStatus: 'valid',
+                });
+
                 const newHistoryEntry: ExtractionResult = {
-                    id: `hist-${Date.now()}-${Math.random()}`,
+                    id: savedExtraction.id, // UUID real de la BD
                     type: 'transcription',
                     fileId: file.id,
                     fileName: file.file.name,

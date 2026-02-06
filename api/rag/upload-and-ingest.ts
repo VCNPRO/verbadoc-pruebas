@@ -202,11 +202,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const alreadyIngested = parseInt(embeddingsCount.rows[0].cnt) > 0;
 
       if (!alreadyIngested) {
-        // Extraer texto de extracted_data
+        // Extraer texto de extracted_data (puede ser transcripción, descripción, o datos extraídos)
         const extractedData = extraction.extracted_data;
         let textToIngest = '';
         if (typeof extractedData === 'object' && extractedData !== null) {
-          textToIngest = extractedData.description || JSON.stringify(extractedData);
+          // Prioridad: transcription > description > JSON stringificado
+          textToIngest = extractedData.transcription || extractedData.description || JSON.stringify(extractedData);
         } else if (typeof extractedData === 'string') {
           textToIngest = extractedData;
         }
