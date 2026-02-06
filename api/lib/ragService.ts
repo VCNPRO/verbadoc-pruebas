@@ -75,27 +75,43 @@ function getGenAIClient(): GoogleGenAI {
 // ============================================================================
 
 /**
- * Genera vector embedding con Gemini (768 dimensiones)
+ * Genera vector embedding con Gemini API REST (768 dimensiones)
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
-  const client = getGenAIClient();
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY o GOOGLE_API_KEY no configurada');
+  }
 
   try {
-    // Usar embedContent con el formato correcto para @google/genai
-    const response = await client.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: text, // String directo, no objeto
-    });
+    // Usar API REST directamente en lugar del SDK
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1/models/${EMBEDDING_MODEL}:embedContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: `models/${EMBEDDING_MODEL}`,
+          content: { parts: [{ text }] }
+        })
+      }
+    );
 
-    // Extraer valores del embedding
-    const embedding = response.embedding?.values || response.embeddings?.[0]?.values;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(JSON.stringify(errorData));
+    }
+
+    const data = await response.json();
+    const embedding = data.embedding?.values;
+
     if (!embedding || embedding.length === 0) {
       throw new Error('No se genero embedding');
     }
 
     return embedding;
   } catch (error: any) {
-    console.error('[RAG] Error generando embedding:', error.message, error);
+    console.error('[RAG] Error generando embedding:', error.message);
     throw error;
   }
 }
