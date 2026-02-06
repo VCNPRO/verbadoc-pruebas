@@ -519,6 +519,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         pageCount,
         processingTimeMs,
         confidenceScore,
+        validationStatus, // Estado de validación (opcional)
         verificationData // 🔒 Datos de doble verificación (opcional)
       } = req.body;
 
@@ -590,9 +591,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log('✅ Extracción creada:', extraction.id);
 
-      // Estado por defecto: valid (sin validación FUNDAE)
+      // Estado: usar el proporcionado o 'valid' por defecto
       await ExtractionResultDB.update(extraction.id, {
-        status: 'valid',
+        status: validationStatus || 'valid',
         validationErrorsCount: 0
       });
 

@@ -41,6 +41,7 @@ export interface CreateExtractionData {
   pageCount?: number;
   processingTimeMs?: number;
   confidenceScore?: number;
+  validationStatus?: 'pending' | 'valid' | 'invalid' | 'needs_review';
 }
 
 /**
