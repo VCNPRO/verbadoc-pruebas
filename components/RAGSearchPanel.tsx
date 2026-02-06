@@ -3,9 +3,11 @@
  * components/RAGSearchPanel.tsx
  *
  * Panel de consultas con lenguaje natural
+ * Incluye soporte de voz (micrófono + leer respuesta)
  */
 
 import React, { useState, useEffect } from 'react';
+import { useVoice } from '../src/hooks/useVoice';
 
 interface RagFolder {
   id: string;
@@ -48,6 +50,42 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
   // Estado para visor de documentos
   const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
 
+  // Hook de voz
+  const {
+    startListening,
+    stopListening,
+    transcript,
+    interimTranscript,
+    isListening,
+    clearTranscript,
+    speak,
+    stopSpeaking,
+    isSpeaking,
+    isSttSupported,
+    isTtsSupported,
+    error: voiceError,
+    settings: voiceSettings,
+    updateSettings: updateVoiceSettings,
+  } = useVoice();
+
+  // Estado para mostrar configuración de voz
+  const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+
+  // Cuando el usuario termina de hablar, actualizar la query
+  useEffect(() => {
+    if (transcript && !isListening) {
+      setQuery(transcript);
+      clearTranscript();
+    }
+  }, [transcript, isListening]);
+
+  // Mostrar transcripción en tiempo real
+  useEffect(() => {
+    if (isListening && (transcript || interimTranscript)) {
+      setQuery(transcript + interimTranscript);
+    }
+  }, [transcript, interimTranscript, isListening]);
+
   // Cargar carpetas al montar
   useEffect(() => {
     fetch('/api/rag/folders', { credentials: 'include' })
@@ -82,6 +120,10 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
 
   const handleSubmit = async () => {
     if (!query.trim() || isLoading) return;
+
+    // Detener escucha y síntesis de voz si están activas
+    if (isListening) stopListening();
+    if (isSpeaking) stopSpeaking();
 
     setIsLoading(true);
     setError(null);
@@ -207,10 +249,11 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
           padding: '16px',
           backgroundColor: bgInput,
           borderRadius: '12px',
-          border: `2px solid ${borderColor}`,
+          border: `2px solid ${isListening ? accentGreen : borderColor}`,
+          transition: 'border-color 0.2s',
         }}
       >
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, position: 'relative' }}>
           <textarea
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -220,12 +263,13 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
                 handleSubmit();
               }
             }}
-            placeholder="Escribe tu pregunta aquí... (Enter para enviar)"
+            placeholder={isListening ? '🎤 Escuchando... habla ahora' : 'Escribe o habla tu pregunta... (Enter para enviar)'}
             disabled={isLoading}
             rows={3}
             style={{
               width: '100%',
               padding: '12px 16px',
+              paddingRight: isSttSupported ? '50px' : '16px',
               fontSize: '16px',
               lineHeight: '1.5',
               backgroundColor: bgMain,
@@ -237,6 +281,44 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               fontFamily: 'inherit',
             }}
           />
+          {/* Botón micrófono dentro del textarea */}
+          {isSttSupported && (
+            <button
+              type="button"
+              onClick={isListening ? stopListening : startListening}
+              disabled={isLoading}
+              style={{
+                position: 'absolute',
+                right: '8px',
+                bottom: '8px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '50%',
+                border: 'none',
+                backgroundColor: isListening ? '#ef4444' : (isLightMode ? '#e2e8f0' : '#374151'),
+                color: isListening ? '#ffffff' : textMuted,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+              }}
+              title={isListening ? 'Detener' : 'Hablar'}
+            >
+              {isListening ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="6" width="12" height="12" rx="2" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                  <line x1="8" y1="23" x2="16" y2="23" />
+                </svg>
+              )}
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <button
@@ -325,6 +407,21 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
         </div>
       )}
 
+      {/* Error de voz */}
+      {voiceError && (
+        <div style={{
+          marginTop: '12px',
+          padding: '10px 14px',
+          backgroundColor: isLightMode ? '#fef3c7' : '#422006',
+          border: `1px solid ${isLightMode ? '#fcd34d' : '#854d0e'}`,
+          borderRadius: '8px',
+          color: isLightMode ? '#92400e' : '#fbbf24',
+          fontSize: '13px',
+        }}>
+          🎤 {voiceError}
+        </div>
+      )}
+
       {/* Respuesta */}
       {response && (
         <div style={{ marginTop: '16px' }}>
@@ -334,11 +431,51 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
             border: `1px solid ${isLightMode ? '#a7f3d0' : '#166534'}`,
             borderRadius: '8px',
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontWeight: '600', color: accentGreen }}>Respuesta</span>
-              <span style={{ fontSize: '13px', color: textMuted }}>
-                Confianza: {Math.round(response.confidence * 100)}%
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                {/* Botón leer respuesta */}
+                {isTtsSupported && (
+                  <button
+                    type="button"
+                    onClick={() => isSpeaking ? stopSpeaking() : speak(response.answer)}
+                    style={{
+                      padding: '4px 10px',
+                      fontSize: '12px',
+                      backgroundColor: isSpeaking ? '#ef4444' : 'transparent',
+                      color: isSpeaking ? '#ffffff' : accentGreen,
+                      border: `1px solid ${isSpeaking ? '#ef4444' : accentGreen}`,
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title={isSpeaking ? 'Detener lectura' : 'Leer respuesta'}
+                  >
+                    {isSpeaking ? (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                          <rect x="6" y="6" width="12" height="12" rx="2" />
+                        </svg>
+                        Detener
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                          <path d="M15.54 8.46a5 5 0 010 7.07" />
+                          <path d="M19.07 4.93a10 10 0 010 14.14" />
+                        </svg>
+                        Leer
+                      </>
+                    )}
+                  </button>
+                )}
+                <span style={{ fontSize: '13px', color: textMuted }}>
+                  Confianza: {Math.round(response.confidence * 100)}%
+                </span>
+              </div>
             </div>
             <p style={{ lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{response.answer}</p>
           </div>
