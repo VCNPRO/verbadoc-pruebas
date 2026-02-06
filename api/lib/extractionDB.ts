@@ -131,7 +131,6 @@ export const ExtractionResultDB = {
       INSERT INTO extraction_results (
         user_id,
         filename,
-        file_url,
         pdf_blob_url,
         file_type,
         file_size_bytes,
@@ -145,7 +144,6 @@ export const ExtractionResultDB = {
       VALUES (
         ${data.userId},
         ${data.filename},
-        ${data.fileUrl || null},
         ${data.fileUrl || null},
         ${data.fileType || null},
         ${data.fileSizeBytes || null},
