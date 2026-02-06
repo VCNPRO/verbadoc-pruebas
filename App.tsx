@@ -545,6 +545,59 @@ function AppContent() {
     };
 
     // 💬 INGESTAR A RAG - Para "Pregúntale al Documento"
+    // Función para comprimir imágenes grandes (max 3MB para evitar error 413)
+    const compressImageIfNeeded = async (file: File, maxSizeBytes: number = 3 * 1024 * 1024): Promise<{ base64: string; mimeType: string; wasCompressed: boolean }> => {
+        const isImage = file.type.startsWith('image/');
+
+        // Si no es imagen o es pequeña, devolver sin comprimir
+        if (!isImage || file.size <= maxSizeBytes) {
+            const arrayBuffer = await file.arrayBuffer();
+            const base64 = btoa(new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+            return { base64, mimeType: file.type, wasCompressed: false };
+        }
+
+        console.log(`🗜️ Comprimiendo imagen ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)...`);
+
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            img.onload = () => {
+                // Calcular nuevo tamaño manteniendo aspect ratio
+                let { width, height } = img;
+                const maxDimension = 2000; // Max 2000px para OCR
+
+                if (width > maxDimension || height > maxDimension) {
+                    if (width > height) {
+                        height = (height / width) * maxDimension;
+                        width = maxDimension;
+                    } else {
+                        width = (width / height) * maxDimension;
+                        height = maxDimension;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx?.drawImage(img, 0, 0, width, height);
+
+                // Comprimir a JPEG con calidad 0.8
+                const base64 = canvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+                console.log(`✅ Imagen comprimida a ~${(base64.length * 0.75 / 1024 / 1024).toFixed(2)} MB`);
+                resolve({ base64, mimeType: 'image/jpeg', wasCompressed: true });
+            };
+
+            img.onerror = () => reject(new Error('Error cargando imagen para comprimir'));
+
+            // Cargar imagen desde File
+            const reader = new FileReader();
+            reader.onload = (e) => { img.src = e.target?.result as string; };
+            reader.onerror = () => reject(new Error('Error leyendo archivo'));
+            reader.readAsDataURL(file);
+        });
+    };
+
     const handleIngestToRAG = async (selectedIds: string[]) => {
         const filesToIngest = files.filter(f => selectedIds.includes(f.id));
         if (filesToIngest.length === 0) return;
@@ -560,11 +613,12 @@ function AppContent() {
                     currentFiles.map(f => f.id === file.id ? { ...f, status: 'procesando' } : f)
                 );
 
-                // Convertir archivo a base64
-                const arrayBuffer = await file.file.arrayBuffer();
-                const base64 = btoa(
-                    new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-                );
+                // Comprimir imagen si es necesario (max 3MB)
+                const { base64, mimeType, wasCompressed } = await compressImageIfNeeded(file.file);
+
+                if (wasCompressed) {
+                    console.log(`📦 ${file.file.name} comprimido de ${(file.file.size / 1024 / 1024).toFixed(2)} MB`);
+                }
 
                 // Detectar nombre de carpeta si viene de subida de carpeta
                 const relativePath = (file.file as any).webkitRelativePath || '';
@@ -580,8 +634,8 @@ function AppContent() {
                     body: JSON.stringify({
                         filename: file.file.name,
                         fileBase64: base64,
-                        fileType: file.file.type || 'application/pdf',
-                        fileSizeBytes: file.file.size,
+                        fileType: wasCompressed ? mimeType : (file.file.type || 'application/pdf'),
+                        fileSizeBytes: wasCompressed ? Math.round(base64.length * 0.75) : file.file.size,
                         folderName,
                         transcription: file.transcription || undefined
                     })
