@@ -88,7 +88,6 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
   const [stats, setStats] = useState<Stats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
@@ -156,7 +155,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
 
   useEffect(() => {
     loadData();
-  }, [categoryFilter]);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -165,9 +164,6 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
       setSelectedIds(new Set()); // Reset selection on reload
 
       const params = new URLSearchParams();
-      if (categoryFilter !== 'all') {
-        params.append('category', categoryFilter);
-      }
       if (searchQuery) {
         params.append('search', searchQuery);
       }
@@ -448,26 +444,6 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
       {/* Filtros */}
       <div className="max-w-7xl mx-auto px-6 py-4">
         <div className={`${bgCard} border ${border} rounded-lg p-4 flex gap-4`}>
-          {/* Filtro por categoría */}
-          <div className="flex-1">
-            <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
-              Categoría
-            </label>
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className={`w-full px-3 py-2 rounded-md ${bgInput}`}
-            >
-              <option value="all">Todas</option>
-              {Object.entries(CATEGORY_LABELS).map(([key, config]) => (
-                <option key={key} value={key}>
-                  {config.icon} {config.text}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Búsqueda */}
           <div className="flex-1">
             <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
               Buscar
@@ -477,7 +453,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && loadData()}
-              placeholder="Nombre archivo, expediente..."
+              placeholder="Buscar..."
               className={`w-full px-3 py-2 rounded-md ${bgInput}`}
             />
           </div>
