@@ -26,7 +26,15 @@ interface UnprocessableDocument {
   updated_at: string;
   reviewed_at?: string;
   pdf_blob_url?: string;
+  file_type?: string;
 }
+
+// Helper para detectar si es imagen
+const isImageFile = (filename: string, fileType?: string): boolean => {
+  if (fileType?.startsWith('image/')) return true;
+  const ext = filename.toLowerCase().split('.').pop();
+  return ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'gif', 'bmp'].includes(ext || '');
+};
 
 interface Stats {
   rejection_category: string;
@@ -659,28 +667,33 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
 
             {/* Contenido principal - Layout lado a lado */}
             <div className="flex-1 overflow-hidden flex">
-              {/* Panel izquierdo: Visor PDF */}
+              {/* Panel izquierdo: Visor PDF/Imagen */}
               <div className={`w-1/2 border-r ${border} ${bgSecondary} flex flex-col`}>
                 <div className={`p-2 ${bgSecondary} border-b ${border} text-sm font-medium ${textSecondary} flex items-center gap-2`}>
-                  <span>📄</span> Vista previa del PDF
+                  <span>{isImageFile(selectedDoc.filename, selectedDoc.file_type) ? '🖼️' : '📄'}</span>
+                  Vista previa {isImageFile(selectedDoc.filename, selectedDoc.file_type) ? 'de imagen' : 'del PDF'}
                 </div>
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 overflow-hidden flex items-center justify-center">
                   {selectedDoc.pdf_blob_url ? (
-                    pdfBlobUrl ? (
+                    isImageFile(selectedDoc.filename, selectedDoc.file_type) ? (
+                      <img
+                        src={selectedDoc.pdf_blob_url}
+                        alt={selectedDoc.filename}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : pdfBlobUrl ? (
                       <iframe
                         src={pdfBlobUrl}
                         className="w-full h-full border-0"
                         title={`Vista previa: ${selectedDoc.filename}`}
                       />
                     ) : (
-                      <div className="h-full flex items-center justify-center text-gray-400">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                      </div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                     )
                   ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400 flex-col gap-2">
+                    <div className="flex flex-col items-center gap-2 text-gray-400">
                       <span className="text-4xl">📄</span>
-                      <span className="text-sm">PDF no disponible</span>
+                      <span className="text-sm">Archivo no disponible</span>
                       <span className="text-xs text-gray-300">El archivo original no fue guardado</span>
                     </div>
                   )}

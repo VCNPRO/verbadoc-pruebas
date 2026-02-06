@@ -22,7 +22,15 @@ interface MasterExcelRow {
   version: number;
   created_at: string;
   updated_at: string;
+  file_type?: string;
 }
+
+// Helper para detectar si es imagen
+const isImageFile = (filename: string, fileType?: string): boolean => {
+  if (fileType?.startsWith('image/')) return true;
+  const ext = filename.toLowerCase().split('.').pop();
+  return ['jpg', 'jpeg', 'png', 'tiff', 'tif', 'webp', 'gif', 'bmp'].includes(ext || '');
+};
 
 interface MasterExcelPageProps {
   isDarkMode?: boolean;
@@ -70,21 +78,23 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
 
   const [viewingRow, setViewingRow] = useState<MasterExcelRow | null>(null);
 
-  // Inline editing state and PDF viewer in modal
+  // Inline editing state and PDF/Image viewer in modal
   const [modalPdfUrl, setModalPdfUrl] = useState<string | null>(null);
+  const [modalFileType, setModalFileType] = useState<string | null>(null);
   const [modalEditingField, setModalEditingField] = useState<string | null>(null);
   const [modalEditValue, setModalEditValue] = useState('');
   const [savingField, setSavingField] = useState(false);
 
-  // Load PDF when modal opens
+  // Load PDF/Image when modal opens
   useEffect(() => {
     if (!viewingRow) {
       setModalPdfUrl(null);
+      setModalFileType(null);
       setModalEditingField(null);
       return;
     }
 
-    const loadPdf = async () => {
+    const loadFile = async () => {
       try {
         const response = await fetch(`/api/extractions/${viewingRow.extraction_id}`, {
           credentials: 'include'
@@ -92,13 +102,15 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
         if (response.ok) {
           const data = await response.json();
           const url = data.extraction?.pdf_blob_url || data.extraction?.file_url;
+          const fileType = data.extraction?.file_type;
           if (url) {
             setModalPdfUrl(url);
+            setModalFileType(fileType || null);
             return;
           }
         }
       } catch (e) {
-        console.warn('No se pudo cargar PDF de la extraccion:', e);
+        console.warn('No se pudo cargar archivo de la extraccion:', e);
       }
       const pdfData = sessionStorage.getItem(`pdf_${viewingRow.extraction_id}`);
       if (pdfData) {
@@ -117,7 +129,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
       }
     };
 
-    loadPdf();
+    loadFile();
 
     return () => {
       if (modalPdfUrl && modalPdfUrl.startsWith('blob:')) {
@@ -406,25 +418,39 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
               </button>
             </div>
 
-            {/* Content 50/50: PDF left + Editable data right */}
+            {/* Content 50/50: PDF/Image left + Editable data right */}
             <div className="flex-1 flex overflow-hidden">
-              {/* Left: PDF Viewer (50%) */}
-              <div className={`w-1/2 h-full ${bgSecondary} border-r ${border} flex items-center justify-center`}>
-                {modalPdfUrl ? (
-                  <PdfViewerOptimized
-                    pdfUrl={modalPdfUrl}
-                    highlights={[]}
-                    currentErrorId={null}
-                    onHighlightClick={() => {}}
-                    className="w-full h-full"
-                  />
-                ) : (
-                  <div className="text-center p-8">
-                    <div className={`${textSecondary} text-5xl mb-4`}>📄</div>
-                    <p className={`${textSecondary} font-medium`}>PDF no disponible</p>
-                    <p className={`${textSecondary} text-sm mt-1`}>No se encontro el archivo original</p>
-                  </div>
-                )}
+              {/* Left: PDF/Image Viewer (50%) */}
+              <div className={`w-1/2 h-full ${bgSecondary} border-r ${border} flex flex-col`}>
+                <div className={`p-2 border-b ${border} text-sm font-medium ${textSecondary} flex items-center gap-2`}>
+                  <span>{isImageFile(viewingRow.filename, modalFileType || undefined) ? '🖼️' : '📄'}</span>
+                  Vista previa {isImageFile(viewingRow.filename, modalFileType || undefined) ? 'de imagen' : 'del documento'}
+                </div>
+                <div className="flex-1 flex items-center justify-center overflow-hidden">
+                  {modalPdfUrl ? (
+                    isImageFile(viewingRow.filename, modalFileType || undefined) ? (
+                      <img
+                        src={modalPdfUrl}
+                        alt={viewingRow.filename}
+                        className="max-w-full max-h-full object-contain"
+                      />
+                    ) : (
+                      <PdfViewerOptimized
+                        pdfUrl={modalPdfUrl}
+                        highlights={[]}
+                        currentErrorId={null}
+                        onHighlightClick={() => {}}
+                        className="w-full h-full"
+                      />
+                    )
+                  ) : (
+                    <div className="text-center p-8">
+                      <div className={`${textSecondary} text-5xl mb-4`}>📄</div>
+                      <p className={`${textSecondary} font-medium`}>Archivo no disponible</p>
+                      <p className={`${textSecondary} text-sm mt-1`}>No se encontro el archivo original</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Right: Editable table (50%) */}
