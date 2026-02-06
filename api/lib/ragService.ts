@@ -15,7 +15,7 @@ import { GoogleGenAI } from '@google/genai';
 // CONFIGURATION
 // ============================================================================
 
-const EMBEDDING_MODEL = 'models/text-embedding-004'; // Gemini embedding (768 dims)
+const EMBEDDING_MODEL = 'embedding-001'; // Gemini embedding model
 const GENERATION_MODEL = 'gemini-2.0-flash';
 
 const DEFAULT_CHUNK_SIZE = 500; // palabras
