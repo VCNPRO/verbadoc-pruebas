@@ -15,7 +15,7 @@ import { GoogleGenAI } from '@google/genai';
 // CONFIGURATION
 // ============================================================================
 
-const EMBEDDING_MODEL = 'embedding-001'; // Gemini embedding model
+const EMBEDDING_MODEL = 'text-embedding-004'; // Gemini embedding (768 dims)
 const GENERATION_MODEL = 'gemini-2.0-flash';
 
 const DEFAULT_CHUNK_SIZE = 500; // palabras
@@ -81,19 +81,21 @@ export async function generateEmbedding(text: string): Promise<number[]> {
   const client = getGenAIClient();
 
   try {
-    const result = await client.models.embedContent({
+    // Usar embedContent con el formato correcto para @google/genai
+    const response = await client.models.embedContent({
       model: EMBEDDING_MODEL,
-      contents: [{ parts: [{ text }] }],
+      contents: text, // String directo, no objeto
     });
 
-    const embedding = result.embeddings?.[0]?.values;
+    // Extraer valores del embedding
+    const embedding = response.embedding?.values || response.embeddings?.[0]?.values;
     if (!embedding || embedding.length === 0) {
       throw new Error('No se genero embedding');
     }
 
     return embedding;
   } catch (error: any) {
-    console.error('[RAG] Error generando embedding:', error.message);
+    console.error('[RAG] Error generando embedding:', error.message, error);
     throw error;
   }
 }

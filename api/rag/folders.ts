@@ -108,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       await sql`
         UPDATE extraction_results
         SET folder_id = NULL
-        WHERE folder_id = ${folderId}
+        WHERE folder_id = ${folderId}::uuid
       `;
 
       const result = await sql`
