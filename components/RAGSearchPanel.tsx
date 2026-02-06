@@ -18,6 +18,8 @@ interface RAGSource {
   documentName: string;
   snippet: string;
   score: number;
+  documentUrl?: string;
+  fileType?: string;
 }
 
 interface RAGResponse {
@@ -42,6 +44,9 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
   const [selectedFolderId, setSelectedFolderId] = useState<string>('');
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+
+  // Estado para visor de documentos
+  const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
 
   // Cargar carpetas al montar
   useEffect(() => {
@@ -343,23 +348,139 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               <p style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: textMuted }}>
                 Fuentes ({response.sources.length})
               </p>
-              {response.sources.map((source, i) => (
-                <div key={i} style={{
-                  padding: '12px',
-                  marginBottom: '8px',
-                  backgroundColor: bgInput,
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: '6px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: '500', fontSize: '14px' }}>{source.documentName}</span>
-                    <span style={{ fontSize: '12px', color: textMuted }}>{Math.round(source.score * 100)}%</span>
+              {response.sources.map((source, i) => {
+                const isImage = source.fileType?.startsWith('image/');
+                return (
+                  <div key={i} style={{
+                    padding: '12px',
+                    marginBottom: '8px',
+                    backgroundColor: bgInput,
+                    border: `1px solid ${borderColor}`,
+                    borderRadius: '6px',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: '500', fontSize: '14px' }}>{source.documentName}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: textMuted }}>{Math.round(source.score * 100)}%</span>
+                        {source.documentUrl && (
+                          <button
+                            onClick={() => setViewingDoc({
+                              url: source.documentUrl!,
+                              name: source.documentName,
+                              isImage: !!isImage
+                            })}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '12px',
+                              fontWeight: '500',
+                              backgroundColor: accentGreen,
+                              color: '#fff',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {isImage ? '🖼️ Ver' : '📄 Ver'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <p style={{ fontSize: '13px', color: textMuted }}>{source.snippet}</p>
                   </div>
-                  <p style={{ fontSize: '13px', color: textMuted }}>{source.snippet}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal visor de documento */}
+      {viewingDoc && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '20px',
+          }}
+          onClick={() => setViewingDoc(null)}
+        >
+          <div
+            style={{
+              backgroundColor: bgMain,
+              borderRadius: '12px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              width: viewingDoc.isImage ? 'auto' : '900px',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: `1px solid ${borderColor}`,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <span style={{ fontWeight: '600', fontSize: '14px' }}>{viewingDoc.name}</span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <a
+                  href={viewingDoc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '12px',
+                    backgroundColor: 'transparent',
+                    color: accentGreen,
+                    border: `1px solid ${borderColor}`,
+                    borderRadius: '6px',
+                    textDecoration: 'none',
+                  }}
+                >
+                  Abrir en nueva pestaña ↗
+                </a>
+                <button
+                  onClick={() => setViewingDoc(null)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '14px',
+                    backgroundColor: 'transparent',
+                    color: textMuted,
+                    border: `1px solid ${borderColor}`,
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, overflow: 'auto', padding: '16px', display: 'flex', justifyContent: 'center' }}>
+              {viewingDoc.isImage ? (
+                <img
+                  src={viewingDoc.url}
+                  alt={viewingDoc.name}
+                  style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
+                />
+              ) : (
+                <iframe
+                  src={viewingDoc.url}
+                  title={viewingDoc.name}
+                  style={{ width: '100%', height: '75vh', border: 'none' }}
+                />
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

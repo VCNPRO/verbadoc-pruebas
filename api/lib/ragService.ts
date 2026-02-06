@@ -38,6 +38,8 @@ export interface RAGSearchResult {
   chunk: RAGChunk;
   score: number;
   documentName?: string;
+  documentUrl?: string;
+  fileType?: string;
 }
 
 export interface RAGAnswer {
@@ -48,6 +50,8 @@ export interface RAGAnswer {
     chunkIndex: number;
     snippet: string;
     score: number;
+    documentUrl?: string;
+    fileType?: string;
   }>;
   confidence: number;
   tokensUsed?: number;
@@ -281,6 +285,8 @@ export async function searchSimilar(
         re.document_name,
         re.chunk_index,
         re.chunk_text,
+        er.pdf_blob_url,
+        er.file_type,
         1 - (re.embedding <=> ${vectorStr}::vector) as similarity
       FROM rag_embeddings re
       INNER JOIN extraction_results er ON er.id = re.document_id
@@ -292,30 +298,36 @@ export async function searchSimilar(
   } else if (documentIds && documentIds.length > 0) {
     result = await sql`
       SELECT
-        id,
-        document_id,
-        document_name,
-        chunk_index,
-        chunk_text,
-        1 - (embedding <=> ${vectorStr}::vector) as similarity
-      FROM rag_embeddings
-      WHERE user_id = ${userId}::uuid
-        AND document_id = ANY(${documentIds}::uuid[])
-      ORDER BY embedding <=> ${vectorStr}::vector
+        re.id,
+        re.document_id,
+        re.document_name,
+        re.chunk_index,
+        re.chunk_text,
+        er.pdf_blob_url,
+        er.file_type,
+        1 - (re.embedding <=> ${vectorStr}::vector) as similarity
+      FROM rag_embeddings re
+      LEFT JOIN extraction_results er ON er.id = re.document_id
+      WHERE re.user_id = ${userId}::uuid
+        AND re.document_id = ANY(${documentIds}::uuid[])
+      ORDER BY re.embedding <=> ${vectorStr}::vector
       LIMIT ${topK}
     `;
   } else {
     result = await sql`
       SELECT
-        id,
-        document_id,
-        document_name,
-        chunk_index,
-        chunk_text,
-        1 - (embedding <=> ${vectorStr}::vector) as similarity
-      FROM rag_embeddings
-      WHERE user_id = ${userId}::uuid
-      ORDER BY embedding <=> ${vectorStr}::vector
+        re.id,
+        re.document_id,
+        re.document_name,
+        re.chunk_index,
+        re.chunk_text,
+        er.pdf_blob_url,
+        er.file_type,
+        1 - (re.embedding <=> ${vectorStr}::vector) as similarity
+      FROM rag_embeddings re
+      LEFT JOIN extraction_results er ON er.id = re.document_id
+      WHERE re.user_id = ${userId}::uuid
+      ORDER BY re.embedding <=> ${vectorStr}::vector
       LIMIT ${topK}
     `;
   }
@@ -329,6 +341,8 @@ export async function searchSimilar(
     },
     score: parseFloat(row.similarity) || 0,
     documentName: row.document_name,
+    documentUrl: row.pdf_blob_url || undefined,
+    fileType: row.file_type || undefined,
   }));
 }
 
@@ -415,6 +429,8 @@ ${contextString}`;
         chunkIndex: result.chunk.chunkIndex,
         snippet: result.chunk.text.substring(0, 200) + '...',
         score: Math.round(result.score * 100) / 100,
+        documentUrl: result.documentUrl,
+        fileType: result.fileType,
       })),
       confidence: Math.round(avgScore * 100) / 100,
       tokensUsed: result.usageMetadata?.totalTokenCount,
