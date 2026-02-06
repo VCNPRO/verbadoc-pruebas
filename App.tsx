@@ -47,7 +47,7 @@ import UnprocessablePage from './src/components/UnprocessablePage.tsx';
 // ✅ Servicio de sincronización
 import { SyncService } from './src/services/syncService.ts';
 // ✅ Plantilla genérica por defecto (modo sin FUNDAE)
-import { GENERIC_SCHEMA, GENERIC_EXTRACTION_PROMPT } from './src/constants/generic-template.ts';
+import { GENERIC_SCHEMA } from './src/constants/generic-template.ts';
 // ✅ Nuevos componentes
 import UserGuidePage from './src/components/UserGuidePage.tsx';
 import BibliotecaPage from './src/components/BibliotecaPage.tsx';
@@ -185,7 +185,7 @@ function AppContent() {
     }, [files, history]);
 
     // State for the editor, which can be reused across different files
-    const [prompt, setPrompt] = useState<string>(GENERIC_EXTRACTION_PROMPT);
+    const [prompt, setPrompt] = useState<string>('');
     const [schema, setSchema] = useState<SchemaField[]>(GENERIC_SCHEMA);
 
     // Obtener el tema basado en el departamento actual
