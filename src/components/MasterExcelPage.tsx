@@ -45,7 +45,6 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Sorting
@@ -157,7 +156,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
 
   useEffect(() => {
     loadData();
-  }, [statusFilter]);
+  }, []);
 
   const loadData = async () => {
     try {
@@ -165,9 +164,6 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
       setError('');
 
       const params = new URLSearchParams();
-      if (statusFilter !== 'all') {
-        params.append('status', statusFilter);
-      }
       if (searchQuery) {
         params.append('search', searchQuery);
       }
@@ -229,7 +225,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
           <div className="flex items-center justify-between">
             <div>
               <h1 className={`text-2xl font-bold ${textPrimary}`}>
-                Excel Master
+                Excel
               </h1>
               <p className={`${textSecondary} mt-1`}>
                 Todos los formularios procesados listos para exportar
@@ -242,18 +238,6 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
                 className={`px-4 py-2 ${textSecondary} hover:${textPrimary} border ${border} rounded-lg ${hoverRow}`}
               >
                 ← Volver al inicio
-              </button>
-              <button
-                onClick={() => navigate('/review')}
-                className="px-4 py-2 text-orange-500 hover:text-orange-400 border border-orange-500/30 rounded-lg hover:bg-orange-500/10 font-medium"
-              >
-                Revisar
-              </button>
-              <button
-                onClick={() => navigate('/unprocessable')}
-                className="px-4 py-2 text-red-500 hover:text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 font-medium"
-              >
-                No Procesables
               </button>
 
               {user?.role !== 'reviewer' && (
@@ -268,7 +252,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
                       Generando...
                     </>
                   ) : (
-                    'Descargar Excel Master'
+                    'Descargar Excel'
                   )}
                 </button>
               )}
@@ -282,24 +266,6 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
         <div className={`${bgCard} border ${border} rounded-lg p-4 flex gap-4`}>
           <div className="flex-1">
             <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
-              Estado
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={`w-full px-3 py-2 border ${border} rounded-md ${bgCard} ${textPrimary}`}
-            >
-              <option value="all">Todos</option>
-              <option value="pending">Pendientes</option>
-              <option value="valid">Validos</option>
-              <option value="needs_review">Requiere Revision</option>
-              <option value="approved">Aprobados</option>
-              <option value="rejected">Rechazados</option>
-            </select>
-          </div>
-
-          <div className="flex-1">
-            <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
               Buscar
             </label>
             <input
@@ -307,7 +273,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && loadData()}
-              placeholder="Expediente, CIF, empresa..."
+              placeholder="Buscar..."
               className={`w-full px-3 py-2 border ${border} rounded-md ${bgCard} ${textPrimary}`}
             />
           </div>

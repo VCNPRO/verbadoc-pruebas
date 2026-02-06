@@ -432,18 +432,6 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                 ← Volver al inicio
               </button>
               <button
-                onClick={() => navigate('/review')}
-                className="px-4 py-2 text-orange-600 hover:text-orange-900 border border-orange-200 rounded-lg hover:bg-orange-50 font-medium"
-              >
-                📋 Revisar
-              </button>
-              <button
-                onClick={() => navigate('/master-excel')}
-                className="px-4 py-2 text-emerald-600 hover:text-emerald-900 border border-emerald-200 rounded-lg hover:bg-emerald-50 font-medium"
-              >
-                📊 Excel Master
-              </button>
-              <button
                 onClick={loadData}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg flex items-center gap-2"
               >
@@ -453,27 +441,6 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                 Actualizar
               </button>
             </div>
-          </div>
-
-          {/* Estadísticas */}
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="text-sm text-red-600 font-medium">Total No Procesables</div>
-              <div className="text-2xl font-bold text-red-900 mt-1">{totalDocs}</div>
-            </div>
-
-            {stats.slice(0, 3).map(stat => {
-              const config = CATEGORY_LABELS[stat.rejection_category] || CATEGORY_LABELS.error_critico;
-              return (
-                <div key={stat.rejection_category} className={`border rounded-lg p-4 ${config.color}`}>
-                  <div className="text-sm font-medium flex items-center gap-2">
-                    <span>{config.icon}</span>
-                    <span>{config.text}</span>
-                  </div>
-                  <div className="text-2xl font-bold mt-1">{stat.count}</div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
