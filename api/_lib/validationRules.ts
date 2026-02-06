@@ -671,15 +671,24 @@ export function normalizeString(str: string): string {
  * Provincias españolas (52 provincias)
  */
 const PROVINCIAS_ESPANOLAS = [
-  'ALAVA', 'ALBACETE', 'ALICANTE', 'ALMERIA', 'ASTURIAS', 'AVILA',
-  'BADAJOZ', 'BARCELONA', 'BURGOS', 'CACERES', 'CADIZ', 'CANTABRIA',
-  'CASTELLON', 'CIUDAD REAL', 'CORDOBA', 'CUENCA', 'GIRONA', 'GRANADA',
-  'GUADALAJARA', 'GUIPUZCOA', 'HUELVA', 'HUESCA', 'ISLAS BALEARES',
-  'JAEN', 'LA CORUNA', 'LA RIOJA', 'LAS PALMAS', 'LEON', 'LLEIDA',
+  // Nombres oficiales (como aparecen en D_LUGAR_DE_TRABAJO, en MAYÚSCULAS)
+  'ARABA/ALAVA', 'ALBACETE', 'ALICANTE/ALACANT', 'ALMERIA', 'ASTURIAS', 'AVILA',
+  'BADAJOZ', 'BALEARS, ILLES', 'BARCELONA', 'BURGOS', 'CACERES', 'CADIZ', 'CANTABRIA',
+  'CASTELLON/CASTELLO', 'CIUDAD REAL', 'CORDOBA', 'CORUÑA/A CORUÑA', 'CUENCA',
+  'GIRONA/GERONA', 'GRANADA', 'GUADALAJARA', 'GUIPUZKOA/GUIPUZCOA',
+  'HUELVA', 'HUESCA', 'JAEN', 'LEON', 'LLEIDA/LERIDA', 'RIOJA, LA',
   'LUGO', 'MADRID', 'MALAGA', 'MURCIA', 'NAVARRA', 'OURENSE',
-  'PALENCIA', 'PONTEVEDRA', 'SALAMANCA', 'SEGOVIA', 'SEVILLA',
-  'SORIA', 'TARRAGONA', 'SANTA CRUZ DE TENERIFE', 'TERUEL', 'TOLEDO',
-  'VALENCIA', 'VALLADOLID', 'VIZCAYA', 'ZAMORA', 'ZARAGOZA', 'CEUTA', 'MELILLA'
+  'PALENCIA', 'PALMAS, LAS', 'PONTEVEDRA', 'SALAMANCA',
+  'SANTA CRUZ DE TENERIFE', 'SEGOVIA', 'SEVILLA',
+  'SORIA', 'TARRAGONA', 'TERUEL', 'TOLEDO',
+  'VALENCIA/VALENCIA', 'VALLADOLID', 'BIZKAIA/VIZCAYA', 'ZAMORA', 'ZARAGOZA',
+  'CEUTA', 'MELILLA', 'NO CONTESTA',
+  // Variantes comunes (para aceptar también formas parciales)
+  'ALAVA', 'ARABA', 'ALICANTE', 'ALACANT', 'BALEARS', 'ILLES BALEARS', 'ISLAS BALEARES',
+  'CASTELLON', 'CASTELLO', 'CORUÑA', 'A CORUÑA', 'LA CORUÑA',
+  'GIRONA', 'GERONA', 'GUIPUZKOA', 'GUIPUZCOA',
+  'LLEIDA', 'LERIDA', 'LA RIOJA', 'LAS PALMAS',
+  'VALENCIA', 'VALENCIA', 'BIZKAIA', 'VIZCAYA',
 ];
 
 /**
@@ -704,7 +713,7 @@ export function isNC(value: any): boolean {
   if (!value) return false;
 
   const strValue = String(value).trim().toUpperCase();
-  const ncVariants = ['NC', 'N/C', 'N.C.', 'NO CONSTA', 'NO APLICA', 'N/A', 'NA'];
+  const ncVariants = ['NC', 'N/C', 'N.C.', 'NO CONSTA', 'NO CONTESTA', 'NO APLICA', 'N/A', 'NA'];
 
   return ncVariants.includes(strValue);
 }

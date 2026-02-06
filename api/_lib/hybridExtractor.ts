@@ -512,37 +512,36 @@ export async function extractHybrid(
   // Post-procesamiento: lugar_trabajo → provincia oficial en MAYÚSCULAS
   // Mapeo: todas las variantes (castellano, sin tilde, euskera, gallego, catalán, IATA) → provincia oficial
   const PROVINCIA_ALIASES: Record<string, string> = {
-    // 52 provincias oficiales + Ceuta y Melilla
-    'alava': 'ALAVA', 'álava': 'ALAVA', 'araba': 'ALAVA',
+    // Nombres oficiales D_LUGAR_DE_TRABAJO (en MAYÚSCULAS, formato bilingüe)
+    'alava': 'ARABA/ALAVA', 'álava': 'ARABA/ALAVA', 'araba': 'ARABA/ALAVA', 'araba/álava': 'ARABA/ALAVA', 'araba/alava': 'ARABA/ALAVA',
     'albacete': 'ALBACETE',
-    'alicante': 'ALICANTE', 'alacant': 'ALICANTE',
+    'alicante': 'ALICANTE/ALACANT', 'alacant': 'ALICANTE/ALACANT', 'alicante/alacant': 'ALICANTE/ALACANT',
     'almeria': 'ALMERIA', 'almería': 'ALMERIA',
     'asturias': 'ASTURIAS', 'oviedo': 'ASTURIAS',
     'avila': 'AVILA', 'ávila': 'AVILA',
     'badajoz': 'BADAJOZ',
+    'balears': 'BALEARS, ILLES', 'illes balears': 'BALEARS, ILLES', 'islas baleares': 'BALEARS, ILLES', 'baleares': 'BALEARS, ILLES', 'mallorca': 'BALEARS, ILLES', 'palma': 'BALEARS, ILLES', 'palma de mallorca': 'BALEARS, ILLES', 'balears, illes': 'BALEARS, ILLES',
     'barcelona': 'BARCELONA',
     'burgos': 'BURGOS',
     'caceres': 'CACERES', 'cáceres': 'CACERES',
     'cadiz': 'CADIZ', 'cádiz': 'CADIZ',
     'cantabria': 'CANTABRIA', 'santander': 'CANTABRIA',
-    'castellon': 'CASTELLON', 'castellón': 'CASTELLON', 'castelló': 'CASTELLON',
+    'castellon': 'CASTELLON/CASTELLO', 'castellón': 'CASTELLON/CASTELLO', 'castelló': 'CASTELLON/CASTELLO', 'castello': 'CASTELLON/CASTELLO', 'castellon/castelló': 'CASTELLON/CASTELLO', 'castellon/castello': 'CASTELLON/CASTELLO',
     'ceuta': 'CEUTA',
     'ciudad real': 'CIUDAD REAL',
     'cordoba': 'CORDOBA', 'córdoba': 'CORDOBA',
+    'coruña': 'CORUÑA/A CORUÑA', 'a coruña': 'CORUÑA/A CORUÑA', 'la coruña': 'CORUÑA/A CORUÑA', 'coruna': 'CORUÑA/A CORUÑA', 'coruña/a coruña': 'CORUÑA/A CORUÑA',
     'cuenca': 'CUENCA',
-    'girona': 'GIRONA', 'gerona': 'GIRONA',
+    'girona': 'GIRONA/GERONA', 'gerona': 'GIRONA/GERONA', 'girona/gerona': 'GIRONA/GERONA',
     'granada': 'GRANADA',
     'guadalajara': 'GUADALAJARA',
-    'guipuzcoa': 'GUIPUZCOA', 'guipúzcoa': 'GUIPUZCOA', 'gipuzkoa': 'GUIPUZCOA',
+    'guipuzcoa': 'GUIPUZKOA/GUIPUZCOA', 'guipúzcoa': 'GUIPUZKOA/GUIPUZCOA', 'gipuzkoa': 'GUIPUZKOA/GUIPUZCOA', 'guipuzkoa': 'GUIPUZKOA/GUIPUZCOA', 'guipuzkoa/guipuzcoa': 'GUIPUZKOA/GUIPUZCOA',
     'huelva': 'HUELVA',
     'huesca': 'HUESCA', 'osca': 'HUESCA',
-    'islas baleares': 'ISLAS BALEARES', 'illes balears': 'ISLAS BALEARES', 'baleares': 'ISLAS BALEARES', 'balears': 'ISLAS BALEARES', 'mallorca': 'ISLAS BALEARES', 'palma': 'ISLAS BALEARES', 'palma de mallorca': 'ISLAS BALEARES',
     'jaen': 'JAEN', 'jaén': 'JAEN',
-    'la coruña': 'LA CORUNA', 'a coruña': 'LA CORUNA', 'coruña': 'LA CORUNA', 'coruna': 'LA CORUNA', 'a coruña': 'LA CORUNA',
-    'la rioja': 'LA RIOJA', 'rioja': 'LA RIOJA', 'logroño': 'LA RIOJA', 'logrono': 'LA RIOJA',
-    'las palmas': 'LAS PALMAS', 'gran canaria': 'LAS PALMAS', 'las palmas de gran canaria': 'LAS PALMAS',
     'leon': 'LEON', 'león': 'LEON',
-    'lleida': 'LLEIDA', 'lerida': 'LLEIDA', 'lérida': 'LLEIDA',
+    'lleida': 'LLEIDA/LERIDA', 'lerida': 'LLEIDA/LERIDA', 'lérida': 'LLEIDA/LERIDA', 'lleida/lérida': 'LLEIDA/LERIDA', 'lleida/lerida': 'LLEIDA/LERIDA',
+    'rioja': 'RIOJA, LA', 'la rioja': 'RIOJA, LA', 'logroño': 'RIOJA, LA', 'logrono': 'RIOJA, LA', 'rioja, la': 'RIOJA, LA',
     'lugo': 'LUGO',
     'madrid': 'MADRID',
     'malaga': 'MALAGA', 'málaga': 'MALAGA',
@@ -551,24 +550,29 @@ export async function extractHybrid(
     'navarra': 'NAVARRA', 'nafarroa': 'NAVARRA',
     'ourense': 'OURENSE', 'orense': 'OURENSE',
     'palencia': 'PALENCIA',
+    'las palmas': 'PALMAS, LAS', 'gran canaria': 'PALMAS, LAS', 'las palmas de gran canaria': 'PALMAS, LAS', 'palmas, las': 'PALMAS, LAS',
     'pontevedra': 'PONTEVEDRA', 'vigo': 'PONTEVEDRA',
     'salamanca': 'SALAMANCA',
+    'santa cruz de tenerife': 'SANTA CRUZ DE TENERIFE', 'tenerife': 'SANTA CRUZ DE TENERIFE', 'santa cruz': 'SANTA CRUZ DE TENERIFE',
     'segovia': 'SEGOVIA',
     'sevilla': 'SEVILLA',
     'soria': 'SORIA',
     'tarragona': 'TARRAGONA',
-    'santa cruz de tenerife': 'SANTA CRUZ DE TENERIFE', 'tenerife': 'SANTA CRUZ DE TENERIFE', 'santa cruz': 'SANTA CRUZ DE TENERIFE',
     'teruel': 'TERUEL',
     'toledo': 'TOLEDO',
-    'valencia': 'VALENCIA', 'valència': 'VALENCIA',
+    'valencia': 'VALENCIA/VALENCIA', 'valència': 'VALENCIA/VALENCIA', 'valencia/valència': 'VALENCIA/VALENCIA', 'valencia/valencia': 'VALENCIA/VALENCIA',
     'valladolid': 'VALLADOLID',
-    'vizcaya': 'VIZCAYA', 'bizkaia': 'VIZCAYA', 'bilbao': 'VIZCAYA',
+    'vizcaya': 'BIZKAIA/VIZCAYA', 'bizkaia': 'BIZKAIA/VIZCAYA', 'bilbao': 'BIZKAIA/VIZCAYA', 'bizkaia/vizcaya': 'BIZKAIA/VIZCAYA',
     'zamora': 'ZAMORA',
     'zaragoza': 'ZARAGOZA', 'saragossa': 'ZARAGOZA',
+    // Códigos IATA comunes
+    'mad': 'MADRID', 'bcn': 'BARCELONA', 'vlc': 'VALENCIA/VALENCIA', 'svq': 'SEVILLA',
+    'zgz': 'ZARAGOZA', 'mlg': 'MALAGA', 'bio': 'BIZKAIA/VIZCAYA', 'alc': 'ALICANTE/ALACANT',
+    'msd': 'MADRID',
   };
 
-  const lugarRaw = String(extractedData.lugar_trabajo || 'NC').trim();
-  if (lugarRaw !== 'NC' && lugarRaw !== '') {
+  const lugarRaw = String(extractedData.lugar_trabajo || '').trim();
+  if (lugarRaw && lugarRaw !== 'NC' && lugarRaw.toUpperCase() !== 'NO CONTESTA') {
     const lugarLower = lugarRaw.toLowerCase();
     // 1. Coincidencia directa del texto completo
     if (PROVINCIA_ALIASES[lugarLower]) {
@@ -587,11 +591,11 @@ export async function extractHybrid(
         }
       }
       if (!found) {
-        extractedData.lugar_trabajo = 'NC';
+        extractedData.lugar_trabajo = 'NO CONTESTA';
       }
     }
   } else {
-    extractedData.lugar_trabajo = 'NC';
+    extractedData.lugar_trabajo = 'NO CONTESTA';
   }
 
   // Alias de campos: Gemini usa "titulacion" y "tamaño_empresa", el sistema espera "titulacion_codigo" y "tamano_empresa"
