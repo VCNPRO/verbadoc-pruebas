@@ -150,6 +150,14 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
 
     const handleRagIngest = async () => {
         if (!selectedResult) return;
+
+        // Verificar que el resultado tiene un ID valido (UUID, no hist-...)
+        const isLocalOnly = selectedResult.id.startsWith('hist-') || selectedResult.id.startsWith('local-');
+        if (isLocalOnly) {
+            alert('Este documento es solo local y no esta guardado en la base de datos.\n\nPara asignarlo a una carpeta RAG, primero debes:\n1. Subir el documento desde el Lote de documentos\n2. Usar el boton "Biblioteca RAG" para ingestarlo');
+            return;
+        }
+
         setRagIngesting(true);
 
         try {
@@ -178,11 +186,12 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                 setRagNewFolderName('');
             } else {
                 const err = await response.json();
-                alert(err.error || 'Error al ingestar');
+                const errorMsg = err.details || err.error || 'Error al asignar carpeta';
+                alert(errorMsg);
             }
         } catch (error) {
             console.error('Error ingesting to RAG:', error);
-            alert('Error al ingestar documento');
+            alert('Error de conexion al asignar carpeta');
         } finally {
             setRagIngesting(false);
         }

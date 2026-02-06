@@ -127,6 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Fallback: buscar por filename si el ID no es UUID o no se encontro
       if ((!existing || existing.rows.length === 0) && filename) {
         console.log(`[RAG Upload] Flujo B: buscando por filename "${filename}"`);
+        // Busqueda exacta primero
         existing = await sql`
           SELECT id, filename, extracted_data, user_id
           FROM extraction_results
@@ -134,10 +135,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           ORDER BY created_at DESC
           LIMIT 1
         `;
+
+        // Si no encuentra, buscar con ILIKE (case insensitive, parcial)
+        if (existing.rows.length === 0) {
+          console.log(`[RAG Upload] Flujo B: busqueda exacta fallida, probando ILIKE...`);
+          existing = await sql`
+            SELECT id, filename, extracted_data, user_id
+            FROM extraction_results
+            WHERE filename ILIKE ${'%' + filename + '%'} AND user_id = ${auth.userId}::uuid
+            ORDER BY created_at DESC
+            LIMIT 1
+          `;
+        }
       }
 
       if (!existing || existing.rows.length === 0) {
-        return res.status(404).json({ error: 'Documento no encontrado en la base de datos. Primero sube el documento a la Biblioteca RAG.' });
+        console.log(`[RAG Upload] Flujo B: documento no encontrado para extractionId=${extractionId}, filename=${filename}`);
+        return res.status(404).json({
+          error: 'Documento no encontrado en la base de datos.',
+          details: 'Este documento aun no ha sido procesado. Primero extrae el documento o subelo directamente a la Biblioteca RAG desde el Lote de documentos.'
+        });
       }
 
       const extraction = existing.rows[0];
