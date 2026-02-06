@@ -367,6 +367,19 @@ export async function deleteByUserId(userId: string): Promise<void> {
 // ANSWER GENERATION
 // ============================================================================
 
+// Configuración de idiomas para respuestas
+const LANGUAGE_CONFIG: Record<string, { noDocsMessage: string; promptInstruction: string; sourceLabel: string }> = {
+  es: { noDocsMessage: 'No se encontraron documentos relevantes para responder a tu pregunta.', promptInstruction: 'Responde en español.', sourceLabel: 'Fuente' },
+  ca: { noDocsMessage: 'No s\'han trobat documents rellevants per respondre a la teva pregunta.', promptInstruction: 'Respon en català.', sourceLabel: 'Font' },
+  gl: { noDocsMessage: 'Non se atoparon documentos relevantes para responder á túa pregunta.', promptInstruction: 'Responde en galego.', sourceLabel: 'Fonte' },
+  eu: { noDocsMessage: 'Ez da dokumentu garrantzitsurik aurkitu zure galderari erantzuteko.', promptInstruction: 'Erantzun euskaraz.', sourceLabel: 'Iturria' },
+  pt: { noDocsMessage: 'Não foram encontrados documentos relevantes para responder à sua pergunta.', promptInstruction: 'Responda em português.', sourceLabel: 'Fonte' },
+  fr: { noDocsMessage: 'Aucun document pertinent n\'a été trouvé pour répondre à votre question.', promptInstruction: 'Répondez en français.', sourceLabel: 'Source' },
+  en: { noDocsMessage: 'No relevant documents found to answer your question.', promptInstruction: 'Respond in English.', sourceLabel: 'Source' },
+  it: { noDocsMessage: 'Non sono stati trovati documenti rilevanti per rispondere alla tua domanda.', promptInstruction: 'Rispondi in italiano.', sourceLabel: 'Fonte' },
+  de: { noDocsMessage: 'Es wurden keine relevanten Dokumente gefunden, um Ihre Frage zu beantworten.', promptInstruction: 'Antworten Sie auf Deutsch.', sourceLabel: 'Quelle' },
+};
+
 /**
  * Genera respuesta con contexto
  */
@@ -376,19 +389,18 @@ export async function generateAnswer(
   language: string = 'es'
 ): Promise<RAGAnswer> {
   const client = getGenAIClient();
+  const langConfig = LANGUAGE_CONFIG[language] || LANGUAGE_CONFIG['es'];
 
   if (context.length === 0) {
     return {
-      answer: language === 'es'
-        ? 'No se encontraron documentos relevantes para responder a tu pregunta.'
-        : 'No relevant documents found to answer your question.',
+      answer: langConfig.noDocsMessage,
       sources: [],
       confidence: 0,
     };
   }
 
   const contextParts = context.map((result, idx) => {
-    const sourceRef = `[Fuente ${idx + 1}: ${result.documentName || result.chunk.documentId}]`;
+    const sourceRef = `[${langConfig.sourceLabel} ${idx + 1}: ${result.documentName || result.chunk.documentId}]`;
     return `${sourceRef}\n${result.chunk.text}`;
   });
   const contextString = contextParts.join('\n\n---\n\n');
@@ -398,9 +410,9 @@ export async function generateAnswer(
 REGLAS:
 1. Responde SOLO con informacion de los documentos
 2. Si no hay informacion suficiente, dilo claramente
-3. Cita las fuentes usando [Fuente X]
+3. Cita las fuentes usando [${langConfig.sourceLabel} X]
 4. Se preciso y conciso
-5. Responde en espanol
+5. ${langConfig.promptInstruction}
 
 DOCUMENTOS:
 ${contextString}`;
@@ -455,9 +467,10 @@ export async function ragQuery(
     documentIds?: string[];
     folderId?: string;
   },
-  topK: number = DEFAULT_TOP_K
+  topK: number = DEFAULT_TOP_K,
+  language: string = 'es'
 ): Promise<RAGAnswer> {
-  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..."${filters?.folderId ? ` (carpeta: ${filters.folderId})` : ''}`);
+  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..." [${language}]${filters?.folderId ? ` (carpeta: ${filters.folderId})` : ''}`);
 
   const queryEmbedding = await generateEmbedding(query);
   const searchResults = await searchSimilar(
@@ -467,7 +480,7 @@ export async function ragQuery(
     filters?.documentIds,
     filters?.folderId
   );
-  const answer = await generateAnswer(query, searchResults);
+  const answer = await generateAnswer(query, searchResults, language);
 
   return answer;
 }

@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // POST: Process RAG query
     if (req.method === 'POST') {
-      const { query, documentIds, projectId, folderId, topK = 5 } = req.body;
+      const { query, documentIds, projectId, folderId, topK = 5, language = 'es' } = req.body;
 
       // Validate query
       if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -78,6 +78,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       console.log(`[RAG/Ask] User ${userId} query: "${query.substring(0, 100)}..."`);
 
+      // Validar idioma (solo los 9 soportados)
+      const supportedLanguages = ['es', 'ca', 'gl', 'eu', 'pt', 'fr', 'en', 'it', 'de'];
+      const effectiveLanguage = supportedLanguages.includes(language) ? language : 'es';
+
       // Execute RAG query
       const startTime = Date.now();
       const result = await ragQuery(
@@ -87,7 +91,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           documentIds: documentIds || undefined,
           folderId: folderId || undefined,
         },
-        effectiveTopK
+        effectiveTopK,
+        effectiveLanguage
       );
       const processingTime = Date.now() - startTime;
 

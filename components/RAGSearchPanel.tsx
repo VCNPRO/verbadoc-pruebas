@@ -4,10 +4,37 @@
  *
  * Panel de consultas con lenguaje natural
  * Incluye soporte de voz (micrófono + leer respuesta)
+ * Soporte multiidioma: ES, CA, GL, EU, PT, FR, EN, IT, DE
  */
 
 import React, { useState, useEffect } from 'react';
 import { useVoice } from '../src/hooks/useVoice';
+
+// Configuración de idiomas soportados
+const SUPPORTED_LANGUAGES = [
+  { code: 'es', locale: 'es-ES', name: 'Español', flag: '🇪🇸' },
+  { code: 'ca', locale: 'ca-ES', name: 'Català', flag: '🏴󠁥󠁳󠁣󠁴󠁿' },
+  { code: 'gl', locale: 'gl-ES', name: 'Galego', flag: '🏴󠁥󠁳󠁧󠁡󠁿' },
+  { code: 'eu', locale: 'eu-ES', name: 'Euskara', flag: '🏴' },
+  { code: 'pt', locale: 'pt-PT', name: 'Português', flag: '🇵🇹' },
+  { code: 'fr', locale: 'fr-FR', name: 'Français', flag: '🇫🇷' },
+  { code: 'en', locale: 'en-GB', name: 'English', flag: '🇬🇧' },
+  { code: 'it', locale: 'it-IT', name: 'Italiano', flag: '🇮🇹' },
+  { code: 'de', locale: 'de-DE', name: 'Deutsch', flag: '🇩🇪' },
+];
+
+// Textos traducidos por idioma
+const UI_TEXTS: Record<string, { placeholder: string; listening: string; search: string; searching: string }> = {
+  es: { placeholder: 'Escribe o habla tu pregunta...', listening: '🎤 Escuchando... habla ahora', search: 'Buscar', searching: 'Buscando...' },
+  ca: { placeholder: 'Escriu o parla la teva pregunta...', listening: '🎤 Escoltant... parla ara', search: 'Cercar', searching: 'Cercant...' },
+  gl: { placeholder: 'Escribe ou fala a túa pregunta...', listening: '🎤 Escoitando... fala agora', search: 'Buscar', searching: 'Buscando...' },
+  eu: { placeholder: 'Idatzi edo esan zure galdera...', listening: '🎤 Entzuten... hitz egin orain', search: 'Bilatu', searching: 'Bilatzen...' },
+  pt: { placeholder: 'Escreva ou fale sua pergunta...', listening: '🎤 Ouvindo... fale agora', search: 'Pesquisar', searching: 'Pesquisando...' },
+  fr: { placeholder: 'Écrivez ou parlez votre question...', listening: '🎤 Écoute... parlez maintenant', search: 'Rechercher', searching: 'Recherche...' },
+  en: { placeholder: 'Type or speak your question...', listening: '🎤 Listening... speak now', search: 'Search', searching: 'Searching...' },
+  it: { placeholder: 'Scrivi o parla la tua domanda...', listening: '🎤 Ascolto... parla ora', search: 'Cerca', searching: 'Ricerca...' },
+  de: { placeholder: 'Schreiben oder sprechen Sie Ihre Frage...', listening: '🎤 Zuhören... sprechen Sie jetzt', search: 'Suchen', searching: 'Suche...' },
+};
 
 interface RagFolder {
   id: string;
@@ -49,6 +76,13 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
 
   // Estado para visor de documentos
   const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
+
+  // Estado de idioma
+  const [selectedLanguage, setSelectedLanguage] = useState(() => {
+    // Cargar idioma guardado o usar español por defecto
+    const saved = localStorage.getItem('verbadoc-rag-language');
+    return saved || 'es';
+  });
 
   // Hook de voz
   const {
@@ -94,6 +128,16 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
       .catch(() => {});
   }, []);
 
+  // Guardar idioma y sincronizar con voz
+  useEffect(() => {
+    localStorage.setItem('verbadoc-rag-language', selectedLanguage);
+    // Actualizar idioma de voz
+    const langConfig = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage);
+    if (langConfig) {
+      updateVoiceSettings({ language: langConfig.locale });
+    }
+  }, [selectedLanguage, updateVoiceSettings]);
+
   const handleCreateFolder = async () => {
     if (!newFolderName.trim()) return;
     try {
@@ -134,7 +178,12 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ query: query.trim(), topK: 5, folderId: selectedFolderId || undefined }),
+        body: JSON.stringify({
+          query: query.trim(),
+          topK: 5,
+          folderId: selectedFolderId || undefined,
+          language: selectedLanguage,
+        }),
       });
 
       const data = await res.json();
@@ -164,14 +213,16 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
 
   return (
     <div style={{ backgroundColor: bgMain, color: textColor }}>
-      {/* Selector de carpeta */}
-      <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+      {/* Selectores de carpeta e idioma */}
+      <div style={{ marginBottom: '12px', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* Selector de carpeta */}
         <label style={{ fontSize: '13px', color: textMuted, whiteSpace: 'nowrap' }}>Carpeta:</label>
         <select
           value={selectedFolderId}
           onChange={(e) => setSelectedFolderId(e.target.value)}
           style={{
             flex: 1,
+            minWidth: '150px',
             padding: '6px 10px',
             fontSize: '13px',
             backgroundColor: bgInput,
@@ -200,6 +251,32 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
           }}
           title="Nueva carpeta"
         >+</button>
+
+        {/* Separador */}
+        <div style={{ width: '1px', height: '24px', backgroundColor: borderColor, margin: '0 4px' }} />
+
+        {/* Selector de idioma */}
+        <label style={{ fontSize: '13px', color: textMuted, whiteSpace: 'nowrap' }}>Idioma:</label>
+        <select
+          value={selectedLanguage}
+          onChange={(e) => setSelectedLanguage(e.target.value)}
+          style={{
+            padding: '6px 10px',
+            fontSize: '13px',
+            backgroundColor: bgInput,
+            color: textColor,
+            border: `1px solid ${borderColor}`,
+            borderRadius: '6px',
+            outline: 'none',
+          }}
+          title="Idioma de preguntas y respuestas"
+        >
+          {SUPPORTED_LANGUAGES.map(lang => (
+            <option key={lang.code} value={lang.code}>
+              {lang.flag} {lang.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {showNewFolder && (
@@ -263,7 +340,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
                 handleSubmit();
               }
             }}
-            placeholder={isListening ? '🎤 Escuchando... habla ahora' : 'Escribe o habla tu pregunta... (Enter para enviar)'}
+            placeholder={isListening ? UI_TEXTS[selectedLanguage]?.listening : `${UI_TEXTS[selectedLanguage]?.placeholder || UI_TEXTS.es.placeholder} (Enter)`}
             disabled={isLoading}
             rows={3}
             style={{
@@ -341,7 +418,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               justifyContent: 'center',
             }}
           >
-            {isLoading ? '⏳ Buscando...' : '🔍 Buscar'}
+            {isLoading ? `⏳ ${UI_TEXTS[selectedLanguage]?.searching || 'Buscando...'}` : `🔍 ${UI_TEXTS[selectedLanguage]?.search || 'Buscar'}`}
           </button>
           {(query || response || error) && (
             <button
