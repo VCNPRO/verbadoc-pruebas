@@ -85,6 +85,9 @@ function ImageViewer({ src, alt, isDarkMode }: { src: string; alt: string; isDar
                     justifyContent: 'center',
                     touchAction: 'none',
                     userSelect: 'none',
+                    border: `1px solid ${isDarkMode ? '#334155' : '#cbd5e1'}`,
+                    borderRadius: '8px',
+                    backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc',
                 }}
             >
                 <img
