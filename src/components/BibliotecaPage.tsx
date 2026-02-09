@@ -322,8 +322,11 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                     {filteredDocs.map(doc => {
                                         const isExpanded = expandedDocId === doc.id;
                                         const isSelected = selectedDocIds.has(doc.id);
-                                        const isImage = doc.file_type?.startsWith('image/') || false;
-                                        const isAudio = doc.file_type?.startsWith('audio/') || false;
+                                        const ext = doc.filename.toLowerCase().split('.').pop() || '';
+                                        const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'];
+                                        const audioExts = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'webm'];
+                                        const isImage = doc.file_type?.startsWith('image/') || imageExts.includes(ext);
+                                        const isAudio = doc.file_type?.startsWith('audio/') || audioExts.includes(ext);
                                         const icon = isAudio ? '🎵' : isImage ? '🖼️' : '📄';
                                         const viewLabel = isAudio ? 'Escuchar' : 'Ver';
                                         return (
