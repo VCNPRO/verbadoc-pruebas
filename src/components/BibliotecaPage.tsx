@@ -45,8 +45,8 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
     const [loadingDocs, setLoadingDocs] = useState(false);
     const [search, setSearch] = useState('');
 
-    // Visor de documento
-    const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
+    // Visor inline de documento
+    const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
 
     useEffect(() => {
         fetch('/api/rag/folders', { credentials: 'include' })
@@ -88,15 +88,16 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
         setSearch('');
     };
 
-    const openDocument = (doc: Doc) => {
-        if (doc.pdf_blob_url) {
-            const isImage = doc.file_type?.startsWith('image/') || false;
-            setViewingDoc({
-                url: doc.pdf_blob_url,
-                name: doc.filename,
-                isImage
-            });
-        }
+    const downloadDocument = async (doc: Doc) => {
+        if (!doc.pdf_blob_url) return;
+        const response = await fetch(doc.pdf_blob_url);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = doc.filename;
+        a.click();
+        window.URL.revokeObjectURL(url);
     };
 
     const filteredFolders = folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
@@ -216,86 +217,89 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filteredDocs.map(doc => (
-                                        <tr key={doc.id} className={`border-b ${borderCls} ${hoverRow}`}>
-                                            <td className={`px-6 py-4 ${textPrimary}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-lg">{doc.file_type?.startsWith('image/') ? '🖼️' : '📄'}</span>
-                                                    {doc.filename}
-                                                </div>
-                                            </td>
-                                            <td className={`px-6 py-4 ${textSecondary} text-sm`}>
-                                                {doc.created_at ? new Date(doc.created_at).toLocaleDateString('es-ES') : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                {doc.pdf_blob_url && (
-                                                    <button
-                                                        onClick={() => openDocument(doc)}
-                                                        className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
-                                                    >
-                                                        Ver
-                                                    </button>
+                                    {filteredDocs.map(doc => {
+                                        const isExpanded = expandedDocId === doc.id;
+                                        const isImage = doc.file_type?.startsWith('image/') || false;
+                                        const isAudio = doc.file_type?.startsWith('audio/') || false;
+                                        const icon = isAudio ? '🎵' : isImage ? '🖼️' : '📄';
+                                        const viewLabel = isAudio ? 'Escuchar' : 'Ver';
+                                        return (
+                                            <React.Fragment key={doc.id}>
+                                                <tr className={`border-b ${borderCls} ${hoverRow}`}>
+                                                    <td className={`px-6 py-4 ${textPrimary}`}>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-lg">{icon}</span>
+                                                            {doc.filename}
+                                                        </div>
+                                                    </td>
+                                                    <td className={`px-6 py-4 ${textSecondary} text-sm`}>
+                                                        {doc.created_at ? new Date(doc.created_at).toLocaleDateString('es-ES') : '-'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {doc.pdf_blob_url && (
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <button
+                                                                    onClick={() => setExpandedDocId(isExpanded ? null : doc.id)}
+                                                                    className={`px-3 py-1.5 text-sm rounded-lg ${isExpanded ? 'bg-emerald-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}`}
+                                                                >
+                                                                    {isExpanded ? 'Ocultar' : viewLabel}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => downloadDocument(doc)}
+                                                                    className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                                                                >
+                                                                    Descargar
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                                {isExpanded && doc.pdf_blob_url && (
+                                                    <tr className={`border-b ${borderCls}`}>
+                                                        <td colSpan={3} className="px-6 py-4">
+                                                            <div className={`border ${borderCls} rounded-lg overflow-hidden`}>
+                                                                <div className="flex justify-center p-4">
+                                                                    {isAudio ? (
+                                                                        <audio controls src={doc.pdf_blob_url} style={{ width: '100%', maxWidth: '500px' }}>
+                                                                            Tu navegador no soporta el reproductor de audio.
+                                                                        </audio>
+                                                                    ) : isImage ? (
+                                                                        <img
+                                                                            src={doc.pdf_blob_url}
+                                                                            alt={doc.filename}
+                                                                            style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }}
+                                                                        />
+                                                                    ) : (
+                                                                        <iframe
+                                                                            src={doc.pdf_blob_url}
+                                                                            title={doc.filename}
+                                                                            style={{ width: '100%', height: '500px', border: 'none' }}
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                                <div className={`px-4 py-2 border-t ${borderCls} flex justify-end`}>
+                                                                    <a
+                                                                        href={doc.pdf_blob_url}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-sm text-emerald-500 hover:text-emerald-400"
+                                                                    >
+                                                                        Abrir en nueva pestaña →
+                                                                    </a>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
                                                 )}
-                                            </td>
-                                        </tr>
-                                    ))}
+                                            </React.Fragment>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         )
                     )}
                 </div>
             </div>
-
-            {/* Modal visor de documento */}
-            {viewingDoc && (
-                <div
-                    className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-5"
-                    onClick={() => setViewingDoc(null)}
-                >
-                    <div
-                        className={`${bgCard} rounded-xl max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col`}
-                        style={{ width: viewingDoc.isImage ? 'auto' : '900px' }}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div className={`px-4 py-3 border-b ${borderCls} flex items-center justify-between`}>
-                            <span className={`font-semibold ${textPrimary}`}>{viewingDoc.name}</span>
-                            <div className="flex gap-2">
-                                <a
-                                    href={viewingDoc.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="px-3 py-1.5 text-sm text-emerald-500 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/10"
-                                >
-                                    Abrir en nueva pestaña ↗
-                                </a>
-                                <button
-                                    onClick={() => setViewingDoc(null)}
-                                    className={`px-3 py-1.5 text-sm ${textSecondary} border ${borderCls} rounded-lg ${hoverRow}`}
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                        </div>
-                        {/* Content */}
-                        <div className="flex-1 overflow-auto p-4 flex justify-center">
-                            {viewingDoc.isImage ? (
-                                <img
-                                    src={viewingDoc.url}
-                                    alt={viewingDoc.name}
-                                    style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
-                                />
-                            ) : (
-                                <iframe
-                                    src={viewingDoc.url}
-                                    title={viewingDoc.name}
-                                    style={{ width: '100%', height: '75vh', border: 'none' }}
-                                />
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
