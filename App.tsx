@@ -861,15 +861,42 @@ function AppContent() {
         const filesToIngest = files.filter(f => selectedIds.includes(f.id));
         if (filesToIngest.length === 0) return;
 
+        // 🔍 Verificar duplicados contra historial antes de ingestar
+        const processedFileNames = new Set(history.map(h => h.fileName));
+        const duplicates = filesToIngest.filter(f => processedFileNames.has(f.file.name));
+        let finalIds = selectedIds;
+
+        if (duplicates.length > 0) {
+            const allAreDuplicates = duplicates.length === filesToIngest.length;
+            const proceed = window.confirm(
+                `⚠️ ${duplicates.length} de ${filesToIngest.length} archivo${filesToIngest.length > 1 ? 's' : ''} ya existe${duplicates.length > 1 ? 'n' : ''} en el sistema:\n\n` +
+                duplicates.map(f => `  • ${f.file.name}`).join('\n') +
+                `\n\n¿Quieres subirlo${duplicates.length > 1 ? 's' : ''} igualmente?\n\n` +
+                `• SI (Aceptar) → Sube todos (${filesToIngest.length} archivo${filesToIngest.length > 1 ? 's' : ''})\n` +
+                (allAreDuplicates
+                    ? `• NO (Cancelar) → No sube nada`
+                    : `• NO (Cancelar) → Solo sube los ${filesToIngest.length - duplicates.length} nuevos`)
+            );
+            if (!proceed) {
+                const newFiles = filesToIngest.filter(f => !processedFileNames.has(f.file.name));
+                if (newFiles.length === 0) {
+                    return;
+                }
+                finalIds = newFiles.map(f => f.id);
+            }
+        }
+
+        const finalFilesToIngest = files.filter(f => finalIds.includes(f.id));
+
         // Verificar si TODOS los archivos vienen de una carpeta (webkitRelativePath)
-        const allFromFolder = filesToIngest.every(f => {
+        const allFromFolder = finalFilesToIngest.every(f => {
             const path = (f.file as any).webkitRelativePath || '';
             return path.includes('/');
         });
 
         if (allFromFolder) {
             // Subida de carpeta: usar nombre de carpeta automáticamente
-            await executeRagIngest(selectedIds);
+            await executeRagIngest(finalIds);
         } else {
             // Archivos sueltos: mostrar modal para elegir carpeta
             try {
@@ -878,7 +905,7 @@ function AppContent() {
 
                 setRagFolderModal({
                     open: true,
-                    pendingFileIds: selectedIds,
+                    pendingFileIds: finalIds,
                     folders: data.folders || [],
                     selectedFolderId: '',
                     newFolderName: '',
@@ -887,7 +914,7 @@ function AppContent() {
                 });
             } catch {
                 // Si falla cargar carpetas, proceder sin carpeta
-                await executeRagIngest(selectedIds);
+                await executeRagIngest(finalIds);
             }
         }
     };
