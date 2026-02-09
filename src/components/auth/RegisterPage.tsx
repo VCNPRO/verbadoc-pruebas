@@ -103,11 +103,11 @@ export const RegisterPage = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 mt-0.5 px-1 py-0.5 text-indigo-500 hover:text-indigo-700 text-lg"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-indigo-500 hover:text-indigo-700 rounded px-2 py-1"
                 tabIndex={-1}
                 title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               >
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
           </div>

@@ -94,9 +94,9 @@ export const ResetPasswordPage = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 mt-0.5 text-gray-500"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-indigo-500 hover:text-indigo-700 rounded px-2 py-1"
               >
-                {showPassword ? '🙈' : '👁️'}
+                {showPassword ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
           </div>

@@ -198,11 +198,12 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                             <button
                                 type="button"
                                 onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-lg"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold rounded px-2 py-1"
+                                style={{ color: accentColor }}
                                 tabIndex={-1}
                                 title={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                             >
-                                {showPassword ? '🙈' : '👁️'}
+                                {showPassword ? 'Ocultar' : 'Mostrar'}
                             </button>
                         </div>
                     </div>
