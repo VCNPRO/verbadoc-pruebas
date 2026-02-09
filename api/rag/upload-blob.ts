@@ -1,27 +1,23 @@
 /**
- * RAG UPLOAD BLOB - Subida de archivos grandes a Vercel Blob
+ * RAG UPLOAD BLOB - Subida de archivos grandes por chunks
  * api/rag/upload-blob.ts
  *
- * Recibe archivo como base64 y lo sube a Vercel Blob.
- * Endpoint separado con sizeLimit alto para archivos grandes.
- * Retorna solo la URL del blob (sin ingesta).
+ * Usa multipart upload de @vercel/blob para subir archivos >4.5MB
+ * en trozos que caben dentro del limite de body de Vercel.
  *
- * POST /api/rag/upload-blob
- * Body: { filename, fileBase64, fileType }
- * Response: { url }
+ * Acciones:
+ *   action: 'create'   → crea multipart upload, retorna { uploadId, key }
+ *   action: 'part'     → sube un chunk, retorna { partNumber, etag }
+ *   action: 'complete'  → finaliza upload, retorna { url }
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { put } from '@vercel/blob';
+import {
+  createMultipartUpload,
+  uploadPart,
+  completeMultipartUpload,
+} from '@vercel/blob';
 import jwt from 'jsonwebtoken';
-
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '50mb'
-    }
-  }
-};
 
 function verifyAuth(req: VercelRequest): { userId: string; role: string } | null {
   try {
@@ -51,20 +47,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!auth) return res.status(401).json({ error: 'No autorizado' });
 
   try {
-    const { filename, fileBase64, fileType } = req.body;
-    if (!filename || !fileBase64) {
-      return res.status(400).json({ error: 'Faltan campos: filename, fileBase64' });
+    const { action } = req.body;
+
+    if (action === 'create') {
+      const { filename, fileType } = req.body;
+      const pathname = `rag-documents/${auth.userId}/${Date.now()}-${filename}`;
+      const multipart = await createMultipartUpload(pathname, {
+        access: 'public',
+        contentType: fileType || 'application/octet-stream',
+      });
+      console.log(`📤 [Blob Multipart] Creado: ${pathname}`);
+      return res.status(200).json({
+        uploadId: multipart.uploadId,
+        key: multipart.key,
+      });
     }
 
-    const buffer = Buffer.from(fileBase64, 'base64');
-    const blob = await put(`rag-documents/${auth.userId}/${Date.now()}-${filename}`, buffer, {
-      access: 'public',
-      contentType: fileType || 'application/octet-stream'
-    });
+    if (action === 'part') {
+      const { uploadId, key, partNumber, chunkBase64 } = req.body;
+      const buffer = Buffer.from(chunkBase64, 'base64');
+      const part = await uploadPart(key, buffer, {
+        access: 'public',
+        uploadId,
+        partNumber,
+      });
+      return res.status(200).json({
+        partNumber: part.partNumber,
+        etag: part.etag,
+      });
+    }
 
-    console.log(`✅ [Blob Upload] ${filename} subido: ${blob.url} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+    if (action === 'complete') {
+      const { uploadId, key, parts } = req.body;
+      const blob = await completeMultipartUpload(key, uploadId, parts, {
+        access: 'public',
+      });
+      console.log(`✅ [Blob Multipart] Completado: ${blob.url}`);
+      return res.status(200).json({ url: blob.url });
+    }
 
-    return res.status(200).json({ url: blob.url });
+    return res.status(400).json({ error: 'Acción no válida. Use: create, part, complete' });
   } catch (error: any) {
     console.error('[Blob Upload] Error:', error.message);
     return res.status(500).json({ error: error.message });
