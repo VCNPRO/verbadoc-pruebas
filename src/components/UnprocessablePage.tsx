@@ -134,32 +134,14 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
   });
 
   const [selectedDoc, setSelectedDoc] = useState<UnprocessableDocument | null>(null);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
   const [downloadedIds, setDownloadedIds] = useState<Set<string>>(new Set());
+
+  // URLs seguras via proxy (nunca exponer blob URLs directas)
+  const getDocUrl = (docId: string) => `/api/documents/serve?id=${docId}`;
 
   // PIN Modal para eliminar
   const [showPinModal, setShowPinModal] = useState(false);
   const [pendingDeleteAction, setPendingDeleteAction] = useState<(() => void) | null>(null);
-
-  // Cargar PDF como blob local para evitar bloqueo de iframe por CSP/X-Frame-Options
-  useEffect(() => {
-    if (!selectedDoc?.pdf_blob_url) {
-      setPdfBlobUrl(null);
-      return;
-    }
-    let revoked = false;
-    fetch(selectedDoc.pdf_blob_url)
-      .then(res => res.blob())
-      .then(blob => {
-        if (!revoked) {
-          setPdfBlobUrl(URL.createObjectURL(blob));
-        }
-      })
-      .catch(() => setPdfBlobUrl(null));
-    return () => {
-      revoked = true;
-    };
-  }, [selectedDoc]);
 
   useEffect(() => {
     loadData();
@@ -677,18 +659,16 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                   {selectedDoc.pdf_blob_url ? (
                     isImageFile(selectedDoc.filename, selectedDoc.file_type) ? (
                       <img
-                        src={selectedDoc.pdf_blob_url}
+                        src={getDocUrl(selectedDoc.id)}
                         alt={selectedDoc.filename}
                         className="max-w-full max-h-full object-contain"
                       />
-                    ) : pdfBlobUrl ? (
+                    ) : (
                       <iframe
-                        src={pdfBlobUrl}
+                        src={getDocUrl(selectedDoc.id)}
                         className="w-full h-full border-0"
                         title={`Vista previa: ${selectedDoc.filename}`}
                       />
-                    ) : (
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                     )
                   ) : (
                     <div className="flex flex-col items-center gap-2 text-gray-400">
@@ -751,7 +731,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
               <div className="text-sm text-gray-500">
                 {selectedDoc.pdf_blob_url && (
                   <a
-                    href={selectedDoc.pdf_blob_url}
+                    href={getDocUrl(selectedDoc.id)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1"

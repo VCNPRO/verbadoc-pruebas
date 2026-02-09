@@ -50,6 +50,9 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
   // 🔥 NUEVO: Estado para PDF cargado desde sessionStorage
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  // URL segura via proxy (nunca exponer blob URLs directas)
+  const getDocUrl = (docId: string) => `/api/documents/serve?id=${docId}`;
+
   // Estado para el modal de corrección de errores
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingError, setEditingError] = useState<ApiValidationError | null>(null);
@@ -252,51 +255,22 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
         setErrors(data.errors || []);
         console.log('✅ Datos cargados:', data);
 
-        // 🔥 CORREGIDO: Cargar PDF desde múltiples fuentes con mejor manejo
+        // Cargar PDF: usar proxy autenticado si existe en BD, o sessionStorage como fallback
         const pdfKey = `pdf_${id}`;
         let pdfLoaded = false;
 
-        // 1. Intentar desde Base de Datos primero (más confiable)
-        // Buscar en pdf_blob_url Y file_url por compatibilidad
-        const pdfUrlFromDb = data.extraction.pdf_blob_url || data.extraction.file_url;
-
-        if (pdfUrlFromDb) {
-          console.log('🔍 Intentando cargar PDF desde Base de Datos...');
-          console.log('   URL:', pdfUrlFromDb.substring(0, 80) + '...');
-          try {
-            // Verificar que la URL sea accesible
-            const testResponse = await fetch(pdfUrlFromDb, { method: 'HEAD' });
-            if (testResponse.ok) {
-              setPdfUrl(pdfUrlFromDb);
-              console.log('✅ PDF recuperado de Base de Datos:', pdfUrlFromDb.substring(0, 80));
-              pdfLoaded = true;
-            } else {
-              console.warn('⚠️ URL existe pero no es accesible. Status:', testResponse.status);
-              console.warn('   Intentando cargar de todas formas...');
-              // Intentar cargar de todas formas por si el HEAD falla pero GET funciona
-              setPdfUrl(pdfUrlFromDb);
-              pdfLoaded = true;
-            }
-          } catch (blobError) {
-            console.error('❌ Error verificando URL:', blobError);
-            console.warn('   Intentando cargar de todas formas...');
-            // Intentar cargar de todas formas
-            setPdfUrl(pdfUrlFromDb);
-            pdfLoaded = true;
-          }
-        } else {
-          console.warn('⚠️ No hay URL de PDF en Base de Datos (ni pdf_blob_url ni file_url)');
+        // 1. Si la extracción tiene PDF en BD, usar proxy autenticado (nunca exponer blob URL)
+        if (data.extraction.pdf_blob_url || data.extraction.file_url) {
+          setPdfUrl(getDocUrl(id!));
+          console.log('✅ PDF via proxy autenticado');
+          pdfLoaded = true;
         }
 
-        // 2. Si falla, intentar desde sessionStorage
+        // 2. Fallback: sessionStorage (para documentos recién subidos antes de guardar URL)
         if (!pdfLoaded) {
           const pdfData = sessionStorage.getItem(pdfKey);
-          console.log('🔍 Intentando recuperar PDF de sessionStorage...');
-          console.log('🔍 PDF data encontrado:', pdfData ? `Sí (${pdfData.length} chars)` : 'No');
-
           if (pdfData) {
             try {
-              console.log('🔄 Convirtiendo base64 de sessionStorage a Blob...');
               const base64Content = pdfData.split(',')[1] || pdfData;
               const byteCharacters = atob(base64Content.replace(/\s/g, ''));
               const byteNumbers = new Array(byteCharacters.length);
@@ -305,21 +279,16 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               }
               const byteArray = new Uint8Array(byteNumbers);
               const blob = new Blob([byteArray], { type: 'application/pdf' });
-              const url = URL.createObjectURL(blob);
-
-              setPdfUrl(url);
-              console.log('✅ PDF recuperado de sessionStorage:', url);
+              setPdfUrl(URL.createObjectURL(blob));
               pdfLoaded = true;
             } catch (e) {
-              console.error('❌ Error decodificando sessionStorage:', e);
+              console.error('Error decodificando sessionStorage:', e);
             }
           }
         }
 
-        // 3. Si todo falla, mostrar advertencia
         if (!pdfLoaded) {
-          console.error('❌ No se pudo recuperar el PDF de ninguna fuente');
-          console.warn('⚠️ El visor de PDF no estará disponible para este documento');
+          console.warn('No se pudo recuperar el PDF de ninguna fuente');
         }
       } catch (error) {
         console.error('Error al cargar extracción:', error);

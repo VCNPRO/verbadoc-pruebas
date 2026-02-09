@@ -60,8 +60,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // 3. Buscar documento y verificar permisos (mismo client_id)
-    const result = await sql`
+    // 3. Buscar documento en extraction_results
+    let result = await sql`
       SELECT
         e.id,
         e.pdf_blob_url,
@@ -74,6 +74,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       WHERE e.id = ${documentId}::uuid
       LIMIT 1
     `;
+
+    // Fallback: buscar en unprocessable_documents
+    if (result.rows.length === 0) {
+      result = await sql`
+        SELECT
+          ud.id,
+          ud.pdf_blob_url,
+          ud.filename,
+          NULL::text as file_type,
+          ud.user_id,
+          usr.client_id as owner_client_id
+        FROM unprocessable_documents ud
+        JOIN users usr ON ud.user_id = usr.id
+        WHERE ud.id = ${documentId}::uuid
+        LIMIT 1
+      `;
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Documento no encontrado' });

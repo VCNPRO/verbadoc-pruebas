@@ -78,6 +78,9 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
 
   const [viewingRow, setViewingRow] = useState<MasterExcelRow | null>(null);
 
+  // URL segura via proxy (nunca exponer blob URLs directas)
+  const getDocUrl = (docId: string) => `/api/documents/serve?id=${docId}`;
+
   // Inline editing state and PDF/Image viewer in modal
   const [modalPdfUrl, setModalPdfUrl] = useState<string | null>(null);
   const [modalFileType, setModalFileType] = useState<string | null>(null);
@@ -96,22 +99,23 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
 
     const loadFile = async () => {
       try {
+        // Obtener file_type de la API, pero usar proxy para la URL (nunca exponer blob URL)
         const response = await fetch(`/api/extractions/${viewingRow.extraction_id}`, {
           credentials: 'include'
         });
         if (response.ok) {
           const data = await response.json();
-          const url = data.extraction?.pdf_blob_url || data.extraction?.file_url;
           const fileType = data.extraction?.file_type;
-          if (url) {
-            setModalPdfUrl(url);
-            setModalFileType(fileType || null);
+          setModalFileType(fileType || null);
+          if (data.extraction?.pdf_blob_url || data.extraction?.file_url) {
+            setModalPdfUrl(getDocUrl(viewingRow.extraction_id));
             return;
           }
         }
       } catch (e) {
         console.warn('No se pudo cargar archivo de la extraccion:', e);
       }
+      // Fallback: sessionStorage
       const pdfData = sessionStorage.getItem(`pdf_${viewingRow.extraction_id}`);
       if (pdfData) {
         try {
