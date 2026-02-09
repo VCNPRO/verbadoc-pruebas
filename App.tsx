@@ -704,6 +704,8 @@ function AppContent() {
         if (filesToIngest.length === 0) return;
 
         setIsIngesting(true);
+        setIsLoading(true);
+        setExtractionProgress({ total: filesToIngest.length, completed: 0, errors: 0, startTime: Date.now() });
         let successCount = 0;
         let errorCount = 0;
         let lastFolderName = folderName;
@@ -800,6 +802,7 @@ function AppContent() {
                     setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
 
                     successCount++;
+                    setExtractionProgress(prev => ({ ...prev, completed: prev.completed + 1 }));
                     lastFolderName = detectedFolderName || lastFolderName;
                     console.log(`✅ [RAG] ${file.file.name} ingestado: ${result.ingestion?.chunksCreated || 0} chunks`);
                 } else {
@@ -810,11 +813,14 @@ function AppContent() {
                 setFiles(currentFiles =>
                     currentFiles.map(f => f.id === file.id ? { ...f, status: 'error', error: error.message } : f)
                 );
+                setExtractionProgress(prev => ({ ...prev, completed: prev.completed + 1, errors: prev.errors + 1 }));
                 errorCount++;
             }
         }
 
         setIsIngesting(false);
+        setIsLoading(false);
+        setExtractionProgress(prev => ({ ...prev, startTime: null }));
 
         // Mostrar toast con resultado y enlace a biblioteca
         const folderInfo = lastFolderName ? ` en "${lastFolderName}"` : '';
@@ -2080,7 +2086,7 @@ function AppContent() {
             </header>
 
             {/* Barra de progreso de extracción */}
-            {isLoading && extractionProgress.startTime && (
+            {(isLoading || isIngesting) && extractionProgress.startTime && (
                 <div
                     className="sticky top-16 z-10 border-b"
                     style={{
@@ -2093,7 +2099,7 @@ function AppContent() {
                         <div className="flex-1">
                             <div className="flex items-center justify-between mb-1">
                                 <span className="text-base font-semibold" style={{ color: isLightMode ? '#1e3a8a' : '#93c5fd' }}>
-                                    Procesando {extractionProgress.completed}/{extractionProgress.total} formularios
+                                    Procesando {extractionProgress.completed}/{extractionProgress.total} {isIngesting ? 'documentos' : 'formularios'}
                                 </span>
                                 <span className="text-base font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
                                     {(() => {
