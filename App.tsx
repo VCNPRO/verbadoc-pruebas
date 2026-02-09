@@ -443,6 +443,61 @@ function AppContent() {
                 if (file.file.name.toLowerCase().endsWith('.json')) {
                     const text = await file.file.text();
                     extractedData = JSON.parse(text);
+                } else if (schema.filter(f => f.name.trim() !== '').length === 0) {
+                    // Sin esquema configurado → redirigir al sistema RAG
+                    console.log(`🔄 Sin esquema configurado, redirigiendo a RAG: ${file.file.name}`);
+
+                    const fileBase64 = new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '');
+                    const ragResponse = await fetch('/api/rag/upload-and-ingest', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            filename: file.file.name,
+                            fileBase64: btoa(fileBase64),
+                            fileType: file.file.type || 'application/pdf',
+                            fileSizeBytes: file.file.size,
+                        }),
+                    });
+
+                    const ragData = await ragResponse.json();
+                    if (!ragResponse.ok || !ragData.success) {
+                        throw new Error(ragData.error || 'Error enviando a RAG');
+                    }
+
+                    setFiles(currentFiles =>
+                        currentFiles.map(f => f.id === file.id ? {
+                            ...f,
+                            status: 'completado',
+                            extractedData: {
+                                _ragRedirect: true,
+                                _ragDocument: true,
+                                description: ragData.description || '',
+                                documentId: ragData.documentId,
+                                blobUrl: ragData.blobUrl || '',
+                                isImage: ragData.isImage || false,
+                            },
+                        } : f)
+                    );
+
+                    const newHistoryEntry: ExtractionResult = {
+                        id: ragData.documentId,
+                        type: 'extraction' as const,
+                        fileId: ragData.documentId,
+                        fileName: file.file.name,
+                        extractedData: {
+                            _ragRedirect: true,
+                            _ragDocument: true,
+                            description: ragData.description || '',
+                            isImage: ragData.isImage || false,
+                            blobUrl: ragData.blobUrl || '',
+                        },
+                        timestamp: new Date().toISOString(),
+                    };
+                    setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
+
+                    console.log(`✅ [RAG Redirect] ${file.file.name} ingestado: ${ragData.ingestion?.chunksCreated || 0} chunks`);
+                    return;
                 } else {
                     // Usar sistema híbrido (Coordenadas → IA)
                     const hybridResult = await extractWithHybridSystem(file.file, schema, prompt, selectedModel, { confidenceThreshold: 0.5 });
@@ -833,6 +888,61 @@ function AppContent() {
                 if (file.file.name.toLowerCase().endsWith('.json')) {
                     const text = await file.file.text();
                     extractedData = JSON.parse(text);
+                } else if (schema.filter(f => f.name.trim() !== '').length === 0) {
+                    // Sin esquema configurado → redirigir al sistema RAG
+                    console.log(`🔄 Sin esquema configurado, redirigiendo a RAG: ${file.file.name}`);
+
+                    const fileBase64 = new Uint8Array(fileBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '');
+                    const ragResponse = await fetch('/api/rag/upload-and-ingest', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            filename: file.file.name,
+                            fileBase64: btoa(fileBase64),
+                            fileType: file.file.type || 'application/pdf',
+                            fileSizeBytes: file.file.size,
+                        }),
+                    });
+
+                    const ragData = await ragResponse.json();
+                    if (!ragResponse.ok || !ragData.success) {
+                        throw new Error(ragData.error || 'Error enviando a RAG');
+                    }
+
+                    setFiles(currentFiles =>
+                        currentFiles.map(f => f.id === file.id ? {
+                            ...f,
+                            status: 'completado',
+                            extractedData: {
+                                _ragRedirect: true,
+                                _ragDocument: true,
+                                description: ragData.description || '',
+                                documentId: ragData.documentId,
+                                blobUrl: ragData.blobUrl || '',
+                                isImage: ragData.isImage || false,
+                            },
+                        } : f)
+                    );
+
+                    const newHistoryEntry: ExtractionResult = {
+                        id: ragData.documentId,
+                        type: 'extraction' as const,
+                        fileId: ragData.documentId,
+                        fileName: file.file.name,
+                        extractedData: {
+                            _ragRedirect: true,
+                            _ragDocument: true,
+                            description: ragData.description || '',
+                            isImage: ragData.isImage || false,
+                            blobUrl: ragData.blobUrl || '',
+                        },
+                        timestamp: new Date().toISOString(),
+                    };
+                    setHistory(currentHistory => [newHistoryEntry, ...currentHistory]);
+
+                    console.log(`✅ [RAG Redirect] ${file.file.name} ingestado: ${ragData.ingestion?.chunksCreated || 0} chunks`);
+                    return;
                 } else {
                     // Usar sistema híbrido (Coordenadas → IA)
                     const hybridResult = await extractWithHybridSystem(file.file, schema, prompt, selectedModel, { confidenceThreshold: 0.5 });
