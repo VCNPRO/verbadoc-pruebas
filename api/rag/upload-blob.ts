@@ -1,22 +1,14 @@
 /**
- * RAG UPLOAD BLOB - Subida de archivos grandes por chunks
+ * RAG UPLOAD BLOB - Handler para subida directa del cliente a Vercel Blob
  * api/rag/upload-blob.ts
  *
- * Usa multipart upload de @vercel/blob para subir archivos >4.5MB
- * en trozos que caben dentro del limite de body de Vercel.
- *
- * Acciones:
- *   action: 'create'   → crea multipart upload, retorna { uploadId, key }
- *   action: 'part'     → sube un chunk, retorna { partNumber, etag }
- *   action: 'complete'  → finaliza upload, retorna { url }
+ * Usa handleUpload de @vercel/blob/client para generar tokens
+ * que permiten al navegador subir archivos directo a Vercel Blob,
+ * sin pasar por el limite de 4.5MB del serverless function.
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import {
-  createMultipartUpload,
-  uploadPart,
-  completeMultipartUpload,
-} from '@vercel/blob';
+import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import jwt from 'jsonwebtoken';
 
 function verifyAuth(req: VercelRequest): { userId: string; role: string } | null {
@@ -47,46 +39,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!auth) return res.status(401).json({ error: 'No autorizado' });
 
   try {
-    const { action } = req.body;
+    const jsonResponse = await handleUpload({
+      body: req.body as HandleUploadBody,
+      request: req,
+      onBeforeGenerateToken: async (pathname, clientPayload, multipart) => {
+        return {
+          allowedContentTypes: [
+            'application/pdf',
+            'image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 'image/webp', 'image/gif', 'image/bmp',
+            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave', 'audio/x-wav',
+            'audio/ogg', 'audio/webm', 'audio/mp4', 'audio/x-m4a', 'audio/m4a',
+            'audio/flac', 'audio/x-flac', 'audio/aac',
+          ],
+          maximumSizeInBytes: 100 * 1024 * 1024,
+          tokenPayload: JSON.stringify({ userId: auth.userId }),
+        };
+      },
+      onUploadCompleted: async ({ blob, tokenPayload }) => {
+        console.log(`✅ [Blob Upload] Completado: ${blob.url}`);
+      },
+    });
 
-    if (action === 'create') {
-      const { filename, fileType } = req.body;
-      const pathname = `rag-documents/${auth.userId}/${Date.now()}-${filename}`;
-      const multipart = await createMultipartUpload(pathname, {
-        access: 'public',
-        contentType: fileType || 'application/octet-stream',
-      });
-      console.log(`📤 [Blob Multipart] Creado: ${pathname}`);
-      return res.status(200).json({
-        uploadId: multipart.uploadId,
-        key: multipart.key,
-      });
-    }
-
-    if (action === 'part') {
-      const { uploadId, key, partNumber, chunkBase64 } = req.body;
-      const buffer = Buffer.from(chunkBase64, 'base64');
-      const part = await uploadPart(key, buffer, {
-        access: 'public',
-        uploadId,
-        partNumber,
-      });
-      return res.status(200).json({
-        partNumber: part.partNumber,
-        etag: part.etag,
-      });
-    }
-
-    if (action === 'complete') {
-      const { uploadId, key, parts } = req.body;
-      const blob = await completeMultipartUpload(key, uploadId, parts, {
-        access: 'public',
-      });
-      console.log(`✅ [Blob Multipart] Completado: ${blob.url}`);
-      return res.status(200).json({ url: blob.url });
-    }
-
-    return res.status(400).json({ error: 'Acción no válida. Use: create, part, complete' });
+    return res.status(200).json(jsonResponse);
   } catch (error: any) {
     console.error('[Blob Upload] Error:', error.message);
     return res.status(500).json({ error: error.message });

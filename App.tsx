@@ -13,6 +13,7 @@ import { PdfViewer } from './components/PdfViewer.tsx';
 // Fix: Use explicit file extension in import.
 import { HelpModal } from './components/HelpModal.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
+import { upload as blobUpload } from '@vercel/blob/client';
 import ConfigModal from './src/components/ConfigModal.tsx';
 // Fix: Use explicit file extension in import.
 import { ResultsViewer } from './components/ResultsViewer.tsx';
@@ -452,7 +453,13 @@ function AppContent() {
                     let ragResponse: Response;
 
                     if (fileBase64Encoded.length > 4 * 1024 * 1024) {
-                        const blobUrl = await uploadLargeFileByChunks(fileBase64Encoded, file.file.name, file.file.type || 'application/pdf');
+                        const blobFile = new File([fileBuffer], file.file.name, { type: file.file.type || 'application/pdf' });
+                        const blob = await blobUpload(file.file.name, blobFile, {
+                            access: 'public',
+                            handleUploadUrl: '/api/rag/upload-blob',
+                            multipart: true,
+                        });
+                        const blobUrl = blob.url;
                         ragResponse = await fetch('/api/rag/upload-and-ingest', {
                             method: 'POST',
                             credentials: 'include',
@@ -689,46 +696,6 @@ function AppContent() {
         });
     };
 
-    // Subir archivo grande por chunks usando multipart blob upload
-    const uploadLargeFileByChunks = async (base64: string, filename: string, fileType: string): Promise<string> => {
-        const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB de base64 por chunk (~2.25MB raw)
-        const totalChunks = Math.ceil(base64.length / CHUNK_SIZE);
-
-        // 1. Crear multipart upload
-        const createResp = await fetch('/api/rag/upload-blob', {
-            method: 'POST', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'create', filename, fileType }),
-        });
-        const { uploadId, key } = await createResp.json();
-        if (!uploadId || !key) throw new Error('Error creando multipart upload');
-
-        // 2. Subir cada chunk
-        const parts: { partNumber: number; etag: string }[] = [];
-        for (let i = 0; i < totalChunks; i++) {
-            const chunk = base64.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-            console.log(`  📦 Chunk ${i + 1}/${totalChunks} (${(chunk.length / 1024 / 1024).toFixed(1)} MB)`);
-            const partResp = await fetch('/api/rag/upload-blob', {
-                method: 'POST', credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'part', uploadId, key, partNumber: i + 1, chunkBase64: chunk }),
-            });
-            const partResult = await partResp.json();
-            if (!partResp.ok) throw new Error(partResult.error || `Error subiendo chunk ${i + 1}`);
-            parts.push({ partNumber: partResult.partNumber, etag: partResult.etag });
-        }
-
-        // 3. Completar upload
-        const completeResp = await fetch('/api/rag/upload-blob', {
-            method: 'POST', credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'complete', uploadId, key, parts }),
-        });
-        const completeResult = await completeResp.json();
-        if (!completeResp.ok || !completeResult.url) throw new Error(completeResult.error || 'Error completando upload');
-        return completeResult.url;
-    };
-
     // Función interna para ejecutar la ingesta con carpeta ya definida
     const executeRagIngest = async (fileIds: string[], folderName?: string) => {
         const filesToIngest = files.filter(f => fileIds.includes(f.id));
@@ -760,11 +727,18 @@ function AppContent() {
                 const actualFileType = wasCompressed ? mimeType : (file.file.type || 'application/pdf');
                 const actualSize = wasCompressed ? Math.round(base64.length * 0.75) : file.file.size;
 
-                // Si el base64 supera ~4MB, subir por chunks via multipart blob
+                // Si el base64 supera ~4MB, subir directo a Vercel Blob desde el navegador
                 let response: Response;
                 if (base64.length > 4 * 1024 * 1024) {
-                    console.log(`📤 ${file.file.name} es grande (${(base64.length / 1024 / 1024).toFixed(1)} MB base64), subiendo por chunks...`);
-                    const blobUrl = await uploadLargeFileByChunks(base64, file.file.name, actualFileType);
+                    console.log(`📤 ${file.file.name} es grande (${(base64.length / 1024 / 1024).toFixed(1)} MB base64), subiendo directo a Blob...`);
+                    const blobBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+                    const blobFile = new File([blobBytes], file.file.name, { type: actualFileType });
+                    const blob = await blobUpload(file.file.name, blobFile, {
+                        access: 'public',
+                        handleUploadUrl: '/api/rag/upload-blob',
+                        multipart: true,
+                    });
+                    const blobUrl = blob.url;
                     console.log(`✅ Blob subido: ${blobUrl}`);
 
                     response = await fetch('/api/rag/upload-and-ingest', {
@@ -980,7 +954,13 @@ function AppContent() {
                     let ragResponse: Response;
 
                     if (fileBase64Encoded.length > 4 * 1024 * 1024) {
-                        const blobUrl = await uploadLargeFileByChunks(fileBase64Encoded, file.file.name, file.file.type || 'application/pdf');
+                        const blobFile = new File([fileBuffer], file.file.name, { type: file.file.type || 'application/pdf' });
+                        const blob = await blobUpload(file.file.name, blobFile, {
+                            access: 'public',
+                            handleUploadUrl: '/api/rag/upload-blob',
+                            multipart: true,
+                        });
+                        const blobUrl = blob.url;
                         ragResponse = await fetch('/api/rag/upload-and-ingest', {
                             method: 'POST',
                             credentials: 'include',
