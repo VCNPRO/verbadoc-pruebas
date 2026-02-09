@@ -120,6 +120,7 @@ function AppContent() {
         selectedFolderId: string;
         newFolderName: string;
         isCreatingFolder: boolean;
+        customDocName: string;
     }>({
         open: false,
         pendingFileIds: [],
@@ -127,6 +128,7 @@ function AppContent() {
         selectedFolderId: '',
         newFolderName: '',
         isCreatingFolder: false,
+        customDocName: '',
     });
 
     // Timer para actualizar el reloj de progreso cada segundo
@@ -697,7 +699,7 @@ function AppContent() {
     };
 
     // Función interna para ejecutar la ingesta con carpeta ya definida
-    const executeRagIngest = async (fileIds: string[], folderName?: string) => {
+    const executeRagIngest = async (fileIds: string[], folderName?: string, customDocName?: string) => {
         const filesToIngest = files.filter(f => fileIds.includes(f.id));
         if (filesToIngest.length === 0) return;
 
@@ -717,6 +719,11 @@ function AppContent() {
                 if (wasCompressed) {
                     console.log(`📦 ${file.file.name} comprimido de ${(file.file.size / 1024 / 1024).toFixed(2)} MB`);
                 }
+
+                // Nombre del documento: si hay nombre personalizado y es 1 solo archivo, usarlo
+                const displayName = (customDocName && filesToIngest.length === 1)
+                    ? customDocName
+                    : file.file.name;
 
                 // Si viene de carpeta, usar su nombre; si no, usar el folderName proporcionado
                 const relativePath = (file.file as any).webkitRelativePath || '';
@@ -746,7 +753,7 @@ function AppContent() {
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            filename: file.file.name,
+                            filename: displayName,
                             blobUrl,
                             fileType: actualFileType,
                             fileSizeBytes: actualSize,
@@ -760,7 +767,7 @@ function AppContent() {
                         credentials: 'include',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            filename: file.file.name,
+                            filename: displayName,
                             fileBase64: base64,
                             fileType: actualFileType,
                             fileSizeBytes: actualSize,
@@ -781,7 +788,7 @@ function AppContent() {
                         id: result.documentId,
                         type: 'extraction' as const,
                         fileId: result.documentId,
-                        fileName: file.file.name,
+                        fileName: displayName,
                         extractedData: {
                             _ragDocument: true,
                             description: result.description || '',
@@ -870,6 +877,7 @@ function AppContent() {
                     selectedFolderId: '',
                     newFolderName: '',
                     isCreatingFolder: false,
+                    customDocName: '',
                 });
             } catch {
                 // Si falla cargar carpetas, proceder sin carpeta
@@ -2494,6 +2502,33 @@ function AppContent() {
                                     />
                                 </div>
                             )}
+
+                            {/* Nombre personalizado del documento (opcional, solo para 1 archivo) */}
+                            {ragFolderModal.pendingFileIds.length === 1 && (
+                                <div>
+                                    <label className="block text-sm font-medium mb-2" style={{ color: isLightMode ? '#374151' : '#e5e7eb' }}>
+                                        Nombre del documento <span style={{ color: isLightMode ? '#9ca3af' : '#64748b', fontWeight: 'normal' }}>(opcional)</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={ragFolderModal.customDocName}
+                                        onChange={(e) => setRagFolderModal(prev => ({ ...prev, customDocName: e.target.value }))}
+                                        placeholder={(() => {
+                                            const f = files.find(f => f.id === ragFolderModal.pendingFileIds[0]);
+                                            return f ? f.file.name : 'Nombre original del archivo';
+                                        })()}
+                                        className="w-full px-4 py-3 rounded-lg border text-base"
+                                        style={{
+                                            backgroundColor: isLightMode ? '#f9fafb' : '#0f172a',
+                                            borderColor: isLightMode ? '#d1d5db' : '#475569',
+                                            color: isLightMode ? '#111827' : '#f3f4f6',
+                                        }}
+                                    />
+                                    <p className="text-xs mt-1" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
+                                        Si se deja vacio, se usa el nombre original del archivo
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {/* Footer */}
@@ -2513,7 +2548,7 @@ function AppContent() {
                             </button>
                             <button
                                 onClick={async () => {
-                                    const { selectedFolderId, newFolderName, pendingFileIds } = ragFolderModal;
+                                    const { selectedFolderId, newFolderName, pendingFileIds, customDocName } = ragFolderModal;
 
                                     let folderName: string | undefined;
 
@@ -2529,8 +2564,8 @@ function AppContent() {
                                     // Cerrar modal
                                     setRagFolderModal(prev => ({ ...prev, open: false }));
 
-                                    // Ejecutar ingesta
-                                    await executeRagIngest(pendingFileIds, folderName);
+                                    // Ejecutar ingesta (con nombre personalizado si se indicó)
+                                    await executeRagIngest(pendingFileIds, folderName, customDocName.trim() || undefined);
                                 }}
                                 disabled={ragFolderModal.selectedFolderId === '__new__' && !ragFolderModal.newFolderName.trim()}
                                 className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"

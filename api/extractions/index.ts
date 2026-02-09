@@ -87,16 +87,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       try {
         // Filtro por carpeta RAG (BibliotecaPage)
         if (folderId && typeof folderId === 'string') {
-          const folderQuery = await sql`
-            SELECT
-              id,
-              filename,
-              created_at
-            FROM extraction_results
-            WHERE folder_id = ${folderId}::uuid
-              AND user_id = ${user.userId}::uuid
-            ORDER BY created_at DESC
-          `;
+          const folderQuery = useClientSharing
+            ? await sql`
+              SELECT
+                e.id,
+                e.filename,
+                e.created_at,
+                e.pdf_blob_url,
+                e.file_type
+              FROM extraction_results e
+              JOIN users u ON e.user_id = u.id
+              WHERE e.folder_id = ${folderId}::uuid
+                AND u.client_id = ${user.clientId}
+              ORDER BY e.created_at DESC
+            `
+            : await sql`
+              SELECT
+                id,
+                filename,
+                created_at,
+                pdf_blob_url,
+                file_type
+              FROM extraction_results
+              WHERE folder_id = ${folderId}::uuid
+                AND user_id = ${user.userId}::uuid
+              ORDER BY created_at DESC
+            `;
           return res.status(200).json({ extractions: folderQuery.rows });
         }
 
