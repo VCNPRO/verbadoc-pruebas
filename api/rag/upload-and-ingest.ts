@@ -267,12 +267,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // ==================== FLUJO A: subida normal con fileBase64 ====================
-    if (!filename || !fileBase64) {
-      return res.status(400).json({ error: 'Faltan campos: filename, fileBase64' });
+    // ==================== FLUJO A/C: subida con fileBase64 o blobUrl ====================
+    const { blobUrl } = req.body;
+
+    if (!filename || (!fileBase64 && !blobUrl)) {
+      return res.status(400).json({ error: 'Faltan campos: filename, fileBase64 o blobUrl' });
     }
 
-    console.log(`📄 [RAG Upload] Procesando: ${filename}`);
+    console.log(`📄 [RAG Upload] Procesando: ${filename}${blobUrl ? ' (desde blob directo)' : ''}`);
 
     // Resolver folder_id
     let resolvedFolderId: string | null = folderId || null;
@@ -297,14 +299,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // 1. Subir archivo a Vercel Blob
-    const buffer = Buffer.from(fileBase64, 'base64');
-    const blob = await put(`rag-documents/${auth.userId}/${Date.now()}-${filename}`, buffer, {
-      access: 'public',
-      contentType: fileType || 'application/pdf'
-    });
+    // 1. Subir archivo a Vercel Blob (o usar blobUrl si ya fue subido desde el cliente)
+    let finalBlobUrl: string;
+    let fileSizeFinal: number;
 
-    console.log(`✅ [RAG Upload] Archivo subido: ${blob.url}`);
+    if (blobUrl) {
+      // Flujo C: archivo ya subido al Blob desde el cliente
+      finalBlobUrl = blobUrl;
+      fileSizeFinal = fileSizeBytes || 0;
+      console.log(`✅ [RAG Upload] Usando blob existente: ${finalBlobUrl}`);
+    } else {
+      // Flujo A: subida normal con base64
+      const buffer = Buffer.from(fileBase64, 'base64');
+      const blob = await put(`rag-documents/${auth.userId}/${Date.now()}-${filename}`, buffer, {
+        access: 'public',
+        contentType: fileType || 'application/pdf'
+      });
+      finalBlobUrl = blob.url;
+      fileSizeFinal = fileSizeBytes || buffer.length;
+      console.log(`✅ [RAG Upload] Archivo subido: ${finalBlobUrl}`);
+    }
 
     // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes, transcripcion para audio)
     const isImage = isImageMimeType(fileType || '');
@@ -318,7 +332,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log(`[RAG Upload] Usando transcripcion previa: ${extractedText.length} chars`);
     } else {
       try {
-        extractedText = await extractContent(fileBase64, fileType || 'application/pdf');
+        // Si tenemos base64, usar directamente; si no, descargar del blob
+        let base64ForExtraction = fileBase64;
+        if (!base64ForExtraction && finalBlobUrl) {
+          console.log(`[RAG Upload] Descargando blob para extraccion...`);
+          const blobResponse = await fetch(finalBlobUrl);
+          const blobBuffer = Buffer.from(await blobResponse.arrayBuffer());
+          base64ForExtraction = blobBuffer.toString('base64');
+          if (!fileSizeFinal) fileSizeFinal = blobBuffer.length;
+        }
+        extractedText = await extractContent(base64ForExtraction, fileType || 'application/pdf');
         console.log(`[RAG Upload] Contenido extraido: ${extractedText?.length || 0} chars`);
       } catch (extractError: any) {
         console.error(`[RAG Upload] Error extrayendo contenido: ${extractError.message}`);
@@ -336,7 +359,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description: extractedText || '',
       ...(isAudio ? { transcription: extractedText || '', isAudio: true } : {}),
       isImage,
-      blobUrl: blob.url
+      blobUrl: finalBlobUrl
     };
 
     // INSERT sin folder_id (puede no existir la columna)
@@ -350,9 +373,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ${filename},
         ${extractedDataObj}::jsonb,
         'rag-direct',
-        ${blob.url},
+        ${finalBlobUrl},
         ${fileType || 'application/pdf'},
-        ${fileSizeBytes || buffer.length},
+        ${fileSizeFinal},
         1.0,
         'valid'
       )
@@ -381,7 +404,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       filename,
       extractedText,
       auth.userId,
-      { originalUrl: blob.url, fileType, isImage, isAudio }
+      { originalUrl: finalBlobUrl, fileType, isImage, isAudio }
     );
 
     console.log(`✅ [RAG Upload] Ingesta completada: ${ingestResult.chunksCreated} chunks`);
@@ -391,7 +414,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       documentId,
       filename,
       folderId: resolvedFolderId,
-      blobUrl: blob.url,
+      blobUrl: finalBlobUrl,
       description: extractedText,
       isImage,
       isAudio,
