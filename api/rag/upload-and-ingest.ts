@@ -6,8 +6,9 @@
  * 1. Guardar documento en BD (sin extraccion de campos)
  * 2. Ingestar automaticamente al sistema RAG
  *
- * Soporta PDFs, imagenes (JPEG, PNG, TIFF) y texto.
+ * Soporta PDFs, imagenes (JPEG, PNG, TIFF), audio (MP3, WAV, OGG, WebM, M4A, FLAC, AAC) y texto.
  * Para imagenes: analisis visual + OCR combinados.
+ * Para audio: transcripcion automatica via Gemini.
  *
  * POST /api/rag/upload-and-ingest
  * Body: { filename, fileBase64, fileType, fileSizeBytes, folderId?, folderName? }
@@ -18,6 +19,14 @@ import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
 import { put } from '@vercel/blob';
 import { ingestDocument } from '../lib/ragService.js';
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '25mb'
+    }
+  }
+};
 
 // Verificar autenticación
 function verifyAuth(req: VercelRequest): { userId: string; role: string } | null {
@@ -34,11 +43,22 @@ function verifyAuth(req: VercelRequest): { userId: string; role: string } | null
 // Tipos de imagen soportados
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 'image/webp', 'image/gif', 'image/bmp'];
 
+// Tipos de audio soportados
+const AUDIO_MIME_TYPES = [
+  'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave', 'audio/x-wav',
+  'audio/ogg', 'audio/webm', 'audio/mp4', 'audio/x-m4a', 'audio/m4a',
+  'audio/flac', 'audio/x-flac', 'audio/aac',
+];
+
 function isImageMimeType(mimeType: string): boolean {
   return IMAGE_MIME_TYPES.includes(mimeType.toLowerCase());
 }
 
-// Extraer contenido de un archivo usando Gemini (PDFs e imagenes)
+function isAudioMimeType(mimeType: string): boolean {
+  return AUDIO_MIME_TYPES.includes(mimeType.toLowerCase());
+}
+
+// Extraer contenido de un archivo usando Gemini (PDFs, imagenes y audio)
 async function extractContent(base64Data: string, mimeType: string): Promise<string> {
   const { GoogleGenAI } = await import('@google/genai');
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -48,16 +68,32 @@ async function extractContent(base64Data: string, mimeType: string): Promise<str
 
   // Prompt diferente segun tipo de archivo
   const isImage = isImageMimeType(mimeType);
+  const isAudio = isAudioMimeType(mimeType);
 
-  const prompt = isImage
-    ? `Analiza esta imagen en detalle. Realiza las dos tareas siguientes y devuelve el resultado como texto plano continuo:
+  let prompt: string;
+
+  if (isAudio) {
+    prompt = `Transcribe este archivo de audio de forma completa y detallada.
+
+INSTRUCCIONES:
+1. Transcribe TODO el contenido hablado del audio, palabra por palabra.
+2. Si hay varios interlocutores, identifícalos como "Interlocutor 1:", "Interlocutor 2:", etc.
+3. Incluye indicaciones de contexto entre corchetes cuando sea relevante: [musica de fondo], [silencio], [ruido], [risas], etc.
+4. Si el audio contiene informacion tecnica, nombres propios o cifras, transcribelos con precision.
+5. Al final, incluye un breve resumen del contenido del audio (2-3 frases).
+
+Devuelve el resultado como texto plano. Escribe en el idioma original del audio.`;
+  } else if (isImage) {
+    prompt = `Analiza esta imagen en detalle. Realiza las dos tareas siguientes y devuelve el resultado como texto plano continuo:
 
 1. DESCRIPCION VISUAL: Describe detalladamente todo lo que ves en la imagen: personas (edad aproximada, vestimenta, posicion), objetos, entorno, colores, epoca estimada, estado de la imagen, y cualquier elemento relevante.
 
 2. TEXTO VISIBLE (OCR): Si hay texto visible en la imagen (carteles, documentos, inscripciones, fechas, nombres, pies de foto, sellos, etiquetas), transcribelo literalmente.
 
-Combina ambas partes en un texto continuo y descriptivo. No uses listas ni formato markdown. Escribe en espanol.`
-    : 'Extrae TODO el texto de este documento. Devuelve solo el texto plano, sin formateo ni comentarios adicionales.';
+Combina ambas partes en un texto continuo y descriptivo. No uses listas ni formato markdown. Escribe en espanol.`;
+  } else {
+    prompt = 'Extrae TODO el texto de este documento. Devuelve solo el texto plano, sin formateo ni comentarios adicionales.';
+  }
 
   const result = await client.models.generateContent({
     model: 'gemini-2.0-flash',
@@ -270,9 +306,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     console.log(`✅ [RAG Upload] Archivo subido: ${blob.url}`);
 
-    // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes)
+    // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes, transcripcion para audio)
     const isImage = isImageMimeType(fileType || '');
-    console.log(`[RAG Upload] Extrayendo contenido (${isImage ? 'imagen' : 'documento'})...`);
+    const isAudio = isAudioMimeType(fileType || '');
+    const contentType = isAudio ? 'audio' : isImage ? 'imagen' : 'documento';
+    console.log(`[RAG Upload] Extrayendo contenido (${contentType})...`);
 
     let extractedText = '';
     if (transcription && typeof transcription === 'string' && transcription.trim().length > 10) {
@@ -292,10 +330,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.warn(`[RAG Upload] Poco contenido extraido de ${filename} (${extractedText?.length || 0} chars)`);
     }
 
-    // 3. Guardar referencia en extraction_results CON la descripcion generada
+    // 3. Guardar referencia en extraction_results CON la descripcion/transcripcion generada
     const extractedDataObj = {
       _ragDocument: true,
       description: extractedText || '',
+      ...(isAudio ? { transcription: extractedText || '', isAudio: true } : {}),
       isImage,
       blobUrl: blob.url
     };
@@ -342,7 +381,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       filename,
       extractedText,
       auth.userId,
-      { originalUrl: blob.url, fileType, isImage }
+      { originalUrl: blob.url, fileType, isImage, isAudio }
     );
 
     console.log(`✅ [RAG Upload] Ingesta completada: ${ingestResult.chunksCreated} chunks`);
@@ -355,6 +394,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       blobUrl: blob.url,
       description: extractedText,
       isImage,
+      isAudio,
       ingestion: {
         chunksCreated: ingestResult.chunksCreated,
         vectorsUploaded: ingestResult.vectorsUploaded

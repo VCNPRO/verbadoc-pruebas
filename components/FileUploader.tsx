@@ -317,7 +317,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                     onChange={onFileChange}
                                     onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                                     className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png,.tiff,.txt,.json"
+                                    accept=".pdf,.jpg,.jpeg,.png,.tiff,.txt,.json,.mp3,.wav,.ogg,.webm,.m4a,.flac,.aac"
                                 />
                                 <input
                                     ref={folderInputRef}
@@ -350,7 +350,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                         📁 Seleccionar Carpeta
                                     </button>
                                 </div>
-                                <p className="text-xs text-center mt-3" style={{ color: textSecondary }}>PDF, JPG, PNG, TIFF, TXT, JSON (máx. 200MB/lote)</p>
+                                <p className="text-xs text-center mt-3" style={{ color: textSecondary }}>PDF, JPG, PNG, TIFF, TXT, JSON, MP3, WAV, OGG, M4A, FLAC, AAC (max. 200MB/lote)</p>
                             </div>
                 
                             {files.length > 0 && (

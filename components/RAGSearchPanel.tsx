@@ -75,7 +75,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
   const [newFolderName, setNewFolderName] = useState('');
 
   // Estado para visor de documentos
-  const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string; isImage: boolean } | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string; isImage: boolean; isAudio?: boolean } | null>(null);
 
   // Estado de idioma
   const [selectedLanguage, setSelectedLanguage] = useState(() => {
@@ -564,6 +564,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               </p>
               {response.sources.map((source, i) => {
                 const isImage = source.fileType?.startsWith('image/');
+                const isAudio = source.fileType?.startsWith('audio/');
                 return (
                   <div key={i} style={{
                     padding: '12px',
@@ -581,7 +582,8 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
                             onClick={() => setViewingDoc({
                               url: source.documentUrl!,
                               name: source.documentName,
-                              isImage: !!isImage
+                              isImage: !!isImage,
+                              isAudio: !!isAudio,
                             })}
                             style={{
                               padding: '4px 10px',
@@ -594,7 +596,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
                               cursor: 'pointer',
                             }}
                           >
-                            {isImage ? '🖼️ Ver' : '📄 Ver'}
+                            {isAudio ? '🎵 Escuchar' : isImage ? '🖼️ Ver' : '📄 Ver'}
                           </button>
                         )}
                       </div>
@@ -629,7 +631,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               borderRadius: '12px',
               maxWidth: '90vw',
               maxHeight: '90vh',
-              width: viewingDoc.isImage ? 'auto' : '900px',
+              width: viewingDoc.isAudio ? '550px' : viewingDoc.isImage ? 'auto' : '900px',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -679,8 +681,20 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               </div>
             </div>
             {/* Content */}
-            <div style={{ flex: 1, overflow: 'auto', padding: '16px', display: 'flex', justifyContent: 'center' }}>
-              {viewingDoc.isImage ? (
+            <div style={{ flex: 1, overflow: 'auto', padding: '16px', display: 'flex', justifyContent: 'center', alignItems: viewingDoc.isAudio ? 'center' : 'flex-start' }}>
+              {viewingDoc.isAudio ? (
+                <div style={{ textAlign: 'center', width: '100%', maxWidth: '500px' }}>
+                  <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎵</div>
+                  <p style={{ fontSize: '16px', fontWeight: '500', marginBottom: '16px', color: textColor }}>{viewingDoc.name}</p>
+                  <audio
+                    controls
+                    src={viewingDoc.url}
+                    style={{ width: '100%' }}
+                  >
+                    Tu navegador no soporta el reproductor de audio.
+                  </audio>
+                </div>
+              ) : viewingDoc.isImage ? (
                 <img
                   src={viewingDoc.url}
                   alt={viewingDoc.name}
