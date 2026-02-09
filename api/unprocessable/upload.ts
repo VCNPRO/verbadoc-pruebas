@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       token: process.env.BLOB_READ_WRITE_TOKEN
     });
 
-    console.log(`✅ PDF subido a Vercel Blob: ${blob.url}`);
+    console.log(`✅ PDF subido a Vercel Blob: ${blob.pathname}`);
 
     // 4. Actualizar la URL en la base de datos
     const dbUpdate = await sql`

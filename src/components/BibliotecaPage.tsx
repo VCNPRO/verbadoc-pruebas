@@ -137,6 +137,10 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
     // Visor inline de documento
     const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
 
+    // URLs seguras via proxy (nunca exponer blob URLs directas)
+    const getDocUrl = (docId: string) => `/api/documents/serve?id=${docId}`;
+    const getDocDownloadUrl = (docId: string) => `/api/documents/serve?id=${docId}&download=1`;
+
     // Seleccion de documentos
     const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
     const [deleting, setDeleting] = useState(false);
@@ -185,7 +189,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
 
     const downloadDocument = async (doc: Doc) => {
         if (!doc.pdf_blob_url) return;
-        const response = await fetch(doc.pdf_blob_url);
+        const response = await fetch(getDocDownloadUrl(doc.id), { credentials: 'include' });
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -502,14 +506,14 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                             <div className={`border ${borderCls} rounded-lg overflow-hidden`}>
                                                                 <div className="flex justify-center p-4">
                                                                     {isAudio ? (
-                                                                        <audio controls src={doc.pdf_blob_url} style={{ width: '100%', maxWidth: '500px' }}>
+                                                                        <audio controls src={getDocUrl(doc.id)} style={{ width: '100%', maxWidth: '500px' }}>
                                                                             Tu navegador no soporta el reproductor de audio.
                                                                         </audio>
                                                                     ) : isImage ? (
-                                                                        <ImageViewer src={doc.pdf_blob_url!} alt={doc.filename} isDarkMode={isDarkMode} />
+                                                                        <ImageViewer src={getDocUrl(doc.id)} alt={doc.filename} isDarkMode={isDarkMode} />
                                                                     ) : (
                                                                         <iframe
-                                                                            src={doc.pdf_blob_url}
+                                                                            src={getDocUrl(doc.id)}
                                                                             title={doc.filename}
                                                                             style={{ width: '100%', height: '500px', border: 'none' }}
                                                                         />
@@ -517,7 +521,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                                 </div>
                                                                 <div className={`px-4 py-2 border-t ${borderCls} flex justify-end`}>
                                                                     <a
-                                                                        href={doc.pdf_blob_url}
+                                                                        href={getDocUrl(doc.id)}
                                                                         target="_blank"
                                                                         rel="noopener noreferrer"
                                                                         className="text-sm text-emerald-500 hover:text-emerald-400"

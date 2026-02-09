@@ -32,8 +32,24 @@ import { sql } from '@vercel/postgres';
 import { put, list, del } from '@vercel/blob';
 import { createGzip } from 'zlib';
 import { promisify } from 'util';
+import { createCipheriv, randomBytes, scryptSync } from 'crypto';
 
 const gzip = promisify(createGzip().end.bind(createGzip()));
+
+/**
+ * Cifra un buffer con AES-256-GCM
+ * Formato de salida: [16 bytes IV] + [16 bytes authTag] + [datos cifrados]
+ * Para descifrar: usar decryptBackup() con la misma clave
+ */
+function encryptBuffer(data: Buffer, secret: string): Buffer {
+  const key = scryptSync(secret, 'verbadocpro-backup-salt', 32);
+  const iv = randomBytes(16);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  // IV (16) + AuthTag (16) + Encrypted data
+  return Buffer.concat([iv, authTag, encrypted]);
+}
 
 // Verificar autenticación del cron
 function verifyCronAuth(req: VercelRequest): boolean {
@@ -195,6 +211,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     totalRecords += accessLogs.rows.length;
     console.log(`  ✅ ${accessLogs.rows.length} logs de acceso (últimos 30 días)`);
 
+    // 10. RAG_FOLDERS
+    console.log('📦 Backup de rag_folders...');
+    try {
+      const ragFolders = await sql`
+        SELECT id, user_id, name, created_at
+        FROM rag_folders
+        ORDER BY created_at DESC
+      `;
+      backupData.rag_folders = ragFolders.rows;
+      totalRecords += ragFolders.rows.length;
+      console.log(`  ✅ ${ragFolders.rows.length} carpetas RAG`);
+    } catch { backupData.rag_folders = []; console.log('  ⚠️ Tabla rag_folders no existe'); }
+
+    // 11. RAG_EMBEDDINGS (solo metadata, sin vectores - serian demasiado grandes)
+    console.log('📦 Backup de rag_embeddings (metadata)...');
+    try {
+      const ragMeta = await sql`
+        SELECT document_id, user_id, document_name, COUNT(*) as chunk_count,
+               MIN(created_at) as first_indexed
+        FROM rag_embeddings
+        GROUP BY document_id, user_id, document_name
+        ORDER BY first_indexed DESC
+      `;
+      backupData.rag_embeddings_index = ragMeta.rows;
+      totalRecords += ragMeta.rows.length;
+      console.log(`  ✅ ${ragMeta.rows.length} documentos indexados en RAG`);
+    } catch { backupData.rag_embeddings_index = []; console.log('  ⚠️ Tabla rag_embeddings no existe'); }
+
+    // 12. RAG_QUERIES (últimos 30 días de auditoría)
+    console.log('📦 Backup de rag_queries...');
+    try {
+      const ragQueries = await sql`
+        SELECT id, user_id, query, response, document_ids, confidence_score, created_at
+        FROM rag_queries
+        WHERE created_at >= NOW() - INTERVAL '30 days'
+        ORDER BY created_at DESC
+      `;
+      backupData.rag_queries = ragQueries.rows;
+      totalRecords += ragQueries.rows.length;
+      console.log(`  ✅ ${ragQueries.rows.length} consultas RAG (últimos 30 días)`);
+    } catch { backupData.rag_queries = []; console.log('  ⚠️ Tabla rag_queries no existe'); }
+
     // Crear metadata del backup
     const now = new Date();
     const dayOfWeek = now.getDay(); // 0 = Domingo
@@ -247,18 +305,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const compressionRatio = ((1 - compressedBuffer.length / buffer.length) * 100).toFixed(1);
     console.log(`  ✅ Comprimido: ${buffer.length} → ${compressedBuffer.length} bytes (${compressionRatio}% reducción)`);
 
+    // Cifrado AES-256-GCM del backup
+    const encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || process.env.JWT_SECRET;
+    let finalBuffer = compressedBuffer;
+    let isEncrypted = false;
+
+    if (encryptionKey) {
+      console.log('🔒 Cifrando backup con AES-256-GCM...');
+      finalBuffer = encryptBuffer(compressedBuffer, encryptionKey);
+      isEncrypted = true;
+      console.log(`  ✅ Cifrado: ${compressedBuffer.length} → ${finalBuffer.length} bytes`);
+    } else {
+      console.warn('⚠️ BACKUP_ENCRYPTION_KEY no configurada - backup sin cifrar');
+    }
+
     // Nombre del archivo
     const timestamp = now.toISOString().split('T')[0];
-    const filename = `database-backups/${backupType}/backup_${timestamp}_${now.getTime()}.json.gz`;
+    const ext = isEncrypted ? '.json.gz.enc' : '.json.gz';
+    const filename = `database-backups/${backupType}/backup_${timestamp}_${now.getTime()}${ext}`;
 
     // Subir a Vercel Blob
     console.log('☁️  Subiendo a Vercel Blob...');
-    const blob = await put(filename, compressedBuffer, {
+    const blob = await put(filename, finalBuffer, {
       access: 'public',
       addRandomSuffix: false,
     });
 
-    console.log(`  ✅ Backup guardado: ${blob.url}`);
+    console.log(`  ✅ Backup guardado (${isEncrypted ? 'cifrado' : 'sin cifrar'})`);
 
     // LIMPIEZA: Aplicar política de retención
     console.log('🧹 Aplicando política de retención...');
@@ -306,7 +379,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tables: metadata.tables.length,
       totalRecords,
       size: metadata.size,
-      url: blob.url,
+      encrypted: isEncrypted,
       compressionRatio: `${compressionRatio}%`,
     });
 

@@ -91,6 +91,9 @@
     },
     "api/transcribe.ts": {
       "maxDuration": 120
+    },
+    "api/documents/serve.ts": {
+      "maxDuration": 60
     }
   },
   "crons": [

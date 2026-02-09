@@ -307,7 +307,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Flujo C: archivo ya subido al Blob desde el cliente
       finalBlobUrl = blobUrl;
       fileSizeFinal = fileSizeBytes || 0;
-      console.log(`✅ [RAG Upload] Usando blob existente: ${finalBlobUrl}`);
+      console.log(`✅ [RAG Upload] Usando blob existente`);
     } else {
       // Flujo A: subida normal con base64
       const buffer = Buffer.from(fileBase64, 'base64');
@@ -317,7 +317,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
       finalBlobUrl = blob.url;
       fileSizeFinal = fileSizeBytes || buffer.length;
-      console.log(`✅ [RAG Upload] Archivo subido: ${finalBlobUrl}`);
+      console.log(`✅ [RAG Upload] Archivo subido correctamente`);
     }
 
     // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes, transcripcion para audio)

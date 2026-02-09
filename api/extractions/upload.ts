@@ -36,7 +36,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       token: process.env.BLOB_READ_WRITE_TOKEN // Vercel lo inyecta automáticamente si está configurado
     });
 
-    console.log(`✅ Archivo subido a Vercel Blob: ${blob.url}`);
+    console.log(`✅ Archivo subido a Vercel Blob: ${blob.pathname}`);
 
     // 4. Actualizar la URL en la base de datos con casting explícito
     const dbUpdate = await sql`

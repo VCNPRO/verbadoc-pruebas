@@ -166,8 +166,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           addRandomSuffix: false
         });
 
-        console.log(`✅ Backup guardado: ${blob.url}`);
-        backups.push(blob.url);
+        console.log(`✅ Backup excel guardado`);
+        backups.push(blob.pathname);
       } catch (uploadError: any) {
         console.error(`❌ Error al subir backup para usuario ${userId}:`, uploadError.message);
       }

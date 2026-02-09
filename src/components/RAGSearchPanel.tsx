@@ -42,6 +42,10 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
   const [viewingPdf, setViewingPdf] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
 
+  // URLs seguras via proxy (nunca exponer blob URLs directas)
+  const getDocUrl = (docId: string) => `/api/documents/serve?id=${docId}`;
+  const getDocDownloadUrl = (docId: string) => `/api/documents/serve?id=${docId}&download=1`;
+
   const handleSearch = async () => {
     if (!query.trim()) return;
 
@@ -76,9 +80,9 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
     }
   };
 
-  const handleDownload = async (url: string, filename: string) => {
+  const handleDownload = async (docId: string, filename: string) => {
     try {
-      const response = await fetch(url);
+      const response = await fetch(getDocDownloadUrl(docId), { credentials: 'include' });
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -231,14 +235,14 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
                             <>
                               {!isAudio(source.fileType) && !isImage(source.fileType) && (
                                 <button
-                                  onClick={() => setViewingPdf(source.documentUrl!)}
+                                  onClick={() => setViewingPdf(getDocUrl(source.documentId))}
                                   className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
                                 >
                                   Ver
                                 </button>
                               )}
                               <button
-                                onClick={() => handleDownload(source.documentUrl!, source.documentName)}
+                                onClick={() => handleDownload(source.documentId, source.documentName)}
                                 className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                               >
                                 Descargar

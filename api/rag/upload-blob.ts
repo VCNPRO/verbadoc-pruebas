@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
       },
       onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log(`✅ [Blob Upload] Completado: ${blob.url}`);
+        console.log(`✅ [Blob Upload] Completado: ${blob.pathname}`);
       },
     });
 
