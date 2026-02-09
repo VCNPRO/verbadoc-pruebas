@@ -13,12 +13,14 @@ interface RAGSearchPanelProps {
   isDarkMode?: boolean;
 }
 
-interface RAGResult {
+interface RAGSource {
   documentId: string;
-  filename: string;
-  text: string;
+  documentName: string;
+  chunkIndex: number;
+  snippet: string;
   score: number;
-  pdfUrl?: string;
+  documentUrl?: string;
+  fileType?: string;
 }
 
 export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelProps) {
@@ -32,7 +34,9 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
   const border = isDarkMode ? 'border-slate-700' : 'border-[#cbd5e1]';
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<RAGResult[]>([]);
+  const [answer, setAnswer] = useState('');
+  const [sources, setSources] = useState<RAGSource[]>([]);
+  const [confidence, setConfidence] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [viewingPdf, setViewingPdf] = useState<string | null>(null);
@@ -44,6 +48,8 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
     try {
       setLoading(true);
       setError('');
+      setAnswer('');
+      setSources([]);
       setHasSearched(true);
 
       const response = await fetch('/api/rag/ask', {
@@ -59,7 +65,9 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
       }
 
       const data = await response.json();
-      setResults(data.results || []);
+      setAnswer(data.answer || '');
+      setSources(data.sources || []);
+      setConfidence(data.confidence || 0);
     } catch (err: any) {
       console.error('RAG search error:', err);
       setError(err.message);
@@ -68,23 +76,26 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
     }
   };
 
-  const handleDownloadPdf = async (pdfUrl: string, filename: string) => {
+  const handleDownload = async (url: string, filename: string) => {
     try {
-      const response = await fetch(pdfUrl);
+      const response = await fetch(url);
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const blobUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
+      a.href = blobUrl;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(blobUrl);
       document.body.removeChild(a);
     } catch (err) {
-      console.error('Error downloading PDF:', err);
-      alert('Error al descargar el PDF.');
+      console.error('Error downloading:', err);
+      alert('Error al descargar el archivo.');
     }
   };
+
+  const isAudio = (fileType?: string) => fileType?.startsWith('audio/');
+  const isImage = (fileType?: string) => fileType?.startsWith('image/');
 
   return (
     <div className={`min-h-screen ${bgPrimary}`}>
@@ -94,18 +105,26 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
           <div className="flex items-center justify-between">
             <div>
               <h1 className={`text-2xl font-bold ${textPrimary}`}>
-                Busqueda Semantica (RAG)
+                Preguntale al Documento
               </h1>
               <p className={`${textSecondary} mt-1`}>
                 Busca informacion en tus documentos usando lenguaje natural
               </p>
             </div>
-            <button
-              onClick={() => navigate('/')}
-              className={`px-4 py-2 ${textSecondary} border ${border} rounded-lg ${isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'}`}
-            >
-              ← Volver
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate('/biblioteca')}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium"
+              >
+                Biblioteca
+              </button>
+              <button
+                onClick={() => navigate('/')}
+                className={`px-4 py-2 ${textSecondary} border ${border} rounded-lg ${isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'}`}
+              >
+                ← Volver
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -133,7 +152,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
                   Buscando...
                 </>
               ) : (
-                'Buscar'
+                'Preguntar'
               )}
             </button>
           </div>
@@ -146,8 +165,8 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
           </div>
         )}
 
-        {/* Results */}
-        {hasSearched && !loading && results.length === 0 && !error && (
+        {/* No results */}
+        {hasSearched && !loading && !answer && sources.length === 0 && !error && (
           <div className={`${bgCard} border ${border} rounded-xl p-12 text-center`}>
             <p className={`text-lg ${textSecondary}`}>
               No se encontraron resultados para tu consulta.
@@ -158,51 +177,98 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
           </div>
         )}
 
-        {results.length > 0 && (
-          <div className="space-y-4">
-            <p className={`text-sm ${textSecondary} mb-4`}>
-              {results.length} resultado{results.length !== 1 ? 's' : ''} encontrado{results.length !== 1 ? 's' : ''}
-            </p>
-            {results.map((result, idx) => (
-              <div
-                key={`${result.documentId}-${idx}`}
-                className={`${bgCard} border ${border} rounded-xl p-6`}
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className={`font-semibold ${textPrimary}`}>
-                      {result.filename}
-                    </h3>
-                    <p className={`text-xs ${textSecondary}`}>
-                      Relevancia: {(result.score * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {result.pdfUrl && (
-                      <>
-                        <button
-                          onClick={() => setViewingPdf(result.pdfUrl!)}
-                          className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
-                        >
-                          Ver PDF
-                        </button>
-                        <button
-                          onClick={() => handleDownloadPdf(result.pdfUrl!, result.filename)}
-                          className={`px-3 py-1.5 text-sm border ${border} rounded-lg ${textSecondary} ${isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'}`}
-                        >
-                          Descargar
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className={`${bgSecondary} rounded-lg p-4`}>
-                  <p className={`text-sm ${textPrimary} leading-relaxed`}>
-                    {result.text}
-                  </p>
+        {/* Answer */}
+        {answer && (
+          <div className="space-y-6">
+            {/* AI Response */}
+            <div className={`${bgCard} border ${border} rounded-xl p-6`}>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-lg">🤖</span>
+                <h2 className={`font-semibold ${textPrimary}`}>Respuesta</h2>
+                {confidence > 0 && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full ml-auto ${
+                    confidence >= 0.7 ? 'bg-emerald-500/20 text-emerald-400' :
+                    confidence >= 0.4 ? 'bg-yellow-500/20 text-yellow-400' :
+                    'bg-red-500/20 text-red-400'
+                  }`}>
+                    Confianza: {Math.round(confidence * 100)}%
+                  </span>
+                )}
+              </div>
+              <div className={`${textPrimary} leading-relaxed whitespace-pre-wrap`}>
+                {answer}
+              </div>
+            </div>
+
+            {/* Sources */}
+            {sources.length > 0 && (
+              <div>
+                <p className={`text-sm ${textSecondary} mb-4`}>
+                  {sources.length} fuente{sources.length !== 1 ? 's' : ''} consultada{sources.length !== 1 ? 's' : ''}
+                </p>
+                <div className="space-y-3">
+                  {sources.map((source, idx) => (
+                    <div
+                      key={`${source.documentId}-${idx}`}
+                      className={`${bgCard} border ${border} rounded-xl p-5`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">
+                            {isAudio(source.fileType) ? '🎵' : isImage(source.fileType) ? '🖼️' : '📄'}
+                          </span>
+                          <div>
+                            <h3 className={`font-semibold ${textPrimary}`}>
+                              {source.documentName}
+                            </h3>
+                            <p className={`text-xs ${textSecondary}`}>
+                              Relevancia: {Math.round(source.score * 100)}%
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          {source.documentUrl ? (
+                            <>
+                              {!isAudio(source.fileType) && !isImage(source.fileType) && (
+                                <button
+                                  onClick={() => setViewingPdf(source.documentUrl!)}
+                                  className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+                                >
+                                  Ver
+                                </button>
+                              )}
+                              <button
+                                onClick={() => handleDownload(source.documentUrl!, source.documentName)}
+                                className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                              >
+                                Descargar
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => navigate('/biblioteca')}
+                              className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
+                            >
+                              Ir a Biblioteca
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className={`${bgSecondary} rounded-lg p-4`}>
+                        <p className={`text-sm ${textPrimary} leading-relaxed`}>
+                          {source.snippet}
+                        </p>
+                      </div>
+                      {!source.documentUrl && (
+                        <p className={`text-xs ${textSecondary} mt-2 italic`}>
+                          Este documento se puede ver y descargar desde la Biblioteca RAG
+                        </p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
@@ -212,7 +278,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className={`${bgCard} rounded-xl shadow-2xl w-[80vw] h-[85vh] overflow-hidden flex flex-col`}>
             <div className={`${bgSecondary} px-6 py-4 border-b ${border} flex items-center justify-between`}>
-              <h3 className={`font-semibold ${textPrimary}`}>Visor PDF</h3>
+              <h3 className={`font-semibold ${textPrimary}`}>Visor de documento</h3>
               <button
                 onClick={() => setViewingPdf(null)}
                 className={`p-2 ${isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'} rounded-lg`}
