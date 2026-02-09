@@ -3,7 +3,7 @@
  * Visualización de carpetas y documentos ingestados
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface BibliotecaPageProps {
@@ -23,6 +23,92 @@ interface Doc {
     created_at: string;
     pdf_blob_url?: string;
     file_type?: string;
+}
+
+/** Visor de imagen con zoom y pan */
+function ImageViewer({ src, alt, isDarkMode }: { src: string; alt: string; isDarkMode: boolean }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(1);
+    const [position, setPosition] = useState({ x: 0, y: 0 });
+    const [dragging, setDragging] = useState(false);
+    const dragStart = useRef({ x: 0, y: 0 });
+    const posStart = useRef({ x: 0, y: 0 });
+
+    const clampScale = (s: number) => Math.min(Math.max(s, 0.5), 5);
+
+    const handleWheel = useCallback((e: React.WheelEvent) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        setScale(prev => clampScale(prev + delta));
+    }, []);
+
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
+        setDragging(true);
+        dragStart.current = { x: e.clientX, y: e.clientY };
+        posStart.current = { ...position };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    }, [position]);
+
+    const handlePointerMove = useCallback((e: React.PointerEvent) => {
+        if (!dragging) return;
+        setPosition({
+            x: posStart.current.x + (e.clientX - dragStart.current.x),
+            y: posStart.current.y + (e.clientY - dragStart.current.y),
+        });
+    }, [dragging]);
+
+    const handlePointerUp = useCallback(() => {
+        setDragging(false);
+    }, []);
+
+    const resetView = () => { setScale(1); setPosition({ x: 0, y: 0 }); };
+
+    const btnCls = isDarkMode
+        ? 'bg-slate-700 hover:bg-slate-600 text-white'
+        : 'bg-gray-200 hover:bg-gray-300 text-gray-800';
+
+    return (
+        <div>
+            <div
+                ref={containerRef}
+                onWheel={handleWheel}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                style={{
+                    width: '100%',
+                    height: '500px',
+                    overflow: 'hidden',
+                    cursor: dragging ? 'grabbing' : 'grab',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    touchAction: 'none',
+                    userSelect: 'none',
+                }}
+            >
+                <img
+                    src={src}
+                    alt={alt}
+                    draggable={false}
+                    style={{
+                        transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                        transformOrigin: 'center center',
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain',
+                        transition: dragging ? 'none' : 'transform 0.1s ease-out',
+                    }}
+                />
+            </div>
+            <div className="flex items-center justify-center gap-2 py-2">
+                <button onClick={() => setScale(prev => clampScale(prev - 0.25))} className={`px-3 py-1 rounded-lg text-sm font-bold ${btnCls}`}>−</button>
+                <span className={`text-xs font-mono w-14 text-center ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{Math.round(scale * 100)}%</span>
+                <button onClick={() => setScale(prev => clampScale(prev + 0.25))} className={`px-3 py-1 rounded-lg text-sm font-bold ${btnCls}`}>+</button>
+                <button onClick={resetView} className={`px-3 py-1 rounded-lg text-xs ${btnCls}`}>Reset</button>
+            </div>
+        </div>
+    );
 }
 
 export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
@@ -417,11 +503,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                                             Tu navegador no soporta el reproductor de audio.
                                                                         </audio>
                                                                     ) : isImage ? (
-                                                                        <img
-                                                                            src={doc.pdf_blob_url}
-                                                                            alt={doc.filename}
-                                                                            style={{ maxWidth: '100%', maxHeight: '500px', objectFit: 'contain' }}
-                                                                        />
+                                                                        <ImageViewer src={doc.pdf_blob_url!} alt={doc.filename} isDarkMode={isDarkMode} />
                                                                     ) : (
                                                                         <iframe
                                                                             src={doc.pdf_blob_url}
