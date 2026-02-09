@@ -81,63 +81,97 @@ function getGenAIClient(): GoogleGenAI {
 /**
  * Genera vector embedding con Gemini API REST (768 dimensiones)
  * Modelo: gemini-embedding-001 (dimensiones: 768, 1536 o 3072)
+ * Incluye retry con backoff exponencial para rate limits (429)
  */
-export async function generateEmbedding(text: string): Promise<number[]> {
+export async function generateEmbedding(text: string, retries = 3): Promise<number[]> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY o GOOGLE_API_KEY no configurada');
   }
 
-  try {
-    // API REST v1beta para gemini-embedding-001
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: `models/${EMBEDDING_MODEL}`,
-          content: { parts: [{ text }] },
-          outputDimensionality: 768
-        })
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${EMBEDDING_MODEL}:embedContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: `models/${EMBEDDING_MODEL}`,
+            content: { parts: [{ text }] },
+            outputDimensionality: 768
+          })
+        }
+      );
+
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : 1000 * (attempt + 1);
+        console.warn(`[RAG] Rate limit 429, esperando ${waitMs}ms (intento ${attempt + 1}/${retries})`);
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+        continue;
       }
-    );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('[RAG] Error API embeddings:', errorData);
-      throw new Error(errorData.error?.message || JSON.stringify(errorData));
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[RAG] Error API embeddings:', errorData);
+        throw new Error(errorData.error?.message || JSON.stringify(errorData));
+      }
+
+      const data = await response.json();
+      const embedding = data.embedding?.values;
+
+      if (!embedding || embedding.length === 0) {
+        throw new Error('No se genero embedding');
+      }
+
+      return embedding;
+    } catch (error: any) {
+      if (attempt === retries - 1) {
+        console.error('[RAG] Error generando embedding (sin reintentos):', error.message);
+        throw error;
+      }
+      const backoff = 500 * Math.pow(2, attempt);
+      console.warn(`[RAG] Error embedding, reintentando en ${backoff}ms (intento ${attempt + 1}/${retries}):`, error.message);
+      await new Promise(resolve => setTimeout(resolve, backoff));
     }
-
-    const data = await response.json();
-    const embedding = data.embedding?.values;
-
-    if (!embedding || embedding.length === 0) {
-      throw new Error('No se genero embedding');
-    }
-
-    return embedding;
-  } catch (error: any) {
-    console.error('[RAG] Error generando embedding:', error.message);
-    throw error;
   }
+
+  throw new Error('generateEmbedding: reintentos agotados');
 }
 
 /**
- * Genera embeddings en batch
+ * Genera embeddings en batch con delay adaptativo y retry en rate limit
  */
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   const embeddings: number[][] = [];
-  const batchSize = 10;
+  const batchSize = 30;
+  let delay = 50;
+  let batchRetries = 0;
+  const maxBatchRetries = 5;
 
   for (let i = 0; i < texts.length; i += batchSize) {
     const batch = texts.slice(i, i + batchSize);
-    const batchPromises = batch.map(text => generateEmbedding(text));
-    const batchResults = await Promise.all(batchPromises);
-    embeddings.push(...batchResults);
+    try {
+      const batchPromises = batch.map(text => generateEmbedding(text));
+      const batchResults = await Promise.all(batchPromises);
+      embeddings.push(...batchResults);
+      delay = 50;
+      batchRetries = 0;
+    } catch (e: any) {
+      if ((e.message?.includes('429') || e.message?.includes('rate')) && batchRetries < maxBatchRetries) {
+        batchRetries++;
+        console.warn(`[RAG] Rate limit en batch ${Math.floor(i / batchSize)}, reintento ${batchRetries}/${maxBatchRetries}, esperando 2s...`);
+        delay = 2000;
+        i -= batchSize;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+      throw e;
+    }
 
     if (i + batchSize < texts.length) {
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
@@ -225,7 +259,8 @@ export function chunkTextSmart(
 // ============================================================================
 
 /**
- * Inserta embeddings en PostgreSQL
+ * Inserta embeddings en PostgreSQL con bulk INSERT multi-fila
+ * Procesa en bloques de 25 para no exceder limites de parametros
  */
 export async function upsertEmbeddings(
   embeddings: Array<{
@@ -238,28 +273,46 @@ export async function upsertEmbeddings(
     metadata?: Record<string, any>;
   }>
 ): Promise<void> {
-  for (const item of embeddings) {
-    const vectorStr = `[${item.embedding.join(',')}]`;
+  const BATCH = 25;
+  const PARAMS_PER_ROW = 7;
 
-    await sql`
+  for (let i = 0; i < embeddings.length; i += BATCH) {
+    const batch = embeddings.slice(i, i + BATCH);
+    const values: any[] = [];
+    const valueClauses: string[] = [];
+
+    for (let j = 0; j < batch.length; j++) {
+      const item = batch[j];
+      const offset = j * PARAMS_PER_ROW;
+      valueClauses.push(
+        `($${offset + 1}::uuid, $${offset + 2}::uuid, $${offset + 3}, $${offset + 4}, $${offset + 5}, $${offset + 6}::vector, $${offset + 7}::jsonb)`
+      );
+      values.push(
+        item.documentId,
+        item.userId,
+        item.documentName,
+        item.chunkIndex,
+        item.chunkText,
+        `[${item.embedding.join(',')}]`,
+        item.metadata ? JSON.stringify(item.metadata) : null
+      );
+    }
+
+    const queryText = `
       INSERT INTO rag_embeddings (
         document_id, user_id, document_name, chunk_index, chunk_text, embedding, metadata
-      ) VALUES (
-        ${item.documentId}::uuid,
-        ${item.userId}::uuid,
-        ${item.documentName},
-        ${item.chunkIndex},
-        ${item.chunkText},
-        ${vectorStr}::vector,
-        ${item.metadata ? JSON.stringify(item.metadata) : null}::jsonb
-      )
+      ) VALUES ${valueClauses.join(', ')}
       ON CONFLICT (document_id, chunk_index)
       DO UPDATE SET
         chunk_text = EXCLUDED.chunk_text,
         embedding = EXCLUDED.embedding,
         metadata = EXCLUDED.metadata
     `;
+
+    await sql.query(queryText, values);
   }
+
+  console.log(`[RAG] Bulk upsert: ${embeddings.length} embeddings en ${Math.ceil(embeddings.length / BATCH)} queries`);
 }
 
 /**
@@ -522,14 +575,35 @@ export async function ingestDocument(
 
   await upsertEmbeddings(embeddingsData);
 
-  // Guardar referencia en rag_document_chunks
-  for (let i = 0; i < chunks.length; i++) {
-    await sql`
-      INSERT INTO rag_document_chunks (document_id, chunk_index, chunk_text, pinecone_id)
-      VALUES (${documentId}::uuid, ${i}, ${chunks[i]}, ${`${documentId}_chunk_${i}`})
-      ON CONFLICT (document_id, chunk_index) DO UPDATE
-      SET chunk_text = EXCLUDED.chunk_text
-    `;
+  // Guardar referencia en rag_document_chunks (bulk insert)
+  const CHUNK_BATCH = 50;
+  const CHUNK_PARAMS_PER_ROW = 4;
+  for (let i = 0; i < chunks.length; i += CHUNK_BATCH) {
+    const batch = chunks.slice(i, i + CHUNK_BATCH);
+    const values: any[] = [];
+    const valueClauses: string[] = [];
+
+    for (let j = 0; j < batch.length; j++) {
+      const chunkIdx = i + j;
+      const offset = j * CHUNK_PARAMS_PER_ROW;
+      valueClauses.push(
+        `($${offset + 1}::uuid, $${offset + 2}, $${offset + 3}, $${offset + 4})`
+      );
+      values.push(
+        documentId,
+        chunkIdx,
+        batch[j],
+        `${documentId}_chunk_${chunkIdx}`
+      );
+    }
+
+    await sql.query(
+      `INSERT INTO rag_document_chunks (document_id, chunk_index, chunk_text, pinecone_id)
+       VALUES ${valueClauses.join(', ')}
+       ON CONFLICT (document_id, chunk_index) DO UPDATE
+       SET chunk_text = EXCLUDED.chunk_text`,
+      values
+    );
   }
 
   console.log(`[RAG] Documento ${documentId} ingestado: ${chunks.length} chunks`);

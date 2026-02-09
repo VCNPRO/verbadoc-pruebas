@@ -81,7 +81,7 @@
       "maxDuration": 120
     },
     "api/rag/upload-and-ingest.ts": {
-      "maxDuration": 120
+      "maxDuration": 300
     },
     "api/rag/update-description.ts": {
       "maxDuration": 120
