@@ -1,18 +1,27 @@
 /**
- * RAG UPLOAD BLOB - Client-side upload token
+ * RAG UPLOAD BLOB - Subida de archivos grandes a Vercel Blob
  * api/rag/upload-blob.ts
  *
- * Genera un token para subir archivos grandes directamente a Vercel Blob
- * desde el navegador, evitando el límite de 4.5MB del body.
+ * Recibe archivo como base64 y lo sube a Vercel Blob.
+ * Endpoint separado con sizeLimit alto para archivos grandes.
+ * Retorna solo la URL del blob (sin ingesta).
  *
  * POST /api/rag/upload-blob
- * Body: { filename, fileType }
- * Response: { uploadUrl, blobUrl } (presigned upload)
+ * Body: { filename, fileBase64, fileType }
+ * Response: { url }
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
+import { put } from '@vercel/blob';
 import jwt from 'jsonwebtoken';
+
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '50mb'
+    }
+  }
+};
 
 function verifyAuth(req: VercelRequest): { userId: string; role: string } | null {
   try {
@@ -42,30 +51,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!auth) return res.status(401).json({ error: 'No autorizado' });
 
   try {
-    const body = req.body as HandleUploadBody;
+    const { filename, fileBase64, fileType } = req.body;
+    if (!filename || !fileBase64) {
+      return res.status(400).json({ error: 'Faltan campos: filename, fileBase64' });
+    }
 
-    const jsonResponse = await handleUpload({
-      body,
-      request: req as any,
-      onBeforeGenerateToken: async (pathname) => {
-        return {
-          allowedContentTypes: [
-            'application/pdf',
-            'image/jpeg', 'image/jpg', 'image/png', 'image/tiff', 'image/webp', 'image/gif', 'image/bmp',
-            'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/wave', 'audio/x-wav',
-            'audio/ogg', 'audio/webm', 'audio/mp4', 'audio/x-m4a', 'audio/m4a',
-            'audio/flac', 'audio/x-flac', 'audio/aac',
-          ],
-          maximumSizeInBytes: 100 * 1024 * 1024, // 100MB
-          tokenPayload: JSON.stringify({ userId: auth.userId }),
-        };
-      },
-      onUploadCompleted: async ({ blob, tokenPayload }) => {
-        console.log(`✅ [Blob Upload] Archivo subido: ${blob.url}`);
-      },
+    const buffer = Buffer.from(fileBase64, 'base64');
+    const blob = await put(`rag-documents/${auth.userId}/${Date.now()}-${filename}`, buffer, {
+      access: 'public',
+      contentType: fileType || 'application/octet-stream'
     });
 
-    return res.status(200).json(jsonResponse);
+    console.log(`✅ [Blob Upload] ${filename} subido: ${blob.url} (${(buffer.length / 1024 / 1024).toFixed(1)} MB)`);
+
+    return res.status(200).json({ url: blob.url });
   } catch (error: any) {
     console.error('[Blob Upload] Error:', error.message);
     return res.status(500).json({ error: error.message });

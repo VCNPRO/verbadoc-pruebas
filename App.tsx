@@ -13,7 +13,6 @@ import { PdfViewer } from './components/PdfViewer.tsx';
 // Fix: Use explicit file extension in import.
 import { HelpModal } from './components/HelpModal.tsx';
 import { SettingsModal } from './components/SettingsModal.tsx';
-import { upload } from '@vercel/blob/client';
 import ConfigModal from './src/components/ConfigModal.tsx';
 // Fix: Use explicit file extension in import.
 import { ResultsViewer } from './components/ResultsViewer.tsx';
@@ -453,18 +452,27 @@ function AppContent() {
                     let ragResponse: Response;
 
                     if (fileBase64Encoded.length > 4 * 1024 * 1024) {
-                        const blobFile = new File([fileBuffer], file.file.name, { type: file.file.type || 'application/pdf' });
-                        const blob = await upload(file.file.name, blobFile, {
-                            access: 'public',
-                            handleUploadUrl: '/api/rag/upload-blob',
+                        const blobResp = await fetch('/api/rag/upload-blob', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                filename: file.file.name,
+                                fileBase64: fileBase64Encoded,
+                                fileType: file.file.type || 'application/pdf',
+                            }),
                         });
+                        const blobResult = await blobResp.json();
+                        if (!blobResp.ok || !blobResult.url) {
+                            throw new Error(blobResult.error || 'Error subiendo archivo al blob');
+                        }
                         ragResponse = await fetch('/api/rag/upload-and-ingest', {
                             method: 'POST',
                             credentials: 'include',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 filename: file.file.name,
-                                blobUrl: blob.url,
+                                blobUrl: blobResult.url,
                                 fileType: file.file.type || 'application/pdf',
                                 fileSizeBytes: file.file.size,
                             }),
@@ -725,18 +733,25 @@ function AppContent() {
                 const actualFileType = wasCompressed ? mimeType : (file.file.type || 'application/pdf');
                 const actualSize = wasCompressed ? Math.round(base64.length * 0.75) : file.file.size;
 
-                // Si el base64 supera ~4MB, subir directo a Blob para evitar limite 413
+                // Si el base64 supera ~4MB, subir primero a blob separado para evitar 413
                 let response: Response;
                 if (base64.length > 4 * 1024 * 1024) {
-                    console.log(`📤 ${file.file.name} es grande (${(base64.length / 1024 / 1024).toFixed(1)} MB base64), subiendo directo a Blob...`);
-                    const blobBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-                    const blobFile = new File([blobBytes], file.file.name, { type: actualFileType });
-
-                    const blob = await upload(file.file.name, blobFile, {
-                        access: 'public',
-                        handleUploadUrl: '/api/rag/upload-blob',
+                    console.log(`📤 ${file.file.name} es grande (${(base64.length / 1024 / 1024).toFixed(1)} MB base64), subiendo via upload-blob...`);
+                    const blobResp = await fetch('/api/rag/upload-blob', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            filename: file.file.name,
+                            fileBase64: base64,
+                            fileType: actualFileType,
+                        })
                     });
-                    console.log(`✅ Blob subido: ${blob.url}`);
+                    const blobResult = await blobResp.json();
+                    if (!blobResp.ok || !blobResult.url) {
+                        throw new Error(blobResult.error || 'Error subiendo archivo al blob');
+                    }
+                    console.log(`✅ Blob subido: ${blobResult.url}`);
 
                     response = await fetch('/api/rag/upload-and-ingest', {
                         method: 'POST',
@@ -744,7 +759,7 @@ function AppContent() {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             filename: file.file.name,
-                            blobUrl: blob.url,
+                            blobUrl: blobResult.url,
                             fileType: actualFileType,
                             fileSizeBytes: actualSize,
                             folderName: detectedFolderName,
@@ -951,18 +966,27 @@ function AppContent() {
                     let ragResponse: Response;
 
                     if (fileBase64Encoded.length > 4 * 1024 * 1024) {
-                        const blobFile = new File([fileBuffer], file.file.name, { type: file.file.type || 'application/pdf' });
-                        const blob = await upload(file.file.name, blobFile, {
-                            access: 'public',
-                            handleUploadUrl: '/api/rag/upload-blob',
+                        const blobResp = await fetch('/api/rag/upload-blob', {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                filename: file.file.name,
+                                fileBase64: fileBase64Encoded,
+                                fileType: file.file.type || 'application/pdf',
+                            }),
                         });
+                        const blobResult = await blobResp.json();
+                        if (!blobResp.ok || !blobResult.url) {
+                            throw new Error(blobResult.error || 'Error subiendo archivo al blob');
+                        }
                         ragResponse = await fetch('/api/rag/upload-and-ingest', {
                             method: 'POST',
                             credentials: 'include',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 filename: file.file.name,
-                                blobUrl: blob.url,
+                                blobUrl: blobResult.url,
                                 fileType: file.file.type || 'application/pdf',
                                 fileSizeBytes: file.file.size,
                             }),
