@@ -2083,16 +2083,16 @@ function AppContent() {
                                 </svg>
                             </button>
                             )}
-                            {/* Botón Planes */}
+                            {/* Botón Planes - Desactivado (condiciones economicas en revision) */}
                             <button
-                                onClick={() => navigate('/pricing')}
-                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow hover:shadow-md hover:scale-105"
+                                onClick={() => {}}
+                                className="flex items-center justify-center w-8 h-8 border rounded-md text-base transition-all duration-500 shadow opacity-50 cursor-default"
                                 style={{
                                     backgroundColor: isLightMode ? '#059669' : '#047857',
                                     borderColor: isLightMode ? '#047857' : '#10b981',
                                     color: '#ffffff'
                                 }}
-                                title={t('app:header.pricing')}
+                                title="Planes y Precios (proximamente)"
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -2726,7 +2726,8 @@ function AppContent() {
                 <Route path="/master-excel" element={<MasterExcelPage isDarkMode={isDarkMode} />} />
                 <Route path="/unprocessable" element={<UnprocessablePage isDarkMode={isDarkMode} />} />
                 <Route path="/guia" element={<UserGuidePage isDarkMode={isDarkMode} />} />
-                <Route path="/pricing" element={<PricingPage isDarkMode={isDarkMode} />} />
+                {/* Pricing desactivado - redirige al inicio */}
+                <Route path="/pricing" element={<Navigate to="/" replace />} />
                 {/* Cualquier otra ruta redirige al inicio */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
@@ -2790,8 +2791,8 @@ function AppContent() {
                     </ProtectedRoute>
                 }
             />
-            {/* Pricing Page - Pública */}
-            <Route path="/pricing" element={<PricingPage isDarkMode={isDarkMode} />} />
+            {/* Pricing Page - Desactivada, redirige al inicio */}
+            <Route path="/pricing" element={<Navigate to="/" replace />} />
         </Routes>
     );
 // Limpieza automática de localStorage (ejecutar al cargar el módulo)

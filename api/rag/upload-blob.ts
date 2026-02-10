@@ -52,6 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             'audio/flac', 'audio/x-flac', 'audio/aac',
           ],
           maximumSizeInBytes: 100 * 1024 * 1024,
+          addRandomSuffix: true,
           tokenPayload: JSON.stringify({ userId: auth.userId }),
         };
       },

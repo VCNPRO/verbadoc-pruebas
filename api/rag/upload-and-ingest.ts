@@ -313,7 +313,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const buffer = Buffer.from(fileBase64, 'base64');
       const blob = await put(`rag-documents/${auth.userId}/${Date.now()}-${filename}`, buffer, {
         access: 'public',
-        contentType: fileType || 'application/pdf'
+        contentType: fileType || 'application/pdf',
+        addRandomSuffix: true
       });
       finalBlobUrl = blob.url;
       fileSizeFinal = fileSizeBytes || buffer.length;
