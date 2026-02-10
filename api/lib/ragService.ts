@@ -16,15 +16,37 @@ import { GoogleGenAI } from '@google/genai';
 // ============================================================================
 
 const EMBEDDING_MODEL = 'gemini-embedding-001'; // Gemini embedding (768 dims)
-const GENERATION_MODEL = 'gemini-2.0-flash';
+const DEFAULT_GENERATION_MODEL = 'gemini-2.0-flash';
 
 const DEFAULT_CHUNK_SIZE = 500; // palabras
 const DEFAULT_CHUNK_OVERLAP = 50;
 const DEFAULT_TOP_K = 5;
 
+// Modelos Gemini disponibles para generación
+export const AVAILABLE_MODELS = [
+  'gemini-2.0-flash',
+  'gemini-2.5-flash-preview',
+  'gemini-1.5-pro',
+] as const;
+
+export type AvailableModel = typeof AVAILABLE_MODELS[number];
+
 // ============================================================================
 // INTERFACES
 // ============================================================================
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface RAGConfig {
+  temperature: number;          // 0.0-1.0 (default 0.3)
+  topK: number;                 // 1-10 (default 5)
+  similarityThreshold: number;  // 0.0-1.0 (default 0.0 = sin filtro)
+  model: string;                // gemini-2.0-flash | gemini-2.5-flash-preview | gemini-1.5-pro
+  chatHistory?: ChatMessage[];  // últimos 5 pares de mensajes
+}
 
 export interface RAGChunk {
   id: string;
@@ -417,6 +439,62 @@ export async function deleteByUserId(userId: string): Promise<void> {
 }
 
 // ============================================================================
+// QUERY REWRITING (contexto conversacional)
+// ============================================================================
+
+/**
+ * Reescribe la query del usuario para que sea autónoma usando el historial de chat.
+ * Solo se activa si hay historial (>0 mensajes). Usa el modelo más rápido.
+ */
+async function rewriteQuery(query: string, chatHistory: ChatMessage[]): Promise<string> {
+  if (!chatHistory || chatHistory.length === 0) {
+    return query;
+  }
+
+  const client = getGenAIClient();
+
+  const historyText = chatHistory
+    .slice(-10) // máx 5 pares
+    .map(m => `${m.role === 'user' ? 'Usuario' : 'Asistente'}: ${m.content.substring(0, 300)}`)
+    .join('\n');
+
+  try {
+    const result = await client.models.generateContent({
+      model: 'gemini-2.0-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [{
+            text: `Dado este historial de conversación, reescribe la última pregunta del usuario para que sea completamente autónoma y se entienda sin el historial. Si la pregunta ya es autónoma, devuélvela tal cual. Responde SOLO con la pregunta reescrita, sin explicaciones.
+
+HISTORIAL:
+${historyText}
+
+ÚLTIMA PREGUNTA: ${query}
+
+PREGUNTA REESCRITA:`
+          }]
+        }
+      ],
+      config: {
+        temperature: 0.1,
+        maxOutputTokens: 256,
+      }
+    });
+
+    const rewritten = result.text?.trim();
+    if (rewritten && rewritten.length > 0 && rewritten.length < 2000) {
+      console.log(`[RAG] Query reescrita: "${query.substring(0, 50)}..." → "${rewritten.substring(0, 50)}..."`);
+      return rewritten;
+    }
+    return query;
+  } catch (error: any) {
+    console.warn('[RAG] Error en query rewriting, usando query original:', error.message);
+    return query;
+  }
+}
+
+// ============================================================================
 // ANSWER GENERATION
 // ============================================================================
 
@@ -434,15 +512,20 @@ const LANGUAGE_CONFIG: Record<string, { noDocsMessage: string; promptInstruction
 };
 
 /**
- * Genera respuesta con contexto
+ * Genera respuesta con contexto, modelo dinámico y memoria conversacional
  */
 export async function generateAnswer(
   query: string,
   context: RAGSearchResult[],
-  language: string = 'es'
+  language: string = 'es',
+  config?: Partial<RAGConfig>
 ): Promise<RAGAnswer> {
   const client = getGenAIClient();
   const langConfig = LANGUAGE_CONFIG[language] || LANGUAGE_CONFIG['es'];
+  const temperature = config?.temperature ?? 0.3;
+  const model = config?.model && AVAILABLE_MODELS.includes(config.model as AvailableModel)
+    ? config.model
+    : DEFAULT_GENERATION_MODEL;
 
   if (context.length === 0) {
     return {
@@ -453,32 +536,51 @@ export async function generateAnswer(
   }
 
   const contextParts = context.map((result, idx) => {
-    const sourceRef = `[${langConfig.sourceLabel} ${idx + 1}: ${result.documentName || result.chunk.documentId}]`;
+    const docName = result.documentName || result.chunk.documentId;
+    const sourceRef = `[${langConfig.sourceLabel} ${idx + 1}: ${docName}]`;
     return `${sourceRef}\n${result.chunk.text}`;
   });
   const contextString = contextParts.join('\n\n---\n\n');
 
-  const systemPrompt = `Eres un asistente experto que responde preguntas basandose UNICAMENTE en los documentos proporcionados.
+  const systemPrompt = `Eres un asistente experto, veraz y proactivo que responde preguntas basándose ÚNICAMENTE en los documentos proporcionados.
 
-REGLAS:
-1. Responde SOLO con informacion de los documentos
-2. Si no hay informacion suficiente, dilo claramente
-3. Cita las fuentes usando [${langConfig.sourceLabel} X]
-4. Se preciso y conciso
-5. ${langConfig.promptInstruction}
+PERSONA: Eres un analista documental profesional. Tu objetivo es dar respuestas precisas, útiles y bien fundamentadas.
 
-DOCUMENTOS:
+REGLAS ESTRICTAS:
+1. Responde SOLO con información contenida en los documentos proporcionados.
+2. VERACIDAD: Si la información NO está en los documentos, responde exactamente: "No tengo información sobre esto en los documentos proporcionados. ¿Te gustaría que busque sobre un tema relacionado?"
+3. CLARIFICACIÓN: Si la pregunta es ambigua o demasiado vaga, pide aclaración antes de responder.
+4. CITAS OBLIGATORIAS: Siempre cita el nombre del archivo fuente entre corchetes, ej: [${langConfig.sourceLabel}: NombreArchivo.pdf]. Cada afirmación debe tener su cita.
+5. Sé preciso, estructurado y conciso. Usa listas o tablas si mejoran la claridad.
+6. ${langConfig.promptInstruction}
+
+DOCUMENTOS DISPONIBLES:
 ${contextString}`;
+
+  // Construir mensajes incluyendo historial conversacional
+  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [
+    { role: 'user', parts: [{ text: systemPrompt }] },
+  ];
+
+  // Añadir historial de chat si existe
+  if (config?.chatHistory && config.chatHistory.length > 0) {
+    for (const msg of config.chatHistory.slice(-10)) {
+      contents.push({
+        role: msg.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: msg.content }],
+      });
+    }
+  }
+
+  // Pregunta actual
+  contents.push({ role: 'user', parts: [{ text: `Pregunta: ${query}` }] });
 
   try {
     const result = await client.models.generateContent({
-      model: GENERATION_MODEL,
-      contents: [
-        { role: 'user', parts: [{ text: systemPrompt }] },
-        { role: 'user', parts: [{ text: `Pregunta: ${query}` }] }
-      ],
+      model,
+      contents,
       config: {
-        temperature: 0.3,
+        temperature,
         maxOutputTokens: 1024,
       }
     });
@@ -511,7 +613,7 @@ ${contextString}`;
 // ============================================================================
 
 /**
- * Pipeline completo: embedding -> busqueda -> respuesta
+ * Pipeline completo: query rewriting -> embedding -> búsqueda -> filtro threshold -> respuesta
  */
 export async function ragQuery(
   query: string,
@@ -521,19 +623,38 @@ export async function ragQuery(
     folderId?: string;
   },
   topK: number = DEFAULT_TOP_K,
-  language: string = 'es'
+  language: string = 'es',
+  config?: Partial<RAGConfig>
 ): Promise<RAGAnswer> {
-  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..." [${language}]${filters?.folderId ? ` (carpeta: ${filters.folderId})` : ''}`);
+  const effectiveTopK = config?.topK ?? topK;
+  const similarityThreshold = config?.similarityThreshold ?? 0.0;
 
-  const queryEmbedding = await generateEmbedding(query);
-  const searchResults = await searchSimilar(
+  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..." [${language}] modelo=${config?.model || DEFAULT_GENERATION_MODEL} temp=${config?.temperature ?? 0.3}${filters?.folderId ? ` (carpeta: ${filters.folderId})` : ''}`);
+
+  // Query rewriting si hay historial de chat
+  const effectiveQuery = config?.chatHistory && config.chatHistory.length > 0
+    ? await rewriteQuery(query, config.chatHistory)
+    : query;
+
+  const queryEmbedding = await generateEmbedding(effectiveQuery);
+  let searchResults = await searchSimilar(
     queryEmbedding,
     userId,
-    topK,
+    effectiveTopK,
     filters?.documentIds,
     filters?.folderId
   );
-  const answer = await generateAnswer(query, searchResults, language);
+
+  // Filtrar por similarity threshold si está configurado
+  if (similarityThreshold > 0) {
+    const before = searchResults.length;
+    searchResults = searchResults.filter(r => r.score >= similarityThreshold);
+    if (before !== searchResults.length) {
+      console.log(`[RAG] Threshold ${similarityThreshold}: ${before} → ${searchResults.length} resultados`);
+    }
+  }
+
+  const answer = await generateAnswer(effectiveQuery, searchResults, language, config);
 
   return answer;
 }

@@ -54,6 +54,16 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
+  // Ajustes avanzados
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [temperature, setTemperature] = useState(0.3);
+  const [topK, setTopK] = useState(5);
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.0);
+  const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
+
+  // Chat history (memoria conversacional)
+  const [chatHistory, setChatHistory] = useState<{role: 'user' | 'assistant', content: string}[]>([]);
+
   // Estado para visor de documentos
   const [viewingDoc, setViewingDoc] = useState<{ url: string; name: string; isImage: boolean; isAudio?: boolean } | null>(null);
 
@@ -151,9 +161,13 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
         credentials: 'include',
         body: JSON.stringify({
           query: query.trim(),
-          topK: 5,
+          topK,
           folderId: selectedFolderId || undefined,
           language: currentLanguage,
+          temperature,
+          similarityThreshold,
+          model: selectedModel,
+          chatHistory: chatHistory.slice(-10),
         }),
       });
 
@@ -167,6 +181,16 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
         answer: data.answer,
         sources: data.sources || [],
         confidence: data.confidence || 0,
+      });
+
+      // Actualizar historial de chat (máx 5 pares = 10 mensajes)
+      setChatHistory(prev => {
+        const updated = [
+          ...prev,
+          { role: 'user' as const, content: query.trim() },
+          { role: 'assistant' as const, content: data.answer },
+        ];
+        return updated.slice(-10);
       });
     } catch (err: any) {
       setError(err.message || 'Error al procesar la consulta');
@@ -260,6 +284,132 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
           >Crear</button>
         </div>
       )}
+
+      {/* Panel de ajustes avanzados */}
+      <div style={{ marginBottom: '12px' }}>
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 12px',
+            fontSize: '13px',
+            backgroundColor: 'transparent',
+            color: textMuted,
+            border: `1px solid ${borderColor}`,
+            borderRadius: '6px',
+            cursor: 'pointer',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+          </svg>
+          {showAdvanced ? 'Ocultar ajustes' : 'Ajustes avanzados'}
+          <span style={{ fontSize: '11px' }}>{showAdvanced ? '▲' : '▼'}</span>
+        </button>
+
+        {showAdvanced && (
+          <div style={{
+            marginTop: '8px',
+            padding: '14px',
+            backgroundColor: bgInput,
+            border: `1px solid ${borderColor}`,
+            borderRadius: '8px',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '14px',
+          }}>
+            {/* Selector de modelo */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ fontSize: '12px', color: textMuted, display: 'block', marginBottom: '4px' }}>Modelo</label>
+              <select
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  fontSize: '13px',
+                  backgroundColor: bgMain,
+                  color: textColor,
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '6px',
+                  outline: 'none',
+                }}
+              >
+                <option value="gemini-2.0-flash">Gemini 2.0 Flash (rápido)</option>
+                <option value="gemini-2.5-flash-preview">Gemini 2.5 Flash Preview (equilibrado)</option>
+                <option value="gemini-1.5-pro">Gemini 1.5 Pro (preciso)</option>
+              </select>
+            </div>
+
+            {/* Temperature */}
+            <div>
+              <label style={{ fontSize: '12px', color: textMuted, display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span>Temperatura</span>
+                <span style={{ fontWeight: '600', color: textColor }}>{temperature.toFixed(1)}</span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={temperature}
+                onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: accentGreen }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: textMuted }}>
+                <span>Preciso</span>
+                <span>Creativo</span>
+              </div>
+            </div>
+
+            {/* Top K */}
+            <div>
+              <label style={{ fontSize: '12px', color: textMuted, display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span>Fuentes (Top K)</span>
+                <span style={{ fontWeight: '600', color: textColor }}>{topK}</span>
+              </label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                value={topK}
+                onChange={(e) => setTopK(parseInt(e.target.value))}
+                style={{ width: '100%', accentColor: accentGreen }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: textMuted }}>
+                <span>1</span>
+                <span>10</span>
+              </div>
+            </div>
+
+            {/* Similarity Threshold */}
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={{ fontSize: '12px', color: textMuted, display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span>Umbral de similitud</span>
+                <span style={{ fontWeight: '600', color: textColor }}>{similarityThreshold.toFixed(2)}{similarityThreshold === 0 ? ' (sin filtro)' : ''}</span>
+              </label>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={similarityThreshold}
+                onChange={(e) => setSimilarityThreshold(parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: accentGreen }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: textMuted }}>
+                <span>Sin filtro</span>
+                <span>Solo muy relevantes</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Zona de escritura */}
       <div
@@ -384,6 +534,30 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               }}
             >
               {t('common:buttons.reset')}
+            </button>
+          )}
+          {chatHistory.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setChatHistory([]);
+                setQuery('');
+                setResponse(null);
+                setError(null);
+              }}
+              style={{
+                padding: '6px 24px',
+                fontSize: '13px',
+                backgroundColor: 'transparent',
+                color: '#f59e0b',
+                border: `1px solid ${borderColor}`,
+                borderRadius: '6px',
+                cursor: 'pointer',
+                minWidth: '120px',
+              }}
+              title={`Historial: ${chatHistory.length / 2} turnos`}
+            >
+              Limpiar conversación ({Math.floor(chatHistory.length / 2)})
             </button>
           )}
         </div>

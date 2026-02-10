@@ -16,6 +16,7 @@ import {
   ragQuery,
   logRagQuery,
   getRagQueryHistory,
+  AVAILABLE_MODELS,
 } from '../lib/ragService.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -56,7 +57,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // POST: Process RAG query
     if (req.method === 'POST') {
-      const { query, documentIds, projectId, folderId, topK = 5, language = 'es' } = req.body;
+      const {
+        query, documentIds, projectId, folderId,
+        topK = 5, language = 'es',
+        // Nuevos parámetros dinámicos
+        temperature = 0.3,
+        similarityThreshold = 0.0,
+        model = 'gemini-2.0-flash',
+        chatHistory = [],
+      } = req.body;
 
       // Validate query
       if (!query || typeof query !== 'string' || query.trim().length === 0) {
@@ -73,16 +82,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Validate topK
-      const effectiveTopK = Math.min(Math.max(1, topK), 20);
+      // Validate and clamp parameters
+      const effectiveTopK = Math.min(Math.max(1, Number(topK) || 5), 10);
+      const effectiveTemperature = Math.min(Math.max(0.0, Number(temperature) || 0.3), 1.0);
+      const effectiveThreshold = Math.min(Math.max(0.0, Number(similarityThreshold) || 0.0), 1.0);
+      const effectiveModel = AVAILABLE_MODELS.includes(model) ? model : 'gemini-2.0-flash';
 
-      console.log(`[RAG/Ask] User ${userId} query: "${query.substring(0, 100)}..."`);
+      // Validar y limitar chatHistory a últimos 5 pares (10 mensajes)
+      const effectiveChatHistory = Array.isArray(chatHistory)
+        ? chatHistory
+            .filter((m: any) => m && typeof m.content === 'string' && ['user', 'assistant'].includes(m.role))
+            .slice(-10)
+        : [];
+
+      console.log(`[RAG/Ask] User ${userId} query: "${query.substring(0, 100)}..." model=${effectiveModel} temp=${effectiveTemperature} threshold=${effectiveThreshold} history=${effectiveChatHistory.length}`);
 
       // Validar idioma (solo los 9 soportados)
       const supportedLanguages = ['es', 'ca', 'gl', 'eu', 'pt', 'fr', 'en', 'it', 'de'];
       const effectiveLanguage = supportedLanguages.includes(language) ? language : 'es';
 
-      // Execute RAG query
+      // Execute RAG query with dynamic config
       const startTime = Date.now();
       const result = await ragQuery(
         query.trim(),
@@ -92,7 +111,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           folderId: folderId || undefined,
         },
         effectiveTopK,
-        effectiveLanguage
+        effectiveLanguage,
+        {
+          temperature: effectiveTemperature,
+          topK: effectiveTopK,
+          similarityThreshold: effectiveThreshold,
+          model: effectiveModel,
+          chatHistory: effectiveChatHistory,
+        }
       );
       const processingTime = Date.now() - startTime;
 
