@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 // Fix: Use explicit file extension in import.
 import type { UploadedFile } from '../types.ts';
 import { UploadCloudIcon, FileIcon, TrashIcon, CheckCircleIcon, ExclamationCircleIcon, SparklesIcon, EyeIcon } from './Icons';
@@ -44,6 +45,7 @@ const StatusIndicator = ({ status }: { status: UploadedFile['status'] }) => {
 };
 
 export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, activeFileId, onFileSelect, onExtractAll, onExtractSelected, onIngestToRAG, onTranscribeSelected, onHtrTranscribeSelected, isLoading, isIngesting, isTranscribing, isHtrTranscribing, onViewFile, theme, isLightMode, duplicateFiles }) => {
+    const { t } = useTranslation(['extraction', 'common']);
     const cardBg = isLightMode ? '#ffffff' : 'rgba(30, 41, 59, 0.5)';
     const borderColor = isLightMode ? '#dbeafe' : 'rgba(51, 65, 85, 0.5)';
     const textColor = isLightMode ? '#1e3a8a' : '#f1f5f9';
@@ -295,7 +297,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
         >
             <div className="flex justify-between items-center mb-3">
                 <h2 className="text-lg font-semibold transition-colors duration-500" style={{ color: textColor }}>
-                    Lote de Documentos
+                    {t('extraction:fileUploader.title')}
                 </h2>
             </div>
 
@@ -332,7 +334,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                 />
                                 <UploadCloudIcon className="w-10 h-10 mb-2" style={{ color: isLightMode ? '#93c5fd' : '#94a3b8' }} />
                                 <p className="text-center mb-3" style={{ color: textColor }}>
-                                    Arrastre archivos o carpetas aquí
+                                    {t('extraction:fileUploader.dragDrop')}
                                 </p>
                                 <div className="flex gap-2">
                                     <button
@@ -340,17 +342,17 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                         className="px-4 py-2 rounded-md text-sm font-medium transition-all hover:opacity-90"
                                         style={{ backgroundColor: accentColor, color: '#ffffff' }}
                                     >
-                                        📄 Seleccionar Archivos
+                                        {t('extraction:fileUploader.browse')}
                                     </button>
                                     <button
                                         onClick={() => folderInputRef.current?.click()}
                                         className="px-4 py-2 rounded-md text-sm font-medium transition-all hover:opacity-90"
                                         style={{ backgroundColor: isLightMode ? '#059669' : '#10b981', color: '#ffffff' }}
                                     >
-                                        📁 Seleccionar Carpeta
+                                        {t('extraction:fileUploader.browseFolder')}
                                     </button>
                                 </div>
-                                <p className="text-xs text-center mt-3" style={{ color: textSecondary }}>PDF, JPG, PNG, TIFF, TXT, JSON, MP3, WAV, OGG, M4A, FLAC, AAC (max. 200MB/lote)</p>
+                                <p className="text-xs text-center mt-3" style={{ color: textSecondary }}>{t('extraction:fileUploader.supportedFormats')}</p>
                             </div>
                 
                             {files.length > 0 && (
@@ -436,10 +438,10 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                                             : accentColor
                                                     }}
                                                 >
-                                                    {isLoading ? 'Procesando...' : 'Extraer Todos'}
+                                                    {isLoading ? t('extraction:fileUploader.processing') : t('extraction:fileUploader.extractAll')}
                                                 </button>
                                             )}
-                                            <button onClick={onClearAll} className="text-xs transition-colors" style={{ color: isLightMode ? '#ef4444' : '#f87171' }}>Limpiar</button>
+                                            <button onClick={onClearAll} className="text-xs transition-colors" style={{ color: isLightMode ? '#ef4444' : '#f87171' }}>{t('extraction:fileUploader.clearAll')}</button>
                                         </div>
                                     </div>
                                     <div className="overflow-y-auto pr-2 flex-grow">

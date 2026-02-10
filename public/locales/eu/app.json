@@ -1,0 +1,65 @@
+{
+  "header": {
+    "title": "verbadoc pro europa",
+    "subtitle": "Extracción Inteligente de Datos",
+    "workingFor": "trabajando para",
+    "by": "por",
+    "logout": "Cerrar Sesión",
+    "exit": "Salir",
+    "config": "Configuración",
+    "help": "Ayuda y Guía de Usuario",
+    "admin": "Panel de Administración",
+    "pricing": "Ver Planes y Precios",
+    "reviewer": "REVIEWER"
+  },
+  "sidebar": {
+    "review": "Revisión",
+    "results": "Resultados",
+    "pdf": "PDF",
+    "excel": "Excel",
+    "library": "Biblioteca",
+    "totals": "Totales",
+    "needsReview": "Por revisar",
+    "valid": "Validos",
+    "rejected": "Rechazados"
+  },
+  "progress": {
+    "processing": "Procesando {{completed}}/{{total}} {{type}}",
+    "documents": "documentos",
+    "forms": "formularios"
+  },
+  "sections": {
+    "askDocument": "Pregúntale al Documento",
+    "naturalLanguage": "Consulta con lenguaje natural",
+    "advancedConfig": "Configuración Avanzada",
+    "schemaTemplates": "Esquema, Plantillas",
+    "templates": "Plantillas",
+    "aiAssistant": "Asistente IA",
+    "saveToLibrary": "Guardar en Biblioteca RAG"
+  },
+  "reviewerHome": {
+    "title": "Panel de Usuario",
+    "totals": "Totales",
+    "excelMaster": "Excel Master",
+    "pdfDocuments": "PDF",
+    "selectSection": "Selecciona una sección para comenzar a trabajar:",
+    "viewResults": "Ver resultados de extracción",
+    "viewAllProcessed": "Ver todos los formularios procesados",
+    "clientPdfDocs": "Documentos PDF del cliente",
+    "footer": "© 2026 VerbadocPro Europa - Panel de Revisión"
+  },
+  "ragFolderModal": {
+    "title": "Guardar en Biblioteca RAG",
+    "documentCount": "{{count}} documento(s)",
+    "selectFolder": "Seleccionar carpeta",
+    "newFolder": "Nueva carpeta",
+    "folderName": "Nombre de la carpeta",
+    "creating": "Creando...",
+    "create": "Crear",
+    "noFolder": "Sin carpeta (raíz)",
+    "customName": "Nombre personalizado del documento",
+    "customNamePlaceholder": "Dejar vacío para usar nombre original",
+    "uploadButton": "Subir a Biblioteca",
+    "uploading": "Subiendo..."
+  }
+}

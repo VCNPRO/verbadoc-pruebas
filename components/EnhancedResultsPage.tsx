@@ -1,9 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import type { ExtractionResult } from '../types.ts';
 import { JsonViewer } from './JsonViewer.tsx';
 import { DocumentChat } from './DocumentChat.tsx';
 import { downloadExcel, downloadCSV, downloadPDF as downloadExtractionPDF, downloadTextAsPDF } from '../utils/exportUtils.ts';
+import { useLanguage } from '../src/contexts/LanguageContext';
+import { getLanguageByCode } from '../src/config/languages';
 
 interface RagFolder {
     id: string;
@@ -41,7 +44,9 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
     onImportHistory,
     onToggleTheme
 }) => {
+    const { t } = useTranslation(['extraction', 'common']);
     const navigate = useNavigate();
+    const { currentLanguage } = useLanguage();
     // Estados de filtrado y búsqueda
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
@@ -352,7 +357,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
 
         const selectedResults = results.filter(r => selectedResultIds.has(r.id) && r.type === 'extraction');
         if (selectedResults.length === 0) {
-            alert('No hay resultados de extracción seleccionados');
+            alert(t('extraction:results.noSelectedResults'));
             return;
         }
 
@@ -361,7 +366,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
             const data = result.extractedData;
             const flatData = {
                 archivo: result.fileName,
-                fecha_procesamiento: new Date(result.timestamp).toLocaleString(),
+                fecha_procesamiento: new Date(result.timestamp).toLocaleString(getLanguageByCode(currentLanguage).locale),
                 ...data
             };
             rows.push(flatData);
@@ -399,7 +404,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
 
         const selectedResults = results.filter(r => selectedResultIds.has(r.id) && r.type === 'extraction');
         if (selectedResults.length === 0) {
-            alert('No hay resultados de extracción seleccionados');
+            alert(t('extraction:results.noSelectedResults'));
             return;
         }
 
@@ -408,7 +413,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
             const data = result.extractedData;
             const flatData = {
                 archivo: result.fileName,
-                fecha_procesamiento: new Date(result.timestamp).toLocaleString(),
+                fecha_procesamiento: new Date(result.timestamp).toLocaleString(getLanguageByCode(currentLanguage).locale),
                 ...data
             };
             rows.push(flatData);
@@ -448,10 +453,10 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                     </svg>
-                                    Volver
+                                    {t('common:buttons.back')}
                                 </button>
                                 <h1 className="text-2xl font-bold font-orbitron tracking-wider" style={{ color: textColor }}>
-                                    📊 Resultados
+                                    {t('extraction:results.title')}
                                 </h1>
                             </div>
                         </div>
@@ -478,7 +483,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                             </div>
 
                             <h3 className="text-3xl font-bold font-orbitron mb-4 tracking-tight" style={{ color: textColor }}>
-                                Historial Vacío
+                                {t('extraction:results.noResults')}
                             </h3>
                             
                             <p className="text-lg mb-8 max-w-md mx-auto leading-relaxed" style={{ color: textSecondary }}>
@@ -496,7 +501,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                     </svg>
-                                    Nueva Extracción
+                                    {t('extraction:editor.extract')}
                                 </button>
                                 
                                 {onImportHistory && (
@@ -512,7 +517,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                         </svg>
-                                        Importar Datos
+                                        {t('extraction:results.importHistory')}
                                     </button>
                                 )}
                             </div>
@@ -549,7 +554,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                 </svg>
-                                Volver
+                                {t('common:buttons.back')}
                             </button>
                             <h1
                                 className="text-2xl font-bold font-orbitron tracking-wider transition-colors duration-500"
@@ -557,7 +562,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                     color: isLightMode ? '#1e3a8a' : '#f1f5f9'
                                 }}
                             >
-                                📊 Resultados
+                                {t('extraction:results.title')}
                             </h1>
                         </div>
                         <div className="flex items-center gap-4">
@@ -595,7 +600,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
             <div className="w-80 flex flex-col rounded-lg border overflow-hidden" style={{ backgroundColor: cardBg, borderColor: borderColor }}>
                 {/* Header con estadísticas */}
                 <div className="p-4 border-b" style={{ borderColor: borderColor, backgroundColor: headerBg }}>
-                    <h2 className="text-lg font-bold mb-3" style={{ color: textColor }}>📊 Resultados</h2>
+                    <h2 className="text-lg font-bold mb-3" style={{ color: textColor }}>{t('extraction:results.title')}</h2>
 
                     {/* Estadísticas */}
                     <div className="grid grid-cols-3 gap-2 mb-3">
@@ -663,7 +668,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                             className="w-4 h-4 rounded"
                             style={{ accentColor: accentColor }}
                         />
-                        {selectedResultIds.size > 0 ? `${selectedResultIds.size} seleccionados` : 'Seleccionar todos'}
+                        {selectedResultIds.size > 0 ? t('extraction:results.selected', { count: selectedResultIds.size }) : t('extraction:results.selectAll')}
                     </label>
                 </div>
 
@@ -708,7 +713,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                             </span>
                                         </div>
                                         <div className="text-xs" style={{ color: textSecondary }}>
-                                            {new Date(result.timestamp).toLocaleDateString()} {new Date(result.timestamp).toLocaleTimeString()}
+                                            {new Date(result.timestamp).toLocaleDateString(getLanguageByCode(currentLanguage).locale)} {new Date(result.timestamp).toLocaleTimeString(getLanguageByCode(currentLanguage).locale)}
                                         </div>
                                     </div>
                                 </div>
@@ -720,7 +725,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                 {/* Acciones consolidadas */}
                 {selectedResultIds.size > 0 && (
                     <div className="p-3 border-t space-y-2" style={{ borderColor: borderColor, backgroundColor: headerBg }}>
-                        <div className="text-xs font-medium mb-1" style={{ color: textColor }}>Exportar seleccionados:</div>
+                        <div className="text-xs font-medium mb-1" style={{ color: textColor }}>{t('common:buttons.export')}:</div>
                         <div className="flex gap-2">
                             <button
                                 onClick={handleDownloadSelectedCSV}
@@ -817,7 +822,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                             className="w-full px-2 py-1.5 rounded text-xs font-medium transition-all hover:opacity-90"
                             style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
                         >
-                            🗑️ Limpiar Todo
+                            {t('extraction:results.clearHistory')}
                         </button>
                     )}
                 </div>
@@ -835,7 +840,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                         {isRagDocument ? (ragIsImage ? '🖼️' : '📚') : (selectedResult.type === 'extraction' ? '📊' : '📄')} {selectedResult.fileName}
                                     </h3>
                                     <p className="text-sm" style={{ color: textSecondary }}>
-                                        {isRagDocument ? 'Documento RAG' : (selectedResult.type === 'extraction' ? 'Extraccion de Datos' : 'Transcripcion de Texto')} • {new Date(selectedResult.timestamp).toLocaleString()}
+                                        {isRagDocument ? 'Documento RAG' : (selectedResult.type === 'extraction' ? 'Extraccion de Datos' : 'Transcripcion de Texto')} • {new Date(selectedResult.timestamp).toLocaleString(getLanguageByCode(currentLanguage).locale)}
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
@@ -854,7 +859,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                             style={{ backgroundColor: '#dc2626', color: '#ffffff' }}
                                             title="Borrar este resultado"
                                         >
-                                            🗑️ Borrar
+                                            {t('common:buttons.delete')}
                                         </button>
                                     )}
                                 </div>
@@ -902,7 +907,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                                 </svg>
-                                                Ver PDF original
+                                                {t('extraction:results.viewPdfOriginal')}
                                             </a>
                                         </div>
                                     )}
@@ -911,7 +916,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                     <div className="p-4 rounded-lg border" style={{ backgroundColor: isLightMode ? '#f9fafb' : 'rgba(15, 23, 42, 0.5)', borderColor: borderColor }}>
                                         <div className="flex items-center justify-between mb-3">
                                             <h4 className="text-sm font-bold flex items-center gap-2" style={{ color: textColor }}>
-                                                {ragIsImage ? 'Descripcion Visual + OCR (IA)' : 'Texto Extraido (IA)'}
+                                                {ragIsImage ? t('extraction:results.visualDescription') : t('extraction:results.extractedText')}
                                             </h4>
                                             <div className="flex gap-2">
                                                 {!ragEditMode ? (
@@ -920,7 +925,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                                         className="px-3 py-1.5 rounded text-xs font-medium transition-all hover:opacity-90 border"
                                                         style={{ borderColor: borderColor, color: accentColor }}
                                                     >
-                                                        Editar
+                                                        {t('common:buttons.edit')}
                                                     </button>
                                                 ) : (
                                                     <>
@@ -929,7 +934,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                                             className="px-3 py-1.5 rounded text-xs font-medium transition-all hover:opacity-80 border"
                                                             style={{ borderColor: borderColor, color: textSecondary }}
                                                         >
-                                                            Cancelar
+                                                            {t('common:buttons.cancel')}
                                                         </button>
                                                         <button
                                                             onClick={handleSaveRagDescription}
@@ -937,7 +942,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                                             className="px-3 py-1.5 rounded text-xs font-medium text-white transition-all hover:opacity-90 disabled:opacity-50"
                                                             style={{ backgroundColor: '#059669' }}
                                                         >
-                                                            {ragSaving ? 'Guardando...' : 'Guardar y Re-ingestar'}
+                                                            {ragSaving ? t('extraction:results.saving') : t('extraction:results.saveAndReingest')}
                                                         </button>
                                                     </>
                                                 )}
@@ -1043,14 +1048,14 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                 </svg>
-                                                Copiar
+                                                {t('extraction:results.copy')}
                                             </button>
                                         </div>
                                     </div>
 
                                     {/* Texto completo */}
                                     <div>
-                                        <h4 className="text-sm font-bold mb-2" style={{ color: textColor }}>Texto Completo:</h4>
+                                        <h4 className="text-sm font-bold mb-2" style={{ color: textColor }}>{t('extraction:results.fullText')}:</h4>
                                         <div className="p-4 rounded-lg border overflow-auto" style={{ backgroundColor: isLightMode ? '#f9fafb' : 'rgba(15, 23, 42, 0.5)', borderColor: borderColor, maxHeight: '50vh' }}>
                                             <pre className="whitespace-pre-wrap text-sm" style={{ color: isLightMode ? '#334155' : '#cbd5e1' }}>{selectedResult.transcription}</pre>
                                         </div>
@@ -1164,14 +1169,14 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                                 </svg>
-                                                Copiar
+                                                {t('extraction:results.copy')}
                                             </button>
                                         </div>
                                     </div>
 
                                     {/* Datos extraídos con JsonViewer */}
                                     <div>
-                                        <h4 className="text-sm font-bold mb-2" style={{ color: textColor }}>Datos Extraídos:</h4>
+                                        <h4 className="text-sm font-bold mb-2" style={{ color: textColor }}>{t('extraction:results.extractedData')}:</h4>
                                         <div className="p-4 rounded-lg border overflow-x-auto" style={{ backgroundColor: isLightMode ? '#f9fafb' : 'rgba(15, 23, 42, 0.5)', borderColor: borderColor }}>
                                             <JsonViewer data={selectedResult.extractedData} />
                                         </div>
@@ -1184,7 +1189,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                     <div className="flex items-center justify-center h-full p-8 text-center">
                         <div>
                             <div className="text-6xl mb-4">👈</div>
-                            <p className="text-lg font-semibold mb-2" style={{ color: textColor }}>Selecciona un resultado</p>
+                            <p className="text-lg font-semibold mb-2" style={{ color: textColor }}>{t('extraction:results.viewDetails')}</p>
                             <p className="text-sm" style={{ color: textSecondary }}>Haz clic en un archivo de la lista para ver su detalle</p>
                         </div>
                     </div>
@@ -1245,7 +1250,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                             className="px-4 py-2 rounded text-sm font-medium border transition-all hover:opacity-80"
                             style={{ borderColor, color: textSecondary }}
                         >
-                            Cancelar
+                            {t('common:buttons.cancel')}
                         </button>
                         <button
                             onClick={handleRagIngest}
@@ -1253,7 +1258,7 @@ export const EnhancedResultsPage: React.FC<EnhancedResultsPageProps> = ({
                             className="px-4 py-2 rounded text-sm font-medium transition-all hover:opacity-90 disabled:opacity-50"
                             style={{ backgroundColor: accentColor, color: '#ffffff' }}
                         >
-                            {ragIngesting ? 'Guardando...' : 'Guardar'}
+                            {ragIngesting ? t('common:status.processing') : t('common:buttons.save')}
                         </button>
                     </div>
                 </div>

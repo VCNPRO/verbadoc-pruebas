@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../src/contexts/LanguageContext';
+import { getLanguageByCode } from '../src/config/languages';
 import { XIcon } from './Icons';
 
 interface Message {
@@ -12,166 +15,15 @@ interface ChatbotLaiaProps {
     isLightMode?: boolean;
 }
 
-// Base de conocimiento de Laia basada en las guías de usuario completas
-const LAIA_KNOWLEDGE = {
-    greetings: [
-        "¡Hola! Soy Laia, tu asistente virtual de verbadoc pro europa. Mi nombre es de origen griego y significa 'mujer que se expresa con facilidad'. ¿En qué puedo ayudarte hoy?",
-        "¡Bienvenido! Soy Laia, mi nombre es de origen griego y significa 'mujer que se expresa con facilidad'. Estoy aquí para ayudarte con verbadoc pro europa. ¿Qué necesitas saber?",
-    ],
-    whatIsVerbadoc: "**verbadoc pro europa** es una herramienta web profesional que convierte automáticamente documentos no estructurados (PDFs, imágenes, facturas, contratos, etc.) en **datos estructurados** para Excel, bases de datos o sistemas empresariales.\n\n✅ 100% Procesamiento en Europa\n✅ Cumplimiento total GDPR\n✅ Asistente de IA integrado\n✅ Multi-documento inteligente\n✅ Aprende de tus correcciones\n✅ Sin almacenamiento persistente",
-    quickStart: "**INICIO RÁPIDO:**\n\n1️⃣ Sube tu documento (PDF, JPG, PNG)\n2️⃣ Haz clic en '🔍 Clasificar Documento' (Asistente IA)\n3️⃣ La IA configura automáticamente todo\n4️⃣ Haz clic en '🚀 Ejecutar Extracción'\n5️⃣ Valida con '🔍 Validar Datos'\n6️⃣ Exporta en Excel, CSV o JSON\n\n⏱️ Tiempo total: ~15 segundos",
-    aiClassification: "**CLASIFICACIÓN AUTOMÁTICA:**\n\nLa IA analiza visualmente tu documento e identifica el tipo (factura, DNI, contrato, etc.).\n\n✅ Detecta 15+ tipos de documentos\n✅ Configura automáticamente prompt y schema\n✅ Tiempo: 2-5 segundos\n✅ Precisión:\n  • Facturas: 95-98%\n  • DNI/Pasaportes: 90-95%\n  • Contratos: 85-90%\n  • Recetas médicas: 88-92%",
-    aiValidation: "**VALIDACIÓN INTELIGENTE:**\n\nRevisa los datos extraídos para detectar errores.\n\n**Validación Básica (instantánea):**\n✅ Campos vacíos\n✅ Formatos (fechas, emails, CIF/NIF)\n✅ Valores fuera de rango\n\n**Validación Avanzada con IA (2-3 seg):**\n✅ Coherencia matemática (Subtotal + IVA = Total)\n✅ Comparación visual con documento\n✅ Detección OCR mal interpretado\n✅ Sugerencias de corrección",
-    pdfSegmentation: "**SEGMENTACIÓN DE PDFs:**\n\nDetecta múltiples documentos dentro de un mismo PDF.\n\n📄 Funciona con PDFs de 2-50 páginas\n🔍 Identifica cambios de documento\n📊 Extrae cada documento por separado\n⏱️ Tiempo: 10-30 segundos\n\nEjemplo: PDF con 3 facturas → Extrae 3 documentos independientes",
-    templates: "**PLANTILLAS DISPONIBLES:**\n\n📁 **Por Departamento:**\n• Contabilidad: Facturas, gastos, albaranes\n• Finanzas: Informes, estados financieros\n• Marketing: Presupuestos, campañas\n• Legal: Contratos, escrituras\n• RRHH: Nóminas, contratos laborales\n\n✨ **Crear Plantilla Personalizada:**\n1. Panel derecho → 'Mis Modelos'\n2. 'Crear Nueva Plantilla'\n3. Nombre descriptivo\n4. Escribir prompt\n5. Definir campos del schema\n6. Guardar\n\n⚠️ NO uses espacios ni tildes en nombres de campos",
-    models: "**MODELOS DE IA DISPONIBLES:**\n\n🇪🇺 **Genérico** (rápido)\n→ Documentos simples, formularios estándar\n→ Ideal para alto volumen\n→ Tiempo: 3-5 segundos\n\n⭐ **Recomendado** (equilibrado)\n→ Facturas, contratos, informes\n→ Seleccionado por defecto\n→ Tiempo: 5-8 segundos\n\n🚀 **Avanzado** (máxima precisión)\n→ Documentos complejos con múltiples tablas\n→ Para documentos críticos\n→ Tiempo: 10-15 segundos\n\n🇪🇺 Todos procesados en Europa (Brussels, Frankfurt, Dublin)",
-    security: "**SEGURIDAD Y CUMPLIMIENTO:**\n\n🇪🇺 Procesamiento 100% en Europa\n🔒 Cumplimiento RGPD/GDPR\n🏢 Proteccion datos empresariales\n🔐 Cifrado TLS 1.3\n📜 Certificaciones:\n  • ISO 27001 (Seguridad)\n  • ISO 27018 (Privacidad)\n  • SOC 2 Type II\n\n**Headers de seguridad activos:**\n• Content-Security-Policy (CSP)\n• Strict-Transport-Security (HSTS)\n• X-Frame-Options: SAMEORIGIN\n• Rate limiting en endpoints criticos\n\n✅ Tus documentos NO se almacenan\n✅ Procesamiento temporal en memoria\n✅ Borrado automatico tras extraccion",
-    fieldTypes: "**TIPOS DE CAMPOS:**\n\n• **STRING** - Texto (nombre, dirección, código)\n• **NUMBER** - Números (precio, cantidad, porcentaje)\n• **BOOLEAN** - Verdadero/Falso (sí/no, activo/inactivo)\n• **ARRAY** - Lista simple [\"item1\", \"item2\"]\n• **OBJECT** - Objeto anidado {calle: \"\", ciudad: \"\"}\n• **ARRAY_OF_OBJECTS** - Lista de objetos complejos\n\nEjemplo productos:\n```json\n{\n  \"productos\": [\n    {\"nombre\": \"Laptop\", \"precio\": 899, \"cantidad\": 2},\n    {\"nombre\": \"Mouse\", \"precio\": 25, \"cantidad\": 5}\n  ]\n}\n```",
-    batch: "**PROCESAMIENTO EN LOTE:**\n\n1. Sube todos los archivos similares (hasta 50)\n2. Configura schema con el primer documento\n3. Haz clic en 'Procesar Todos' (panel izquierdo)\n4. ¡Todos se procesan automáticamente!\n\n✅ Ahorra tiempo con documentos repetitivos\n✅ Procesa 100 facturas en minutos\n✅ Exporta todo junto a Excel\n\n⏱️ Tiempo: ~5-8 seg por documento",
-    export: "**EXPORTAR RESULTADOS:**\n\n📊 **Excel (.xlsx)** - Recomendado\n→ Análisis de datos\n→ Gráficos y tablas dinámicas\n→ Fórmulas automáticas\n\n📄 **CSV** - Compatible\n→ Hojas de cálculo simples\n→ Importar a otros sistemas\n\n🔧 **JSON** - Técnico\n→ APIs e integraciones\n→ Sistemas empresariales\n→ Bases de datos\n\n📄 **PDF** - Informes\n→ Compartir resultados\n→ Archivo visual",
-    documentTypes: "**TIPOS DE DOCUMENTOS DETECTADOS:**\n\n✅ Facturas comerciales\n✅ Facturas de proveedor\n✅ Albaranes de entrega\n✅ Contratos laborales\n✅ Contratos de arrendamiento\n✅ DNI/NIE (frontal y completo)\n✅ Pasaportes\n✅ Recetas médicas\n✅ Informes médicos\n✅ Análisis clínicos\n✅ Nóminas\n✅ Certificados empresariales\n✅ Certificados académicos\n✅ Escrituras públicas\n✅ Documentos genéricos",
-    tips: "💡 **CONSEJOS ÚTILES:**\n\n✅ Usa SIEMPRE el Asistente IA (Clasificar Documento)\n✅ Valida los datos antes de exportar\n✅ Prueba con 1 doc antes de procesar 100\n✅ Guarda plantillas para reutilizar\n✅ Modelo Recomendado para docs estándar\n✅ Correcciones → El sistema aprende\n\n❌ **EVITA:**\n❌ Mezclar tipos de documentos diferentes\n❌ Prompts vagos tipo 'extrae todo'\n❌ Documentos > 10 MB\n❌ PDFs protegidos con contraseña\n❌ Imágenes muy borrosas",
-    learning: "**SISTEMA DE APRENDIZAJE:**\n\nCada vez que corriges un error, verbadoc pro europa aprende:\n\n✅ Guarda tu corrección\n✅ Detecta patrones de error\n✅ Aplica correcciones futuras automáticamente\n\n**Mejora de precisión esperada:**\n• Mes 1: 85-87%\n• Mes 3: 91-94%\n• Mes 6: 94-97%\n• Mes 12: 97-99%",
-    pricing: "**MODULOS DISPONIBLES:**\n\n📦 Extraccion de Datos: 29€/mes\n📦 Busqueda Semantica (RAG): 19€/mes\n📦 Revision y Validacion: 15€/mes\n📦 Excel Master: 15€/mes\n📦 Procesamiento en Lote: 25€/mes\n📦 Plantillas Personalizadas: 10€/mes\n\n**PAQUETES:**\n• Basico (Extraccion + Excel Master): 44€/mes\n• Profesional (Extraccion + Revision + Excel Master + Lote): 88€/mes\n• Completo (todos los modulos): 113€/mes\n\nContacta al equipo comercial para mas informacion. Visita /pricing para ver todos los detalles.",
-    troubleshooting: "**PROBLEMAS COMUNES:**\n\n❌ **Error 'Archivo muy grande'**\n→ Reduce el tamaño a < 10 MB\n→ Usa herramientas de compresión PDF\n\n❌ **'No se detecta texto'**\n→ Asegúrate que el PDF no sea escaneado en baja calidad\n→ Aumenta resolución de escaneo a 300 DPI\n\n❌ **'Datos extraídos incorrectos'**\n→ Usa Validación Inteligente\n→ Cambia a modelo Avanzado\n→ Revisa y corrige manualmente\n\n❌ **'La extracción tarda mucho'**\n→ Normal: 5-15 segundos\n→ Si > 30 seg, recarga la página",
-    interface: "**INTERFAZ DE verbadoc pro europa:**\n\n📍 **Zona Izquierda:** Subir docs, configurar extracción\n📍 **Zona Central:** Vista previa, editor JSON\n📍 **Zona Derecha:** Asistente IA, Plantillas\n📍 **Zona Superior:** Selector modelo, exportación, ayuda\n\n💬 **Chat con Laia:** Botón flotante (yo!)",
-    rag: "**BUSQUEDA SEMANTICA (RAG):**\n\nEl modulo RAG permite buscar informacion dentro de tus documentos usando preguntas en lenguaje natural.\n\n🔍 Escribe tu pregunta como si hablaras con una persona\n📄 El sistema busca en todos tus documentos procesados\n📊 Resultados ordenados por relevancia\n👁️ Ver PDF original desde los resultados\n📥 Descargar documentos encontrados\n\nAccede desde /rag o el menu de navegacion.\n\n⚠️ Requiere tener el modulo RAG contratado.",
-    folders: "**ORGANIZACION DE DOCUMENTOS:**\n\nLos documentos se organizan automaticamente segun su estado:\n\n📋 **Revision** (/review): Documentos pendientes de validar\n📊 **Excel Master** (/master-excel): Documentos aprobados y consolidados\n⚠️ **No Procesables** (/unprocessable): Documentos que no pudieron procesarse\n\nCada seccion tiene sus propios filtros y busqueda para encontrar documentos rapidamente.",
-    modules: "**MODULOS Y PERMISOS:**\n\nEl sistema funciona con modulos independientes que el administrador asigna a cada usuario:\n\n• **Extraccion**: Extrae datos de documentos (29€/mes)\n• **RAG**: Busqueda semantica sobre documentos (19€/mes)\n• **Revision**: Sistema de revision y validacion (15€/mes)\n• **Excel Master**: Consolidacion en Excel (15€/mes)\n• **Lote**: Procesamiento masivo (25€/mes)\n• **Plantillas**: Plantillas personalizadas (10€/mes)\n\nSi un modulo no esta contratado, el boton aparecera deshabilitado.\nVisita /pricing para ver paquetes y precios.",
-    pdfViewer: "**VISOR DE PDF:**\n\nEl visor PDF integrado permite ver documentos originales junto con los datos extraidos:\n\n📄 Vista lado a lado: PDF + datos editables\n🔍 Zoom y navegacion de paginas\n🎯 Highlights en errores detectados\n✏️ Edicion inline de campos\n📥 Descarga del PDF original\n\nEl visor se usa en:\n• Modal de detalle en Excel Master\n• Panel de Revision de errores\n• Resultados de busqueda RAG",
-    help: "Puedo ayudarte con:\n\n• ¿Que es verbadoc pro europa?\n• Inicio rapido paso a paso\n• Clasificacion automatica de documentos\n• Validacion inteligente de datos\n• Segmentacion de PDFs multi-documento\n• Crear plantillas personalizadas\n• Modelos de IA disponibles\n• Tipos de documentos detectados\n• Tipos de campos del schema\n• Procesamiento en lote\n• Exportar resultados\n• Busqueda semantica (RAG)\n• Modulos y permisos\n• Visor PDF integrado\n• Seguridad y cumplimiento RGPD\n• Sistema de aprendizaje continuo\n• Solucion de problemas\n• Consejos y mejores practicas\n\n¿Sobre que quieres saber mas?",
-};
-
-const findBestResponse = (userMessage: string): string => {
-    const msg = userMessage.toLowerCase();
-
-    // Saludos
-    if (msg.match(/hola|buenos|buenas|hey|hi|saludos/i)) {
-        return LAIA_KNOWLEDGE.greetings[Math.floor(Math.random() * LAIA_KNOWLEDGE.greetings.length)];
-    }
-
-    // ¿Qué es verbadoc?
-    if (msg.match(/qué es|que es|para qué|para que|funciona|sirve/i) && msg.match(/verbadoc/i)) {
-        return LAIA_KNOWLEDGE.whatIsVerbadoc;
-    }
-
-    // Interfaz
-    if (msg.match(/interfaz|pantalla|zona|panel|dónde|donde|cómo navegar/i)) {
-        return LAIA_KNOWLEDGE.interface;
-    }
-
-    // Inicio rápido
-    if (msg.match(/empezar|comenzar|inicio|rápid|quick|start|primeros pasos/i)) {
-        return LAIA_KNOWLEDGE.quickStart;
-    }
-
-    // Clasificación automática
-    if (msg.match(/clasificar|clasificación|detectar tipo|identificar documento|asistente.*ia/i)) {
-        return LAIA_KNOWLEDGE.aiClassification;
-    }
-
-    // Validación
-    if (msg.match(/validar|validación|revisar datos|comprobar|verificar/i)) {
-        return LAIA_KNOWLEDGE.aiValidation;
-    }
-
-    // Segmentación PDF
-    if (msg.match(/segment|multi.*document|múltiples documentos|varios.*pdf|separar.*pdf/i)) {
-        return LAIA_KNOWLEDGE.pdfSegmentation;
-    }
-
-    // Tipos de documentos
-    if (msg.match(/tipos.*documento|qué.*documentos|documentos.*detect|factura|dni|contrato|receta/i) && !msg.match(/campo/i)) {
-        return LAIA_KNOWLEDGE.documentTypes;
-    }
-
-    // Plantillas
-    if (msg.match(/plantilla|template/i) && msg.match(/crear|nueva|hacer|generar|personalizada/i)) {
-        return LAIA_KNOWLEDGE.templates;
-    }
-    if (msg.match(/plantilla|template/i)) {
-        return LAIA_KNOWLEDGE.templates;
-    }
-
-    // Modelos de IA
-    if (msg.match(/modelo|ia|inteligencia|genérico|recomendado|avanzado|cuál.*modelo/i)) {
-        return LAIA_KNOWLEDGE.models;
-    }
-
-    // Seguridad
-    if (msg.match(/seguridad|rgpd|gdpr|cumplimiento|legal|privacidad|europa|certificación|iso/i)) {
-        return LAIA_KNOWLEDGE.security;
-    }
-
-    // Sistema de aprendizaje
-    if (msg.match(/aprend|mejora|precisión|entrena/i)) {
-        return LAIA_KNOWLEDGE.learning;
-    }
-
-    // Tipos de campos
-    if (msg.match(/campo|tipo.*dato|string|number|boolean|array|object|schema/i)) {
-        return LAIA_KNOWLEDGE.fieldTypes;
-    }
-
-    // Lote/Batch
-    if (msg.match(/lote|batch|múltiple|muchos|varios.*documento|masiv/i)) {
-        return LAIA_KNOWLEDGE.batch;
-    }
-
-    // Exportar
-    if (msg.match(/exportar|descargar|guardar|excel|csv|json|pdf.*result/i)) {
-        return LAIA_KNOWLEDGE.export;
-    }
-
-    // RAG / Busqueda semantica
-    if (msg.match(/rag|pregunt.*documento|busca.*natural|busqueda.*semantic/i)) {
-        return LAIA_KNOWLEDGE.rag;
-    }
-
-    // Carpetas / Organizacion
-    if (msg.match(/carpeta|folder|organiz|seccion|donde.*documento/i)) {
-        return LAIA_KNOWLEDGE.folders;
-    }
-
-    // Modulos / Permisos
-    if (msg.match(/modulo|permiso|acceso|contrat.*modulo|desbloque/i)) {
-        return LAIA_KNOWLEDGE.modules;
-    }
-
-    // Visor PDF
-    if (msg.match(/pdf|visor|visualiz|ver.*documento|abrir.*pdf/i)) {
-        return LAIA_KNOWLEDGE.pdfViewer;
-    }
-
-    // Precios
-    if (msg.match(/precio|cost|volumen|plan|cuánto|cuanto|contrat/i)) {
-        return LAIA_KNOWLEDGE.pricing;
-    }
-
-    // Problemas
-    if (msg.match(/problema|error|fallo|no funciona|ayuda.*error|solucion/i)) {
-        return LAIA_KNOWLEDGE.troubleshooting;
-    }
-
-    // Consejos
-    if (msg.match(/consejo|tip|mejor|práctica|recomendación/i)) {
-        return LAIA_KNOWLEDGE.tips;
-    }
-
-    // Ayuda general
-    if (msg.match(/ayuda|help|qué puedes|qué sabes|menú/i)) {
-        return LAIA_KNOWLEDGE.help;
-    }
-
-    // Respuesta por defecto
-    return "Puedo ayudarte con:\n• ¿Qué es verbadoc enterprises?\n• Inicio rápido\n• Clasificación automática\n• Validación de datos\n• Plantillas y modelos de IA\n• Seguridad RGPD\n• Procesamiento en lote\n• Exportar resultados\n• Solución de problemas\n\n¿Sobre qué quieres saber más específicamente?";};
-
 export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false }) => {
+    const { t } = useTranslation('chatbot');
+    const { currentLanguage } = useLanguage();
+
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
         {
             id: '1',
-            text: '¡Hola! Soy Laia, tu asistente de verbadoc enterprises 🇪🇺\n\nMi nombre es de origen griego y significa "mujer que se expresa con facilidad".\n\nPuedo ayudarte con:\n✨ Inicio rápido\n🤖 Asistente de IA\n📋 Plantillas y modelos\n🔒 Seguridad RGPD\n📊 Exportar resultados\n🛠️ Solución de problemas\n\n¿En qué puedo ayudarte hoy?',
+            text: '',
             sender: 'laia',
             timestamp: new Date()
         }
@@ -189,31 +41,173 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
+    // Update initial message when language changes
+    useEffect(() => {
+        setMessages(prev => {
+            const updated = [...prev];
+            if (updated.length > 0 && updated[0].id === '1') {
+                updated[0] = {
+                    ...updated[0],
+                    text: t('ui.initialMessage')
+                };
+            }
+            return updated;
+        });
+    }, [currentLanguage, t]);
+
+    const findBestResponse = (userMessage: string): string => {
+        const msg = userMessage.toLowerCase();
+
+        // Saludos / Greetings
+        if (msg.match(new RegExp(t('patterns.greetings'), 'i'))) {
+            const greetings = t('knowledge.greetings', { returnObjects: true }) as string[];
+            return greetings[Math.floor(Math.random() * greetings.length)];
+        }
+
+        // What is verbadoc?
+        if (msg.match(new RegExp(t('patterns.whatIsVerbadoc'), 'i')) && msg.match(new RegExp(t('patterns.verbadoc'), 'i'))) {
+            return t('knowledge.whatIsVerbadoc');
+        }
+
+        // Interface
+        if (msg.match(new RegExp(t('patterns.interface'), 'i'))) {
+            return t('knowledge.interface');
+        }
+
+        // Quick start
+        if (msg.match(new RegExp(t('patterns.quickStart'), 'i'))) {
+            return t('knowledge.quickStart');
+        }
+
+        // AI Classification
+        if (msg.match(new RegExp(t('patterns.aiClassification'), 'i'))) {
+            return t('knowledge.aiClassification');
+        }
+
+        // Validation
+        if (msg.match(new RegExp(t('patterns.validation'), 'i'))) {
+            return t('knowledge.aiValidation');
+        }
+
+        // PDF Segmentation
+        if (msg.match(new RegExp(t('patterns.pdfSegmentation'), 'i'))) {
+            return t('knowledge.pdfSegmentation');
+        }
+
+        // Document types (but not field types)
+        if (msg.match(new RegExp(t('patterns.documentTypes'), 'i')) && !msg.match(new RegExp(t('patterns.fieldTypes'), 'i'))) {
+            return t('knowledge.documentTypes');
+        }
+
+        // Templates (create)
+        if (msg.match(new RegExp(t('patterns.templates'), 'i')) && msg.match(new RegExp(t('patterns.templatesCreate'), 'i'))) {
+            return t('knowledge.templates');
+        }
+        // Templates (general)
+        if (msg.match(new RegExp(t('patterns.templates'), 'i'))) {
+            return t('knowledge.templates');
+        }
+
+        // AI Models
+        if (msg.match(new RegExp(t('patterns.models'), 'i'))) {
+            return t('knowledge.models');
+        }
+
+        // Security
+        if (msg.match(new RegExp(t('patterns.security'), 'i'))) {
+            return t('knowledge.security');
+        }
+
+        // Learning system
+        if (msg.match(new RegExp(t('patterns.learning'), 'i'))) {
+            return t('knowledge.learning');
+        }
+
+        // Field types
+        if (msg.match(new RegExp(t('patterns.fieldTypes'), 'i'))) {
+            return t('knowledge.fieldTypes');
+        }
+
+        // Batch processing
+        if (msg.match(new RegExp(t('patterns.batch'), 'i'))) {
+            return t('knowledge.batch');
+        }
+
+        // Export
+        if (msg.match(new RegExp(t('patterns.export'), 'i'))) {
+            return t('knowledge.export');
+        }
+
+        // RAG / Semantic search
+        if (msg.match(new RegExp(t('patterns.rag'), 'i'))) {
+            return t('knowledge.rag');
+        }
+
+        // Folders / Organization
+        if (msg.match(new RegExp(t('patterns.folders'), 'i'))) {
+            return t('knowledge.folders');
+        }
+
+        // Modules / Permissions
+        if (msg.match(new RegExp(t('patterns.modulesPermissions'), 'i'))) {
+            return t('knowledge.modules');
+        }
+
+        // PDF Viewer
+        if (msg.match(new RegExp(t('patterns.pdfViewer'), 'i'))) {
+            return t('knowledge.pdfViewer');
+        }
+
+        // Pricing
+        if (msg.match(new RegExp(t('patterns.pricing'), 'i'))) {
+            return t('knowledge.pricing');
+        }
+
+        // Troubleshooting
+        if (msg.match(new RegExp(t('patterns.troubleshooting'), 'i'))) {
+            return t('knowledge.troubleshooting');
+        }
+
+        // Tips
+        if (msg.match(new RegExp(t('patterns.tips'), 'i'))) {
+            return t('knowledge.tips');
+        }
+
+        // Help
+        if (msg.match(new RegExp(t('patterns.help'), 'i'))) {
+            return t('knowledge.help');
+        }
+
+        // Default response
+        return t('knowledge.defaultResponse');
+    };
+
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // Cargar voces disponibles
+    // Load available voices based on current language
     useEffect(() => {
         const loadVoices = () => {
+            const langConfig = getLanguageByCode(currentLanguage);
             const voices = speechSynthesis.getVoices();
-            const spanishVoices = voices.filter(v => v.lang.includes('es'));
-            setAvailableVoices(spanishVoices.length > 0 ? spanishVoices : voices);
+            const langVoices = voices.filter(v => v.lang.includes(langConfig.locale.split('-')[0]));
+            setAvailableVoices(langVoices.length > 0 ? langVoices : voices);
 
-            // Seleccionar voz por defecto en español
-            if (!voiceSettings.voiceName && spanishVoices.length > 0) {
+            // Select default voice for the current language
+            if (!voiceSettings.voiceName && langVoices.length > 0) {
                 setVoiceSettings(prev => ({
                     ...prev,
-                    voiceName: spanishVoices[0].name
+                    voiceName: langVoices[0].name
                 }));
             }
         };
 
         loadVoices();
         speechSynthesis.onvoiceschanged = loadVoices;
-    }, []);
+    }, [currentLanguage]);
 
-    // Cargar preferencias guardadas
+    // Load saved preferences
     useEffect(() => {
         const saved = localStorage.getItem('laia-voice-settings');
         if (saved) {
@@ -221,12 +215,12 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                 const parsed = JSON.parse(saved);
                 setVoiceSettings(parsed);
             } catch (e) {
-                console.error('Error cargando preferencias de voz:', e);
+                console.error('Error loading voice preferences:', e);
             }
         }
     }, []);
 
-    // Guardar preferencias cuando cambian
+    // Save preferences when they change
     useEffect(() => {
         localStorage.setItem('laia-voice-settings', JSON.stringify(voiceSettings));
     }, [voiceSettings]);
@@ -235,71 +229,70 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
         scrollToBottom();
     }, [messages]);
 
-    // Función para limpiar texto de emojis y caracteres especiales
+    // Clean text of emojis and special characters for speech
     const cleanTextForSpeech = (text: string): string => {
         let cleaned = text;
 
-        // Eliminar emojis y símbolos unicode
+        // Remove emojis and unicode symbols
         cleaned = cleaned.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F000}-\u{1F02F}]|[\u{1F0A0}-\u{1F0FF}]|[\u{1F100}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{1F910}-\u{1F96B}]|[\u{1F980}-\u{1F9E0}]/gu, '');
 
-        // Eliminar números con keycaps (1️⃣, 2️⃣, etc.)
+        // Remove keycap numbers
         cleaned = cleaned.replace(/[\u{0030}\u{0031}\u{0032}\u{0033}\u{0034}\u{0035}\u{0036}\u{0037}\u{0038}\u{0039}][\u{FE0F}]?[\u{20E3}]/gu, '');
 
-        // Eliminar variation selectors
+        // Remove variation selectors
         cleaned = cleaned.replace(/[\u{FE00}-\u{FE0F}]/gu, '');
 
-        // Eliminar barras "/" cuando son parte de opciones (a/o, Bienvenido/a, etc.)
+        // Remove slashes when part of options
         cleaned = cleaned.replace(/(\w+)\/(\w+)/g, '$1');
 
-        // Eliminar bullets y otros símbolos especiales
+        // Remove bullets and special symbols
         cleaned = cleaned.replace(/[•◦▪▫●○■□▶►→⇒←↑↓]/g, '');
 
-        // Eliminar markdown básico
-        cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1'); // **bold**
-        cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');     // *italic*
-        cleaned = cleaned.replace(/`(.*?)`/g, '$1');       // `code`
-        cleaned = cleaned.replace(/_{2,}/g, '');           // ___
-        cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1'); // [text](url)
+        // Remove basic markdown
+        cleaned = cleaned.replace(/\*\*(.*?)\*\*/g, '$1');
+        cleaned = cleaned.replace(/\*(.*?)\*/g, '$1');
+        cleaned = cleaned.replace(/`(.*?)`/g, '$1');
+        cleaned = cleaned.replace(/_{2,}/g, '');
+        cleaned = cleaned.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 
-        // Convertir saltos de línea en pausas naturales
-        // Doble salto de línea → pausa más larga (. )
+        // Convert line breaks to natural pauses
         cleaned = cleaned.replace(/\n\n+/g, '. ');
-        // Salto de línea simple → pausa corta (, )
         cleaned = cleaned.replace(/\n/g, ', ');
 
-        // Limpiar múltiples espacios
+        // Clean multiple spaces
         cleaned = cleaned.replace(/\s{2,}/g, ' ');
 
-        // Limpiar puntuación duplicada
+        // Clean duplicate punctuation
         cleaned = cleaned.replace(/[.,]{2,}/g, '.');
 
-        // Limpiar espacios al inicio y final
+        // Trim
         cleaned = cleaned.trim();
 
         return cleaned;
     };
 
-    // Función para hablar
+    // Speak function using current language locale
     const speak = (text: string) => {
         if (!('speechSynthesis' in window)) {
-            console.warn('Speech Synthesis no soportado en este navegador');
+            console.warn('Speech Synthesis not supported in this browser');
             return;
         }
 
         if (!voiceSettings.enabled) return;
 
-        // Cancelar cualquier speech en progreso
+        // Cancel any speech in progress
         speechSynthesis.cancel();
 
-        // Limpiar el texto de emojis y caracteres especiales
+        // Clean text of emojis and special characters
         const cleanedText = cleanTextForSpeech(text);
 
+        const langConfig = getLanguageByCode(currentLanguage);
         const utterance = new SpeechSynthesisUtterance(cleanedText);
-        utterance.lang = 'es-ES';
+        utterance.lang = langConfig.locale;
         utterance.rate = voiceSettings.rate;
         utterance.pitch = voiceSettings.pitch;
 
-        // Seleccionar voz
+        // Select voice
         const selectedVoice = availableVoices.find(v => v.name === voiceSettings.voiceName);
         if (selectedVoice) {
             utterance.voice = selectedVoice;
@@ -312,7 +305,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
         speechSynthesis.speak(utterance);
     };
 
-    // Función para detener el habla
+    // Stop speaking
     const stopSpeaking = () => {
         speechSynthesis.cancel();
         setIsSpeaking(false);
@@ -321,7 +314,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
     const handleSend = () => {
         if (!inputValue.trim()) return;
 
-        // Agregar mensaje del usuario
+        // Add user message
         const userMessage: Message = {
             id: Date.now().toString(),
             text: inputValue,
@@ -333,7 +326,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
         setInputValue('');
         setIsTyping(true);
 
-        // Simular respuesta de Laia con delay
+        // Simulate Laia response with delay
         setTimeout(() => {
             const response = findBestResponse(inputValue);
             const laiaMessage: Message = {
@@ -345,7 +338,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
             setMessages(prev => [...prev, laiaMessage]);
             setIsTyping(false);
 
-            // Hablar la respuesta si está activado
+            // Speak response if enabled
             speak(response);
         }, 800);
     };
@@ -366,13 +359,13 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
 
     return (
         <>
-            {/* Botón flotante */}
+            {/* Floating button */}
             {!isOpen && (
                 <button
                     onClick={() => setIsOpen(true)}
                     className="fixed bottom-6 right-6 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center z-50 transition-all hover:scale-110"
                     style={{ backgroundColor: accentColor }}
-                    title="Chat con Laia"
+                    title={t('ui.open')}
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
@@ -381,7 +374,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                 </button>
             )}
 
-            {/* Ventana de chat */}
+            {/* Chat window */}
             {isOpen && (
                 <div
                     className="fixed bottom-6 right-6 w-96 h-[600px] rounded-2xl shadow-2xl flex flex-col z-50 border-2"
@@ -397,12 +390,12 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                 L
                             </div>
                             <div>
-                                <h3 className="font-bold text-white">Laia</h3>
-                                <p className="text-xs text-white/80">Asistente Virtual</p>
+                                <h3 className="font-bold text-white">{t('ui.title')}</h3>
+                                <p className="text-xs text-white/80">{t('ui.subtitle')}</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            {/* Botón Toggle Voz */}
+                            {/* Voice Toggle Button */}
                             <button
                                 onClick={() => {
                                     if (isSpeaking) {
@@ -412,7 +405,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                     }
                                 }}
                                 className="p-2 hover:bg-white/20 rounded transition-colors"
-                                title={voiceSettings.enabled ? 'Desactivar voz' : 'Activar voz'}
+                                title={voiceSettings.enabled ? t('ui.stopSpeaking') : t('ui.voiceEnabled')}
                             >
                                 {isSpeaking ? (
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -430,11 +423,11 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                 )}
                             </button>
 
-                            {/* Botón Configuración */}
+                            {/* Settings Button */}
                             <button
                                 onClick={() => setShowVoiceSettings(!showVoiceSettings)}
                                 className="p-2 hover:bg-white/20 rounded transition-colors"
-                                title="Configuración de voz"
+                                title={t('ui.voiceSettings')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -442,24 +435,25 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                 </svg>
                             </button>
 
-                            {/* Botón Cerrar */}
+                            {/* Close Button */}
                             <button
                                 onClick={() => setIsOpen(false)}
                                 className="p-1 hover:bg-white/20 rounded transition-colors"
+                                title={t('ui.close')}
                             >
                                 <XIcon className="w-6 h-6 text-white" />
                             </button>
                         </div>
                     </div>
 
-                    {/* Menú de Configuración de Voz */}
+                    {/* Voice Settings Menu */}
                     {showVoiceSettings && (
                         <div className="p-4 border-b" style={{ backgroundColor: isLightMode ? '#f9fafb' : '#0f172a', borderColor }}>
-                            <h4 className="text-sm font-semibold mb-3" style={{ color: textColor }}>⚙️ Configuración de Voz</h4>
+                            <h4 className="text-sm font-semibold mb-3" style={{ color: textColor }}>{t('ui.voiceSettings')}</h4>
 
-                            {/* Toggle Activar */}
+                            {/* Toggle Enable */}
                             <div className="flex items-center justify-between mb-3">
-                                <span className="text-sm" style={{ color: textColor }}>Activar voz</span>
+                                <span className="text-sm" style={{ color: textColor }}>{t('ui.voiceEnabled')}</span>
                                 <button
                                     onClick={() => setVoiceSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
                                     className="relative w-12 h-6 rounded-full transition-colors"
@@ -472,9 +466,9 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                 </button>
                             </div>
 
-                            {/* Selector de Voz */}
+                            {/* Voice Selector */}
                             <div className="mb-3">
-                                <label className="text-xs mb-1 block" style={{ color: textColor }}>Voz:</label>
+                                <label className="text-xs mb-1 block" style={{ color: textColor }}>{t('ui.voiceSelect')}:</label>
                                 <select
                                     value={voiceSettings.voiceName}
                                     onChange={(e) => setVoiceSettings(prev => ({ ...prev, voiceName: e.target.value }))}
@@ -482,18 +476,22 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                     style={{ backgroundColor: bgColor, borderColor, color: textColor }}
                                     disabled={!voiceSettings.enabled}
                                 >
-                                    {availableVoices.map(voice => (
-                                        <option key={voice.name} value={voice.name}>
-                                            {voice.name} {voice.lang.includes('es') ? '🇪🇸' : ''}
-                                        </option>
-                                    ))}
+                                    {availableVoices.length > 0 ? (
+                                        availableVoices.map(voice => (
+                                            <option key={voice.name} value={voice.name}>
+                                                {voice.name} ({voice.lang})
+                                            </option>
+                                        ))
+                                    ) : (
+                                        <option>{t('ui.noVoices')}</option>
+                                    )}
                                 </select>
                             </div>
 
-                            {/* Control de Velocidad */}
+                            {/* Speed Control */}
                             <div>
                                 <label className="text-xs mb-1 block" style={{ color: textColor }}>
-                                    Velocidad: {voiceSettings.rate.toFixed(1)}x
+                                    {t('ui.voiceRate')}: {voiceSettings.rate.toFixed(1)}x
                                 </label>
                                 <input
                                     type="range"
@@ -505,11 +503,6 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                     className="w-full"
                                     disabled={!voiceSettings.enabled}
                                 />
-                                <div className="flex justify-between text-xs mt-1" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
-                                    <span>Lento</span>
-                                    <span>Normal</span>
-                                    <span>Rápido</span>
-                                </div>
                             </div>
                         </div>
                     )}
@@ -533,7 +526,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                 >
                                     <p className="text-sm whitespace-pre-line">{message.text}</p>
                                     <p className="text-xs mt-1 opacity-70">
-                                        {message.timestamp.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+                                        {message.timestamp.toLocaleTimeString(getLanguageByCode(currentLanguage).locale, { hour: '2-digit', minute: '2-digit' })}
                                     </p>
                                 </div>
                             </div>
@@ -567,7 +560,7 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                 value={inputValue}
                                 onChange={(e) => setInputValue(e.target.value)}
                                 onKeyPress={handleKeyPress}
-                                placeholder="Escribe tu pregunta..."
+                                placeholder={t('ui.inputPlaceholder')}
                                 className="flex-1 px-4 py-2 rounded-full border-2 focus:outline-none transition-colors"
                                 style={{
                                     backgroundColor: isLightMode ? '#f9fafb' : '#0f172a',
@@ -580,15 +573,13 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
                                 disabled={!inputValue.trim()}
                                 className="w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{ backgroundColor: accentColor }}
+                                title={t('ui.send')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                                 </svg>
                             </button>
                         </div>
-                        <p className="text-xs mt-2 text-center" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
-                            Laia está aquí para ayudarte 🇪🇺
-                        </p>
                     </div>
                 </div>
             )}

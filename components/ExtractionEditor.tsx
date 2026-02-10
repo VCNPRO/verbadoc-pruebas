@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 // Fix: Use explicit file extension in import.
 import type { UploadedFile, SchemaField } from '../types.ts';
 // Fix: Use explicit file extension in import.
@@ -49,6 +50,7 @@ const EXAMPLE_SCHEMA: SchemaField[] = [
 
 
 export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, template, onUpdateTemplate, onSaveTemplateChanges, schema, setSchema, prompt, setPrompt, onExtract, isLoading, onBarcodeRead, isBarcodeReading, theme, isLightMode }) => {
+    const { t } = useTranslation(['extraction', 'common']);
     const [selectedModel, setSelectedModel] = useState<GeminiModel>('gemini-3-flash-preview');
     const [isSearchingImage, setIsSearchingImage] = useState(false);
     const [imageSearchResult, setImageSearchResult] = useState<any>(null);
@@ -121,7 +123,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
             const result = await searchImageInDocument(file.file, referenceImage, modelId);
             setImageSearchResult(result);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+            const errorMessage = error instanceof Error ? error.message : t('common:messages.errorUnknown');
             setImageSearchResult({
                 found: false,
                 description: `Error: ${errorMessage}`
@@ -147,7 +149,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
 
     const handleGenerateSchema = async () => {
         if (!prompt.trim()) {
-            alert('Por favor, escribe primero un prompt describiendo qué datos quieres extraer.');
+            alert(t('extraction:editor.writePromptFirst'));
             return;
         }
 
@@ -156,8 +158,8 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
             const generatedFields = await generateSchemaFromPrompt(prompt, selectedModel);
             setSchema(generatedFields);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-            alert(`Error al generar campos: ${errorMessage}`);
+            const errorMessage = error instanceof Error ? error.message : t('common:messages.errorUnknown');
+            alert(t('extraction:editor.generateError', { message: errorMessage }));
         } finally {
             setIsGeneratingSchema(false);
         }
@@ -169,15 +171,14 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
         // Si es una plantilla predefinida (no custom), preguntar si quiere guardar como copia
         if (!template.custom) {
             const saveCopy = confirm(
-                `"${template.name}" es una plantilla predefinida y no se puede modificar directamente.\n\n` +
-                `¿Deseas guardar una copia personalizada con tus cambios?`
+                t('extraction:editor.predefinedTemplateWarning', { name: template.name })
             );
             if (!saveCopy) return;
         }
 
         console.log('💾 Guardando cambios en plantilla:', template.id, template.name);
         onSaveTemplateChanges(template.id, prompt, schema);
-        alert(`✅ Cambios guardados en la plantilla "${template.name}"`);
+        alert(t('extraction:editor.changesSaved', { name: template.name }));
     };
 
     // Si no hay archivo, pero hay plantilla seleccionada, mostrar la plantilla
@@ -193,9 +194,9 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                 }}
             >
                 <CubeIcon className="w-16 h-16 mb-4" style={{ color: textSecondary }} />
-                <h3 className="text-xl font-semibold" style={{ color: textColor }}>Seleccione una plantilla o archivo</h3>
+                <h3 className="text-xl font-semibold" style={{ color: textColor }}>{t('extraction:editor.selectTemplate')}</h3>
                 <p className="max-w-sm mx-auto mt-1" style={{ color: textSecondary }}>
-                    Elija una plantilla del panel derecho para ver su estructura, o suba un documento del panel izquierdo para comenzar la extracción.
+                    {t('extraction:editor.selectTemplateDesc')}
                 </p>
             </div>
         );
@@ -214,15 +215,15 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
             <div className="p-4 md:p-6 border-b transition-colors duration-500" style={{ borderBottomColor: borderColor }}>
                 <h2 className="text-lg font-semibold mb-1" style={{ color: textColor }}>
                     {showTemplatePreview ? (
-                        <>Vista Previa de Plantilla: <span className="font-normal" style={{ color: accentColor }}>{template?.name || 'Sin nombre'}</span></>
+                        <>{t('extraction:editor.templatePreview')}: <span className="font-normal" style={{ color: accentColor }}>{template?.name || t('extraction:editor.noName')}</span></>
                     ) : (
-                        <>Editor de Extracción: <span className="font-normal" style={{ color: accentColor }}>{file?.file?.name || 'Sin nombre'}</span></>
+                        <>{t('extraction:editor.title')}: <span className="font-normal" style={{ color: accentColor }}>{file?.file?.name || t('extraction:editor.noName')}</span></>
                     )}
                 </h2>
                 <p className="text-sm" style={{ color: textSecondary }}>
                     {showTemplatePreview
-                        ? 'Revise la estructura de esta plantilla. Suba un documento para usarla en la extracción.'
-                        : 'Defina la estructura de datos que desea extraer del documento.'}
+                        ? t('extraction:editor.templatePreviewDesc')
+                        : t('extraction:editor.editorDesc')}
                 </p>
             </div>
 
@@ -238,13 +239,13 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" style={{ color: accentColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                 </svg>
-                                1. Prompt (Instrucción)
+                                {t('extraction:editor.promptSection')}
                             </label>
                             <span className="text-xs px-2 py-0.5 rounded font-medium" style={{
                                 backgroundColor: isLightMode ? '#dbeafe' : 'rgba(6, 182, 212, 0.2)',
                                 color: isLightMode ? '#1e3a8a' : '#22d3ee'
                             }}>
-                                Editable ✏️
+                                {t('extraction:editor.editable')} ✏️
                             </span>
                         </div>
                         <svg
@@ -274,7 +275,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                                     borderColor: isLightMode ? '#d1d5db' : '#475569',
                                     color: textColor
                                 }}
-                                placeholder="Ej: Extrae del informe médico: nombre del paciente, fecha de consulta, diagnóstico principal y tratamiento prescrito."
+                                placeholder={t('extraction:editor.promptPlaceholder')}
                             />
                         </>
                     )}
@@ -282,7 +283,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
 
                 <div>
                     <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-base font-medium" style={{ color: textColor }}>2. Definición del Esquema JSON</h3>
+                        <h3 className="text-base font-medium" style={{ color: textColor }}>{t('extraction:editor.schemaSection')}</h3>
                         {!(template && 'secciones' in template) && (
                             <button
                                 onClick={handleGenerateSchema}
@@ -299,12 +300,12 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
-                                        Generando...
+                                        {t('extraction:editor.generating')}
                                     </>
                                 ) : (
                                     <>
                                         <SparklesIcon className="w-3.5 h-3.5" />
-                                        Generar Campos desde Prompt
+                                        {t('extraction:editor.generateFromPrompt')}
                                     </>
                                 )}
                             </button>
@@ -327,7 +328,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" style={{ color: accentColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            3. Búsqueda de Imágenes/Logos (Opcional)
+                            {t('extraction:editor.imageSearchSection')}
                         </h3>
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -369,17 +370,17 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                                         )}
                                         <div className="flex-1">
                                             <h4 className="text-sm font-semibold mb-1" style={{ color: imageSearchResult.found ? '#22c55e' : textColor }}>
-                                                {imageSearchResult.found ? '✓ Imagen encontrada' : 'Imagen no encontrada'}
+                                                {imageSearchResult.found ? `✓ ${t('extraction:editor.imageFound')}` : t('extraction:editor.imageNotFound')}
                                             </h4>
                                             <p className="text-sm mb-2" style={{ color: textColor }}>{imageSearchResult.description}</p>
                                             {imageSearchResult.location && (
                                                 <p className="text-xs" style={{ color: textSecondary }}>
-                                                    <span className="font-medium">Ubicación:</span> {imageSearchResult.location}
+                                                    <span className="font-medium">{t('extraction:editor.location')}:</span> {imageSearchResult.location}
                                                 </p>
                                             )}
                                             {imageSearchResult.confidence && (
                                                 <p className="text-xs" style={{ color: textSecondary }}>
-                                                    <span className="font-medium">Confianza:</span> {imageSearchResult.confidence}
+                                                    <span className="font-medium">{t('extraction:editor.confidence')}:</span> {imageSearchResult.confidence}
                                                 </p>
                                             )}
                                         </div>
@@ -408,7 +409,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
                         </svg>
-                        {hasTemplateChanges ? 'Guardar Cambios en Plantilla' : 'Guardar como Nueva Plantilla'}
+                        {hasTemplateChanges ? t('extraction:editor.saveChanges') : t('extraction:editor.saveAsNew')}
                     </button>
                 )}
 
@@ -425,14 +426,14 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                         {isBarcodeReading ? (
                             <>
                                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                Leyendo Códigos...
+                                {t('extraction:editor.readingBarcodeQR')}
                             </>
                         ) : (
                             <>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                 </svg>
-                                Leer Códigos QR/Barras
+                                {t('extraction:editor.readBarcodeQR')}
                             </>
                         )}
                     </button>
@@ -449,16 +450,16 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
                     {isLoading ? (
                         <>
                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                            Extrayendo Datos con {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name}...
+                            {t('extraction:editor.extractingWith', { model: AVAILABLE_MODELS.find(m => m.id === selectedModel)?.name })}
                         </>
                     ) : (
-                        `Ejecutar Extracción con Plantilla`
+                        t('extraction:editor.runExtraction')
                     )}
                 </button>
                 {hasSchemaErrors && (
                     <p className="text-xs text-red-400 mt-2 text-center flex items-center justify-center gap-1">
                         <ExclamationTriangleIcon className="w-4 h-4" />
-                        Corrija los errores en los nombres de los campos del esquema para continuar.
+                        {t('extraction:editor.schemaErrors')}
                     </p>
                 )}
             </div>
@@ -466,7 +467,7 @@ export const ExtractionEditor: React.FC<ExtractionEditorProps> = ({ file, templa
             {/* Visor PDF y botones de exportación movidos a la pestaña "Resultados de Extracción" */}
              {file?.error && (
                 <div className="border-t p-4 md:p-6 transition-colors duration-500" style={{ borderTopColor: borderColor }}>
-                    <h3 className="text-base font-medium text-red-400 mb-2">Error de Extracción</h3>
+                    <h3 className="text-base font-medium text-red-400 mb-2">{t('extraction:editor.extractionError')}</h3>
                     <p className="text-sm bg-red-900/30 p-3 rounded-md text-red-300">{file.error}</p>
                 </div>
             )}

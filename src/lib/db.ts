@@ -8,6 +8,7 @@ export interface User {
   role: 'user' | 'admin' | 'reviewer';
   client_id?: number; // ID corto de 4 cifras
   company_name?: string | null;
+  preferred_language?: string;
   created_at: Date;
   updated_at: Date;
 }

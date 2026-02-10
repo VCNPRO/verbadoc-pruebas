@@ -1,0 +1,73 @@
+{
+  "title": "User Guide",
+  "subtitle": "Learn how to use VerbadocPro Europa",
+  "back": "Back",
+  "quickGuide": {
+    "title": "Quick Guide",
+    "step1": {
+      "title": "Upload documents",
+      "description": "Drag and drop your PDFs or images into the upload area"
+    },
+    "step2": {
+      "title": "Extract data",
+      "description": "Select the files and click 'Extract all'"
+    },
+    "step3": {
+      "title": "Review results",
+      "description": "Verify the extracted data in the Results section"
+    },
+    "step4": {
+      "title": "Export",
+      "description": "Export the data in Excel, JSON, or PDF format"
+    }
+  },
+  "sections": {
+    "extraction": {
+      "title": "Data Extraction",
+      "description": "VerbadocPro uses AI to extract data from PDF and scanned documents.",
+      "features": [
+        "Automatic extraction with configurable schemas",
+        "Support for PDFs, images, and scanned documents",
+        "Batch processing (up to 10 simultaneous)",
+        "Automatic document type detection"
+      ]
+    },
+    "rag": {
+      "title": "RAG Library",
+      "description": "Upload documents and query their content using natural language.",
+      "features": [
+        "AI-powered semantic search",
+        "Folder organization",
+        "Multilingual support",
+        "Voice recognition"
+      ]
+    },
+    "review": {
+      "title": "Review and Validation",
+      "description": "Review, edit, and validate extracted data before exporting.",
+      "features": [
+        "Automatic cross-validation",
+        "Individual field editing",
+        "Approval/rejection workflow",
+        "Change history"
+      ]
+    },
+    "chatbot": {
+      "title": "Chatbot Laia",
+      "description": "Virtual assistant that helps you with any questions about the platform."
+    }
+  },
+  "faq": {
+    "title": "Frequently Asked Questions",
+    "q1": "What file formats are supported?",
+    "a1": "VerbadocPro supports PDF, JPG, PNG, and JSON. Scanned files are processed with OCR.",
+    "q2": "How many files can I process at once?",
+    "a2": "You can process up to 10 files simultaneously in batch.",
+    "q3": "How does the RAG Library work?",
+    "a3": "Upload documents to the library and query their content with natural language questions. The AI searches the content and generates contextualized answers.",
+    "q4": "Can I use voice recognition?",
+    "a4": "Yes, you can ask questions by voice in the RAG Library and with the Chatbot Laia.",
+    "q5": "Is my data secure?",
+    "a5": "Yes, all data is stored securely with encryption and user-controlled access."
+  }
+}

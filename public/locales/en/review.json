@@ -1,0 +1,58 @@
+{
+  "list": {
+    "title": "Extraction Review",
+    "subtitle": "Review and validate the data extracted from documents",
+    "filters": {
+      "all": "All",
+      "pending": "Pending",
+      "valid": "Valid",
+      "rejected": "Rejected",
+      "needsReview": "Needs review"
+    },
+    "table": {
+      "filename": "File",
+      "date": "Date",
+      "status": "Status",
+      "confidence": "Confidence",
+      "actions": "Actions",
+      "model": "Model",
+      "noData": "No extractions to display"
+    },
+    "stats": {
+      "total": "Total",
+      "needsReview": "Needs review",
+      "valid": "Valid",
+      "rejected": "Rejected"
+    },
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "review": "Review",
+      "delete": "Delete",
+      "viewPdf": "View PDF",
+      "exportExcel": "Export Excel",
+      "approveAll": "Approve all",
+      "rejectAll": "Reject all"
+    },
+    "back": "Back to home"
+  },
+  "panel": {
+    "title": "Review Details",
+    "original": "Original Data",
+    "edited": "Edited Data",
+    "fieldName": "Field",
+    "value": "Value",
+    "confidence": "Confidence",
+    "editField": "Edit field",
+    "saveChanges": "Save changes",
+    "discardChanges": "Discard changes",
+    "approve": "Approve extraction",
+    "reject": "Reject extraction",
+    "rejectReason": "Rejection reason",
+    "rejectReasonPlaceholder": "Enter the reason for rejection...",
+    "validationErrors": "Validation errors",
+    "noErrors": "No validation errors",
+    "crossValidation": "Cross validation",
+    "history": "Change history"
+  }
+}

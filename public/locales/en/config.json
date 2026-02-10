@@ -1,0 +1,37 @@
+{
+  "title": "Settings",
+  "tabs": {
+    "general": "General",
+    "appearance": "Appearance",
+    "modules": "Modules",
+    "logs": "Logs"
+  },
+  "general": {
+    "language": "Interface language",
+    "notifications": "Notifications",
+    "autoSave": "Auto save"
+  },
+  "appearance": {
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode",
+    "theme": "Theme",
+    "fontSize": "Font size"
+  },
+  "modules": {
+    "title": "Active modules",
+    "extraction": "Data extraction",
+    "rag": "RAG Library",
+    "review": "Review",
+    "masterExcel": "Excel Master",
+    "chatbot": "Chatbot Laia"
+  },
+  "logs": {
+    "title": "Activity logs",
+    "noLogs": "No logs available",
+    "date": "Date",
+    "action": "Action",
+    "user": "User",
+    "details": "Details",
+    "clear": "Clear logs"
+  }
+}

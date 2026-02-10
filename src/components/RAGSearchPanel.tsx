@@ -7,6 +7,9 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 import { PdfViewerOptimized } from './PdfViewerOptimized';
 
 interface RAGSearchPanelProps {
@@ -25,6 +28,8 @@ interface RAGSource {
 
 export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelProps) {
   const navigate = useNavigate();
+  const { t } = useTranslation('rag');
+  const { currentLanguage } = useLanguage();
 
   const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
   const bgCard = isDarkMode ? 'bg-[#1e293b]' : 'bg-white';
@@ -60,12 +65,12 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ query: query.trim() })
+        body: JSON.stringify({ query: query.trim(), language: currentLanguage })
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error en la busqueda');
+        throw new Error(data.error || t('search.searchError'));
       }
 
       const data = await response.json();
@@ -94,7 +99,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
       document.body.removeChild(a);
     } catch (err) {
       console.error('Error downloading:', err);
-      alert('Error al descargar el archivo.');
+      alert(t('search.downloadError'));
     }
   };
 
@@ -109,10 +114,10 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
           <div className="flex items-center justify-between">
             <div>
               <h1 className={`text-2xl font-bold ${textPrimary}`}>
-                Preguntale al Documento
+                {t('search.title')}
               </h1>
               <p className={`${textSecondary} mt-1`}>
-                Busca informacion en tus documentos usando lenguaje natural
+                {t('search.subtitle')}
               </p>
             </div>
             <div className="flex gap-2">
@@ -120,13 +125,13 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
                 onClick={() => navigate('/biblioteca')}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium"
               >
-                Biblioteca
+                {t('library.title', 'Biblioteca')}
               </button>
               <button
                 onClick={() => navigate('/')}
                 className={`px-4 py-2 ${textSecondary} border ${border} rounded-lg ${isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'}`}
               >
-                ← Volver
+                {'\u2190'} {t('library.back')}
               </button>
             </div>
           </div>
@@ -142,7 +147,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Escribe tu consulta en lenguaje natural..."
+              placeholder={t('search.placeholder')}
               className={`flex-1 px-4 py-3 border ${border} rounded-lg text-lg ${bgPrimary} ${textPrimary} focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
             />
             <button
@@ -153,10 +158,10 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
               {loading ? (
                 <>
                   <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                  Buscando...
+                  {t('search.searching')}
                 </>
               ) : (
-                'Preguntar'
+                t('search.ask')
               )}
             </button>
           </div>
@@ -173,10 +178,10 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
         {hasSearched && !loading && !answer && sources.length === 0 && !error && (
           <div className={`${bgCard} border ${border} rounded-xl p-12 text-center`}>
             <p className={`text-lg ${textSecondary}`}>
-              No se encontraron resultados para tu consulta.
+              {t('search.noDocuments')}
             </p>
             <p className={`text-sm ${textSecondary} mt-2`}>
-              Intenta con diferentes palabras o una consulta mas general.
+              {t('search.noDocumentsHint')}
             </p>
           </div>
         )}
@@ -188,14 +193,14 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
             <div className={`${bgCard} border ${border} rounded-xl p-6`}>
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-lg">🤖</span>
-                <h2 className={`font-semibold ${textPrimary}`}>Respuesta</h2>
+                <h2 className={`font-semibold ${textPrimary}`}>{t('search.answer')}</h2>
                 {confidence > 0 && (
                   <span className={`text-xs px-2 py-0.5 rounded-full ml-auto ${
                     confidence >= 0.7 ? 'bg-emerald-500/20 text-emerald-400' :
                     confidence >= 0.4 ? 'bg-yellow-500/20 text-yellow-400' :
                     'bg-red-500/20 text-red-400'
                   }`}>
-                    Confianza: {Math.round(confidence * 100)}%
+                    {t('search.confidence')}: {Math.round(confidence * 100)}%
                   </span>
                 )}
               </div>
@@ -208,7 +213,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
             {sources.length > 0 && (
               <div>
                 <p className={`text-sm ${textSecondary} mb-4`}>
-                  {sources.length} fuente{sources.length !== 1 ? 's' : ''} consultada{sources.length !== 1 ? 's' : ''}
+                  {sources.length} {sources.length !== 1 ? t('search.sourcesConsulted') : t('search.sourceConsulted')}
                 </p>
                 <div className="space-y-3">
                   {sources.map((source, idx) => (
@@ -226,7 +231,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
                               {source.documentName}
                             </h3>
                             <p className={`text-xs ${textSecondary}`}>
-                              Relevancia: {Math.round(source.score * 100)}%
+                              {t('search.relevance')}: {Math.round(source.score * 100)}%
                             </p>
                           </div>
                         </div>
@@ -238,14 +243,14 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
                                   onClick={() => setViewingPdf(getDocUrl(source.documentId))}
                                   className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
                                 >
-                                  Ver
+                                  {t('search.view')}
                                 </button>
                               )}
                               <button
                                 onClick={() => handleDownload(source.documentId, source.documentName)}
                                 className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                               >
-                                Descargar
+                                {t('search.download')}
                               </button>
                             </>
                           ) : (
@@ -253,7 +258,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
                               onClick={() => navigate('/biblioteca')}
                               className="px-3 py-1.5 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg"
                             >
-                              Ir a Biblioteca
+                              {t('search.goToLibrary')}
                             </button>
                           )}
                         </div>
@@ -265,7 +270,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
                       </div>
                       {!source.documentUrl && (
                         <p className={`text-xs ${textSecondary} mt-2 italic`}>
-                          Este documento se puede ver y descargar desde la Biblioteca RAG
+                          {t('search.libraryHint')}
                         </p>
                       )}
                     </div>
@@ -282,7 +287,7 @@ export default function RAGSearchPanel({ isDarkMode = false }: RAGSearchPanelPro
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className={`${bgCard} rounded-xl shadow-2xl w-[80vw] h-[85vh] overflow-hidden flex flex-col`}>
             <div className={`${bgSecondary} px-6 py-4 border-b ${border} flex items-center justify-between`}>
-              <h3 className={`font-semibold ${textPrimary}`}>Visor de documento</h3>
+              <h3 className={`font-semibold ${textPrimary}`}>{t('search.documentViewer')}</h3>
               <button
                 onClick={() => setViewingPdf(null)}
                 className={`p-2 ${isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'} rounded-lg`}

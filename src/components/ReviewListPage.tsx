@@ -6,17 +6,22 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { getExtractions, type ApiExtraction } from '../services/extractionAPI';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 
 interface ReviewListPageProps {
   isDarkMode?: boolean;
 }
 
 export default function ReviewListPage({ isDarkMode = false }: ReviewListPageProps) {
+  const { t } = useTranslation(['review', 'common']);
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
 
   // Theme variables
   const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
@@ -100,10 +105,10 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { text: string; class: string }> = {
-      pending: { text: 'Pendiente', class: isDarkMode ? 'bg-yellow-900/40 text-yellow-300' : 'bg-yellow-100 text-yellow-800' },
-      needs_review: { text: 'Requiere Revision', class: isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-800' },
-      valid: { text: 'Valido', class: isDarkMode ? 'bg-green-900/40 text-green-300' : 'bg-green-100 text-green-800' },
-      rejected: { text: 'Rechazado', class: isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800' }
+      pending: { text: t('review:list.filters.pending'), class: isDarkMode ? 'bg-yellow-900/40 text-yellow-300' : 'bg-yellow-100 text-yellow-800' },
+      needs_review: { text: t('review:list.filters.needsReview'), class: isDarkMode ? 'bg-red-900/40 text-red-300' : 'bg-red-100 text-red-800' },
+      valid: { text: t('review:list.filters.valid'), class: isDarkMode ? 'bg-green-900/40 text-green-300' : 'bg-green-100 text-green-800' },
+      rejected: { text: t('review:list.filters.rejected'), class: isDarkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-100 text-gray-800' }
     };
     return badges[status] || badges.pending;
   };
@@ -116,10 +121,10 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
           <div className="flex items-center justify-between">
             <div>
               <h1 className={`text-2xl font-bold ${textPrimary}`}>
-                Formularios - Revision
+                {t('review:list.title')}
               </h1>
               <p className={`${textSecondary} mt-1`}>
-                Revisa y corrige formularios con errores de validacion
+                {t('review:list.subtitle')}
               </p>
             </div>
 
@@ -128,7 +133,7 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                 onClick={() => navigate('/')}
                 className={`px-4 py-2 ${textSecondary} border ${border} rounded-lg ${hoverRow}`}
               >
-                ← Volver al inicio
+                {t('review:list.back')}
               </button>
               <button
                 onClick={() => navigate('/master-excel')}
@@ -159,7 +164,7 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                 </svg>
               </div>
               <div className="ml-4">
-                <p className={`text-sm ${textSecondary}`}>Total</p>
+                <p className={`text-sm ${textSecondary}`}>{t('review:list.stats.total')}</p>
                 <p className={`text-2xl font-semibold ${textPrimary}`}>{stats.total}</p>
               </div>
             </div>
@@ -174,7 +179,7 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                 </svg>
               </div>
               <div className="ml-4">
-                <p className={`text-sm ${textSecondary}`}>Requieren Revision</p>
+                <p className={`text-sm ${textSecondary}`}>{t('review:list.stats.needsReview')}</p>
                 <p className={`text-2xl font-semibold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>{stats.needsReview}</p>
                 <p className={`text-xs ${textSecondary} mt-1`}>{stats.total > 0 ? ((stats.needsReview / stats.total) * 100).toFixed(1) : 0}%</p>
               </div>
@@ -190,7 +195,7 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                 </svg>
               </div>
               <div className="ml-4">
-                <p className={`text-sm ${textSecondary}`}>Validos</p>
+                <p className={`text-sm ${textSecondary}`}>{t('review:list.stats.valid')}</p>
                 <p className={`text-2xl font-semibold ${isDarkMode ? 'text-green-400' : 'text-green-600'}`}>{stats.valid}</p>
                 <p className={`text-xs ${textSecondary} mt-1`}>{stats.total > 0 ? ((stats.valid / stats.total) * 100).toFixed(1) : 0}%</p>
               </div>
@@ -206,7 +211,7 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                 </svg>
               </div>
               <div className="ml-4">
-                <p className={`text-sm ${textSecondary}`}>Rechazados</p>
+                <p className={`text-sm ${textSecondary}`}>{t('review:list.stats.rejected')}</p>
                 <p className={`text-2xl font-semibold ${textSecondary}`}>{stats.rejected}</p>
                 <p className={`text-xs ${textSecondary} mt-1`}>{stats.total > 0 ? ((stats.rejected / stats.total) * 100).toFixed(1) : 0}%</p>
               </div>
@@ -220,15 +225,15 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
             {/* Status Filter Buttons */}
             <div className="flex-1">
               <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
-                Estado
+                {t('review:list.table.status')}
               </label>
               <div className="flex gap-2 flex-wrap">
                 {[
-                  { value: 'all', label: 'Todos' },
-                  { value: 'pending', label: 'Pendientes' },
-                  { value: 'needs_review', label: 'Con Errores' },
-                  { value: 'valid', label: 'Validos' },
-                  { value: 'rejected', label: 'Rechazados' }
+                  { value: 'all', label: t('review:list.filters.all') },
+                  { value: 'pending', label: t('review:list.filters.pending') },
+                  { value: 'needs_review', label: t('review:list.filters.needsReview') },
+                  { value: 'valid', label: t('review:list.filters.valid') },
+                  { value: 'rejected', label: t('review:list.filters.rejected') }
                 ].map((option) => (
                   <button
                     key={option.value}
@@ -250,13 +255,13 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
             {/* Search */}
             <div className="flex-1">
               <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
-                Buscar
+                {t('common:buttons.search')}
               </label>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por nombre o ID..."
+                placeholder={t('common:buttons.search')}
                 className={`w-full px-4 py-2 border ${border} rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${bgCard} ${textPrimary}`}
               />
             </div>
@@ -268,13 +273,13 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-              <p className={textSecondary}>Cargando formularios...</p>
+              <p className={textSecondary}>{t('common:status.loading')}</p>
             </div>
           </div>
         ) : filteredExtractions.length === 0 ? (
           <div className={`${bgCard} rounded-lg shadow p-12 text-center border ${border}`}>
             <h3 className={`text-xl font-semibold ${textPrimary} mb-2`}>
-              No hay formularios
+              {t('review:list.table.noData')}
             </h3>
             <p className={textSecondary}>
               {statusFilter === 'needs_review'
@@ -291,22 +296,22 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                     className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider cursor-pointer ${hoverRow} select-none`}
                     onClick={() => handleSort('filename')}
                   >
-                    Archivo {sortField === 'filename' && (sortDirection === 'asc' ? '▲' : '▼')}
+                    {t('review:list.table.filename')} {sortField === 'filename' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th
                     className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider cursor-pointer ${hoverRow} select-none`}
                     onClick={() => handleSort('created_at')}
                   >
-                    Fecha {sortField === 'created_at' && (sortDirection === 'asc' ? '▲' : '▼')}
+                    {t('review:list.table.date')} {sortField === 'created_at' && (sortDirection === 'asc' ? '▲' : '▼')}
                   </th>
                   <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>
-                    Estado
+                    {t('review:list.table.status')}
                   </th>
                   <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase tracking-wider`}>
-                    Errores
+                    {t('review:panel.validationErrors')}
                   </th>
                   <th className={`px-6 py-3 text-right text-xs font-medium ${textSecondary} uppercase tracking-wider`}>
-                    Acciones
+                    {t('review:list.table.actions')}
                   </th>
                 </tr>
               </thead>
@@ -340,7 +345,7 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                       </td>
 
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${textSecondary}`}>
-                        {new Date(extraction.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(extraction.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </td>
 
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -373,7 +378,7 @@ export default function ReviewListPage({ isDarkMode = false }: ReviewListPagePro
                           }}
                           className="text-indigo-500 hover:text-indigo-400 font-medium"
                         >
-                          {errorCount > 0 ? 'Revisar →' : 'Ver detalles →'}
+                          {errorCount > 0 ? t('review:list.actions.review') + ' →' : t('review:list.actions.review') + ' →'}
                         </button>
                       </td>
                     </tr>

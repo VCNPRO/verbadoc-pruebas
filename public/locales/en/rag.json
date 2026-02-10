@@ -1,0 +1,36 @@
+{
+  "search": {
+    "title": "RAG Query",
+    "placeholder": "Type or speak your question...",
+    "search": "Search",
+    "searching": "Searching...",
+    "listening": "Listening... speak now",
+    "noDocuments": "No relevant documents were found to answer your question.",
+    "sources": "Sources",
+    "confidence": "Confidence",
+    "answer": "Answer"
+  },
+  "library": {
+    "title": "Document Library",
+    "subtitle": "Manage your documents for RAG queries",
+    "back": "Back",
+    "upload": "Upload document",
+    "uploadMultiple": "Upload multiple",
+    "createFolder": "Create folder",
+    "folderName": "Folder name",
+    "allFolders": "All folders",
+    "noDocuments": "No documents in the library",
+    "noDocumentsDesc": "Upload documents to start using RAG search",
+    "document": "document",
+    "documents": "documents",
+    "chunks": "chunks",
+    "uploadDate": "Upload date",
+    "fileSize": "Size",
+    "deleteConfirm": "Are you sure you want to delete this document? The vectorized chunks will also be deleted.",
+    "deleteSuccess": "Document deleted successfully",
+    "deleteError": "Error deleting the document",
+    "editDescription": "Edit description",
+    "descriptionPlaceholder": "Add a description...",
+    "searchDocs": "Search documents..."
+  }
+}

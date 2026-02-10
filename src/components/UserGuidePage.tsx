@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 interface UserGuidePageProps {
@@ -13,6 +14,7 @@ interface UserGuidePageProps {
 }
 
 export default function UserGuidePage({ isDarkMode = false }: UserGuidePageProps) {
+  const { t } = useTranslation('guide');
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'quick' | 'complete'>('quick');
 
@@ -50,14 +52,14 @@ export default function UserGuidePage({ isDarkMode = false }: UserGuidePageProps
         <div className="max-w-4xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className={`text-2xl font-bold ${textPrimary}`}>Guia de Usuario</h1>
-              <p className={`${textSecondary} mt-1`}>Aprende a usar verbadoc pro europa</p>
+              <h1 className={`text-2xl font-bold ${textPrimary}`}>{t('title')}</h1>
+              <p className={`${textSecondary} mt-1`}>{t('subtitle')}</p>
             </div>
             <button
               onClick={() => navigate('/')}
               className={`px-4 py-2 ${textSecondary} border ${border} rounded-lg ${hoverBg}`}
             >
-              ← Volver
+              ← {t('back')}
             </button>
           </div>
 
@@ -71,7 +73,7 @@ export default function UserGuidePage({ isDarkMode = false }: UserGuidePageProps
                   : `${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-600'} ${hoverBg}`
               }`}
             >
-              Guia Rapida
+              {t('quickGuide.title')}
             </button>
             <button
               onClick={() => setActiveTab('complete')}
@@ -81,7 +83,7 @@ export default function UserGuidePage({ isDarkMode = false }: UserGuidePageProps
                   : `${isDarkMode ? 'bg-slate-700 text-slate-300' : 'bg-gray-100 text-gray-600'} ${hoverBg}`
               }`}
             >
-              Guia Completa
+              {t('sections.extraction.title')}
             </button>
           </div>
         </div>
@@ -92,32 +94,32 @@ export default function UserGuidePage({ isDarkMode = false }: UserGuidePageProps
         <div className={`${bgCard} rounded-xl border ${border} p-8`}>
           {activeTab === 'quick' ? (
             <>
-              <h2 className={`text-xl font-bold ${textPrimary} mb-6`}>Inicio Rapido en 5 Pasos</h2>
+              <h2 className={`text-xl font-bold ${textPrimary} mb-6`}>{t('quickGuide.title')}</h2>
 
               <Step
                 number={1}
-                title="Sube tu documento"
-                description="Arrastra o selecciona un archivo PDF, JPG o PNG desde tu ordenador. El sistema acepta documentos de hasta 10 MB."
+                title={t('quickGuide.step1.title')}
+                description={t('quickGuide.step1.description')}
               />
               <Step
                 number={2}
-                title="Clasifica el documento"
-                description="Haz clic en 'Clasificar Documento' para que la IA identifique automaticamente el tipo de documento (factura, contrato, DNI, etc.) y configure la extraccion."
+                title={t('quickGuide.step2.title')}
+                description={t('quickGuide.step2.description')}
               />
               <Step
                 number={3}
-                title="Ejecuta la extraccion"
-                description="Pulsa 'Ejecutar Extraccion' y espera unos segundos. La IA extraera todos los datos relevantes del documento."
+                title={t('quickGuide.step3.title')}
+                description={t('quickGuide.step3.description')}
               />
               <Step
                 number={4}
-                title="Valida los datos"
-                description="Revisa los datos extraidos. Usa 'Validar Datos' para detectar errores automaticamente. Corrige manualmente si es necesario."
+                title={t('quickGuide.step4.title')}
+                description={t('quickGuide.step4.description')}
               />
               <Step
                 number={5}
-                title="Exporta los resultados"
-                description="Descarga tus datos en formato Excel, CSV o JSON. Si usas el Excel Master, los datos se consolidan automaticamente."
+                title={t('quickGuide.step4.title')}
+                description={t('quickGuide.step4.description')}
               />
 
               <div className={`mt-8 ${bgSecondary} rounded-lg p-6`}>
@@ -132,7 +134,7 @@ export default function UserGuidePage({ isDarkMode = false }: UserGuidePageProps
             </>
           ) : (
             <>
-              <h2 className={`text-xl font-bold ${textPrimary} mb-6`}>Guia Completa</h2>
+              <h2 className={`text-xl font-bold ${textPrimary} mb-6`}>{t('title')}</h2>
 
               <Section title="1. Subida de Documentos">
                 <p>verbadoc pro europa acepta los siguientes formatos: PDF, JPG, PNG. El tamano maximo es 10 MB por archivo.</p>

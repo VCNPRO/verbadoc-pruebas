@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 interface PricingPageProps {
@@ -46,6 +47,7 @@ const PACKAGES = [
 ];
 
 export function PricingPage({ isDarkMode = false }: PricingPageProps) {
+  const { t } = useTranslation('pricing');
   const navigate = useNavigate();
 
   const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
@@ -63,13 +65,13 @@ export function PricingPage({ isDarkMode = false }: PricingPageProps) {
             onClick={() => navigate('/')}
             className={`mb-6 px-4 py-2 ${textSecondary} border ${border} rounded-lg ${isDarkMode ? 'hover:bg-[#334155]' : 'hover:bg-[#f1f5f9]'}`}
           >
-            ← Volver al inicio
+            ← {t('back')}
           </button>
           <h1 className={`text-3xl font-bold ${textPrimary} mb-4`}>
-            Modulos y Precios
+            {t('title')}
           </h1>
           <p className={`text-lg ${textSecondary} max-w-2xl mx-auto`}>
-            Elige los modulos individuales que necesitas o selecciona un paquete con descuento.
+            {t('subtitle')}
           </p>
         </div>
 
@@ -89,7 +91,7 @@ export function PricingPage({ isDarkMode = false }: PricingPageProps) {
               >
                 {pkg.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-bold px-4 py-1 rounded-full">
-                    Recomendado
+                    {t('cta.upgrade')}
                   </div>
                 )}
                 <h3 className={`text-xl font-bold ${textPrimary} mb-2`}>{pkg.name}</h3>
@@ -124,7 +126,7 @@ export function PricingPage({ isDarkMode = false }: PricingPageProps) {
                         : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
                   }`}
                 >
-                  Contactar
+                  {t('cta.contact')}
                 </a>
               </div>
             );
@@ -134,7 +136,7 @@ export function PricingPage({ isDarkMode = false }: PricingPageProps) {
         {/* Individual modules table */}
         <div className="mb-12">
           <h2 className={`text-2xl font-bold ${textPrimary} mb-6 text-center`}>
-            Modulos Individuales
+            {t('modules.title')}
           </h2>
           <div className={`${bgCard} rounded-xl border ${border} overflow-hidden`}>
             <table className="w-full">
@@ -161,13 +163,13 @@ export function PricingPage({ isDarkMode = false }: PricingPageProps) {
         {/* Contact */}
         <div className="text-center">
           <p className={`${textSecondary} mb-4`}>
-            ¿Necesitas un plan personalizado? Contacta con nuestro equipo.
+            {t('cta.contact')}
           </p>
           <a
             href="mailto:info@verbadocpro.eu?subject=Consulta plan personalizado"
             className="inline-block px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors"
           >
-            Contactar equipo comercial
+            {t('cta.contact')}
           </a>
         </div>
       </div>

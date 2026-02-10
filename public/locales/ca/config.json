@@ -1,0 +1,37 @@
+{
+  "title": "Configuración",
+  "tabs": {
+    "general": "General",
+    "appearance": "Apariencia",
+    "modules": "Módulos",
+    "logs": "Registros"
+  },
+  "general": {
+    "language": "Idioma de la interfaz",
+    "notifications": "Notificaciones",
+    "autoSave": "Guardado automático"
+  },
+  "appearance": {
+    "darkMode": "Modo oscuro",
+    "lightMode": "Modo claro",
+    "theme": "Tema",
+    "fontSize": "Tamaño de texto"
+  },
+  "modules": {
+    "title": "Módulos activos",
+    "extraction": "Extracción de datos",
+    "rag": "Biblioteca RAG",
+    "review": "Revisión",
+    "masterExcel": "Excel Master",
+    "chatbot": "Chatbot Laia"
+  },
+  "logs": {
+    "title": "Registros de actividad",
+    "noLogs": "No hay registros disponibles",
+    "date": "Fecha",
+    "action": "Acción",
+    "user": "Usuario",
+    "details": "Detalles",
+    "clear": "Limpiar registros"
+  }
+}

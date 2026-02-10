@@ -4,7 +4,10 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 
 interface BibliotecaPageProps {
     isDarkMode: boolean;
@@ -115,7 +118,9 @@ function ImageViewer({ src, alt, isDarkMode }: { src: string; alt: string; isDar
 }
 
 export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
+    const { t } = useTranslation(['rag', 'common']);
     const navigate = useNavigate();
+    const { currentLanguage } = useLanguage();
 
     const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
     const bgCard = isDarkMode ? 'bg-[#1e293b]' : 'bg-white';
@@ -279,9 +284,9 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                 <div className="max-w-7xl mx-auto px-6 py-6">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className={`text-2xl font-bold ${textPrimary}`}>Biblioteca RAG</h1>
+                            <h1 className={`text-2xl font-bold ${textPrimary}`}>{t('rag:library.title')}</h1>
                             <p className={`${textSecondary} mt-1`}>
-                                {selectedFolder ? `Carpeta: ${selectedFolderName}` : 'Carpetas y documentos ingestados'}
+                                {selectedFolder ? `${t('rag:library.allFolders')}: ${selectedFolderName}` : t('rag:library.subtitle')}
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
@@ -290,14 +295,14 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                     onClick={goBackToFolders}
                                     className={`px-4 py-2 ${textSecondary} border ${borderCls} rounded-lg ${hoverRow}`}
                                 >
-                                    ← Carpetas
+                                    ← {t('rag:library.allFolders')}
                                 </button>
                             )}
                             <button
                                 onClick={() => navigate('/')}
                                 className={`px-4 py-2 ${textSecondary} border ${borderCls} rounded-lg ${hoverRow}`}
                             >
-                                ← Volver al inicio
+                                ← {t('rag:library.back')}
                             </button>
                         </div>
                     </div>
@@ -312,7 +317,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                             type="text"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
-                            placeholder={selectedFolder ? 'Buscar documento...' : 'Buscar carpeta...'}
+                            placeholder={t('rag:library.searchDocs')}
                             className={`flex-1 px-3 py-2 rounded-md border ${bgInput}`}
                         />
                         {selectedFolder && selectedDocIds.size > 0 && (
@@ -324,7 +329,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                 {deleting ? (
                                     <>
                                         <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                                        Eliminando...
+                                        {t('common:status.processing')}
                                     </>
                                 ) : (
                                     `Eliminar (${selectedDocIds.size})`
@@ -341,23 +346,23 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                     {loading ? (
                         <div className="p-12 text-center">
                             <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                            <p className={textSecondary}>Cargando carpetas...</p>
+                            <p className={textSecondary}>{t('common:status.loading')}</p>
                         </div>
                     ) : !selectedFolder ? (
                         /* Vista de carpetas */
                         filteredFolders.length === 0 ? (
                             <div className="p-12 text-center">
                                 <div className="text-6xl mb-4">📂</div>
-                                <p className={`${textSecondary} text-lg`}>{search ? 'Sin resultados' : 'No hay carpetas'}</p>
-                                <p className={`${textSecondary} text-sm mt-2`}>Sube documentos desde "Biblioteca RAG" para crear carpetas</p>
+                                <p className={`${textSecondary} text-lg`}>{search ? t('common:labels.noResults') : t('rag:library.noDocuments')}</p>
+                                <p className={`${textSecondary} text-sm mt-2`}>{t('rag:library.noDocumentsDesc')}</p>
                             </div>
                         ) : (
                             <table className="w-full">
                                 <thead className={`${bgSecondary} border-b ${borderCls}`}>
                                     <tr>
-                                        <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Carpeta</th>
-                                        <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Documentos</th>
-                                        <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Fecha</th>
+                                        <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>{t('rag:library.folderName')}</th>
+                                        <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>{t('rag:library.documents')}</th>
+                                        <th className={`px-6 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>{t('rag:library.uploadDate')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -375,7 +380,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                             </td>
                                             <td className={`px-6 py-4 ${textSecondary}`}>{folder.document_count} docs</td>
                                             <td className={`px-6 py-4 ${textSecondary} text-sm`}>
-                                                {folder.created_at ? new Date(folder.created_at).toLocaleDateString('es-ES') : '-'}
+                                                {folder.created_at ? new Date(folder.created_at).toLocaleDateString(getLanguageByCode(currentLanguage).locale) : '-'}
                                             </td>
                                         </tr>
                                     ))}
@@ -387,12 +392,12 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                         loadingDocs ? (
                             <div className="p-12 text-center">
                                 <div className="animate-spin h-8 w-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-                                <p className={textSecondary}>Cargando documentos...</p>
+                                <p className={textSecondary}>{t('common:status.loading')}</p>
                             </div>
                         ) : filteredDocs.length === 0 ? (
                             <div className="p-12 text-center">
                                 <div className="text-6xl mb-4">📄</div>
-                                <p className={`${textSecondary} text-lg`}>{search ? 'Sin resultados' : 'Carpeta vacia'}</p>
+                                <p className={`${textSecondary} text-lg`}>{search ? t('common:labels.noResults') : t('rag:library.noDocuments')}</p>
                             </div>
                         ) : (
                             <table className="w-full">
@@ -406,9 +411,9 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                 className="w-4 h-4 rounded cursor-pointer accent-emerald-600"
                                             />
                                         </th>
-                                        <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Documento</th>
-                                        <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>Fecha</th>
-                                        <th className={`px-4 py-3 text-right text-xs font-medium ${textSecondary} uppercase`}>Acciones</th>
+                                        <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>{t('rag:library.document')}</th>
+                                        <th className={`px-4 py-3 text-left text-xs font-medium ${textSecondary} uppercase`}>{t('rag:library.uploadDate')}</th>
+                                        <th className={`px-4 py-3 text-right text-xs font-medium ${textSecondary} uppercase`}>{t('common:labels.actions')}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -440,7 +445,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                         </div>
                                                     </td>
                                                     <td className={`px-4 py-4 ${textSecondary} text-sm`}>
-                                                        {doc.created_at ? new Date(doc.created_at).toLocaleDateString('es-ES') : '-'}
+                                                        {doc.created_at ? new Date(doc.created_at).toLocaleDateString(getLanguageByCode(currentLanguage).locale) : '-'}
                                                     </td>
                                                     <td className="px-4 py-4 text-right">
                                                         <div className="flex items-center justify-end gap-2">
@@ -456,7 +461,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                                         onClick={() => downloadDocument(doc)}
                                                                         className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                                                                     >
-                                                                        Descargar
+                                                                        {t('common:buttons.download')}
                                                                     </button>
                                                                 </>
                                                             )}
@@ -493,9 +498,9 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                                     }
                                                                 }}
                                                                 className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg"
-                                                                title="Eliminar documento"
+                                                                title={t('common:buttons.delete')}
                                                             >
-                                                                Eliminar
+                                                                {t('common:buttons.delete')}
                                                             </button>
                                                         </div>
                                                     </td>
@@ -526,7 +531,7 @@ export default function BibliotecaPage({ isDarkMode }: BibliotecaPageProps) {
                                                                         rel="noopener noreferrer"
                                                                         className="text-sm text-emerald-500 hover:text-emerald-400"
                                                                     >
-                                                                        Abrir en nueva pestana →
+                                                                        {t('common:buttons.viewMore')} →
                                                                     </a>
                                                                 </div>
                                                             </div>

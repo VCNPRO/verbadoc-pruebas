@@ -1,0 +1,60 @@
+{
+  "title": "Plans and Pricing",
+  "subtitle": "Choose the plan that best suits your needs",
+  "back": "Back",
+  "plans": {
+    "free": {
+      "name": "Free",
+      "price": "0€",
+      "period": "/month",
+      "description": "To try the platform",
+      "features": [
+        "50 extractions/month",
+        "5 RAG documents",
+        "Email support"
+      ]
+    },
+    "professional": {
+      "name": "Professional",
+      "price": "49€",
+      "period": "/month",
+      "description": "For small teams",
+      "features": [
+        "500 extractions/month",
+        "50 RAG documents",
+        "Priority support",
+        "API access"
+      ]
+    },
+    "enterprise": {
+      "name": "Enterprise",
+      "price": "Contact us",
+      "period": "",
+      "description": "For large organizations",
+      "features": [
+        "Unlimited extractions",
+        "Unlimited RAG documents",
+        "Dedicated support",
+        "API access",
+        "Custom integrations"
+      ]
+    }
+  },
+  "modules": {
+    "title": "Available Modules",
+    "extraction": "Data Extraction",
+    "extractionDesc": "Intelligent data extraction from PDFs and scanned documents",
+    "rag": "RAG Library",
+    "ragDesc": "Semantic search across your document library with AI",
+    "review": "Review and Validation",
+    "reviewDesc": "Human review with cross-validation and customizable rules",
+    "chatbot": "Chatbot Laia",
+    "chatbotDesc": "Intelligent virtual assistant for platform queries"
+  },
+  "cta": {
+    "current": "Current plan",
+    "upgrade": "Upgrade plan",
+    "contact": "Contact sales",
+    "startFree": "Start for free"
+  }
+}

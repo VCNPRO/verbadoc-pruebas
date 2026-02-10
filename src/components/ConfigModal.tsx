@@ -6,7 +6,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 import * as XLSX from 'xlsx';
 import { PIN_CONFIG, requiresPin } from './PinModal.tsx';
 
@@ -60,7 +63,9 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkMode }: ConfigModalProps) {
+  const { t } = useTranslation('config');
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState<'theme' | 'logs'>('theme');
   const [logs, setLogs] = useState<AccessLog[]>([]);
   const [loading, setLoading] = useState(false);
@@ -108,7 +113,7 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
     if (logs.length === 0) return;
 
     const data = logs.map(log => ({
-      'Fecha': new Date(log.created_at).toLocaleString('es-ES'),
+      'Fecha': new Date(log.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale),
       'Usuario': log.user_email,
       'Rol': log.user_role,
       'Acción': ACTION_LABELS[log.action] || log.action,
@@ -141,7 +146,7 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
         {/* Header */}
         <div className={`flex items-center justify-between px-6 py-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
           <h2 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-            ⚙️ Configuración
+            {t('title')}
           </h2>
           <button
             onClick={onClose}
@@ -163,7 +168,7 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
                 : isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
             }`}
           >
-            🎨 Tema
+            {t('tabs.general')}
           </button>
           {isAdmin && (
             <button
@@ -174,7 +179,7 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
                   : isDarkMode ? 'text-gray-400 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              📋 Logs de Actividad
+              {t('tabs.logs')}
             </button>
           )}
         </div>
@@ -185,14 +190,14 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
             <div className="space-y-6">
               <div>
                 <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Apariencia
+                  {t('appearance.theme')}
                 </h3>
                 <div className={`flex items-center justify-between p-4 rounded-lg ${isDarkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{isDarkMode ? '🌙' : '☀️'}</span>
                     <div>
                       <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Modo {isDarkMode ? 'Oscuro' : 'Claro'}
+                        {isDarkMode ? t('appearance.darkMode') : t('appearance.lightMode')}
                       </p>
                       <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                         Cambia la apariencia de la aplicación
@@ -282,14 +287,14 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
                     isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-white border-gray-300 text-gray-900'
                   }`}
                 >
-                  <option value="">Todas las acciones</option>
+                  <option value="">{t('logs.action')}</option>
                   {Object.entries(ACTION_LABELS).map(([key, label]) => (
                     <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
                 <input
                   type="text"
-                  placeholder="Filtrar por email..."
+                  placeholder={t('logs.user')}
                   value={filter.user_email}
                   onChange={(e) => setFilter({ ...filter, user_email: e.target.value })}
                   className={`px-3 py-2 rounded-lg border text-sm ${
@@ -301,14 +306,14 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
                   disabled={loading}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {loading ? '⏳' : '🔍'} Buscar
+                  {loading ? '⏳' : '🔍'} {t('logs.action')}
                 </button>
                 <button
                   onClick={exportLogsToExcel}
                   disabled={logs.length === 0}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
                 >
-                  📥 Exportar Excel
+                  📥 {t('logs.title')}
                 </button>
               </div>
 
@@ -325,31 +330,31 @@ export default function ConfigModal({ isOpen, onClose, isDarkMode, onToggleDarkM
                   <table className="w-full text-sm">
                     <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                       <tr>
-                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Fecha</th>
-                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Usuario</th>
-                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Acción</th>
+                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('logs.date')}</th>
+                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('logs.user')}</th>
+                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('logs.action')}</th>
                         <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>IP</th>
-                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>Estado</th>
+                        <th className={`px-4 py-3 text-left font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>{t('logs.details')}</th>
                       </tr>
                     </thead>
                     <tbody className={isDarkMode ? 'divide-y divide-gray-700' : 'divide-y divide-gray-200'}>
                       {loading ? (
                         <tr>
                           <td colSpan={5} className={`px-4 py-8 text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            ⏳ Cargando logs...
+                            {t('logs.noLogs')}
                           </td>
                         </tr>
                       ) : logs.length === 0 ? (
                         <tr>
                           <td colSpan={5} className={`px-4 py-8 text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            No hay logs para mostrar
+                            {t('logs.noLogs')}
                           </td>
                         </tr>
                       ) : (
                         logs.map(log => (
                           <tr key={log.id} className={isDarkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'}>
                             <td className={`px-4 py-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-900'}`}>
-                              {new Date(log.created_at).toLocaleString('es-ES', {
+                              {new Date(log.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale, {
                                 day: '2-digit',
                                 month: '2-digit',
                                 hour: '2-digit',

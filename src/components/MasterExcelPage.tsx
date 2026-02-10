@@ -6,8 +6,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 import { PdfViewerOptimized } from './PdfViewerOptimized';
 
 interface MasterExcelRow {
@@ -37,8 +40,10 @@ interface MasterExcelPageProps {
 }
 
 export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageProps) {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
 
   // Theme variables
   const bgPrimary = isDarkMode ? 'bg-[#0f172a]' : 'bg-[#f0f4f8]';
@@ -253,7 +258,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
                 onClick={() => navigate('/')}
                 className={`px-4 py-2 ${textSecondary} hover:${textPrimary} border ${border} rounded-lg ${hoverRow}`}
               >
-                ← Volver al inicio
+                ← {t('buttons.back')}
               </button>
 
               {user?.role !== 'reviewer' && (
@@ -265,10 +270,10 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
                   {downloading ? (
                     <>
                       <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                      Generando...
+                      {t('status.processing')}
                     </>
                   ) : (
-                    'Descargar Excel'
+                    t('buttons.download') + ' Excel'
                   )}
                 </button>
               )}
@@ -282,14 +287,14 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
         <div className={`${bgCard} border ${border} rounded-lg p-4 flex gap-4`}>
           <div className="flex-1">
             <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
-              Buscar
+              {t('buttons.search')}
             </label>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && loadData()}
-              placeholder="Buscar..."
+              placeholder={t('buttons.search')}
               className={`w-full px-3 py-2 border ${border} rounded-md ${bgCard} ${textPrimary}`}
             />
           </div>
@@ -299,7 +304,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
               onClick={loadData}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
             >
-              Buscar
+              {t('buttons.search')}
             </button>
           </div>
         </div>
@@ -320,11 +325,11 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
           {loading ? (
             <div className="p-12 text-center">
               <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className={textSecondary}>Cargando formularios...</p>
+              <p className={textSecondary}>{t('status.loading')}</p>
             </div>
           ) : rows.length === 0 ? (
             <div className="p-12 text-center">
-              <p className={`${textSecondary} text-lg`}>No hay formularios procesados</p>
+              <p className={`${textSecondary} text-lg`}>{t('labels.noData')}</p>
               <p className={`${textSecondary} text-sm mt-2`}>
                 Los formularios que proceses apareceran aqui automaticamente
               </p>
@@ -375,7 +380,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
                         {row.filename.length > 25 && '...'}
                       </td>
                       <td className={`px-4 py-3 text-sm ${textSecondary}`}>
-                        {new Date(row.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(row.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -555,7 +560,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
                     <div className={`${bgSecondary} rounded-lg p-3`}>
                       <span className={`${textSecondary} font-medium`}>Fecha:</span>
                       <span className={`ml-2 ${textPrimary}`}>
-                        {new Date(viewingRow.created_at).toLocaleString('es-ES')}
+                        {new Date(viewingRow.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale)}
                       </span>
                     </div>
                   </div>
@@ -567,7 +572,7 @@ export default function MasterExcelPage({ isDarkMode = false }: MasterExcelPageP
                     onClick={() => setViewingRow(null)}
                     className={`px-6 py-2 ${isDarkMode ? 'bg-slate-600 hover:bg-slate-500' : 'bg-gray-200 hover:bg-gray-300'} ${textPrimary} font-medium rounded-lg transition-colors`}
                   >
-                    Cerrar
+                    {t('buttons.close')}
                   </button>
                 </div>
               </div>

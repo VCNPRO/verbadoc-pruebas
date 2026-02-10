@@ -11,6 +11,8 @@ import {
   Upload, Download, FolderOpen
 } from 'lucide-react';
 import * as pdfjs from 'pdfjs-dist';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 
 // Tipos
 interface Region {
@@ -82,6 +84,7 @@ const cropImage = (imageUrl: string, region: Region): Promise<string> => {
 
 export default function TemplateEditorPage() {
   const navigate = useNavigate();
+  const { currentLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState<'editor' | 'library' | 'batch'>('editor');
   const [isInitializing, setIsInitializing] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
@@ -690,7 +693,7 @@ export default function TemplateEditorPage() {
               ) : (
                 templates.map(t => {
                   const fecha = t.updatedAt || t.createdAt;
-                  const fechaFormateada = fecha ? new Date(fecha).toLocaleString('es-ES', {
+                  const fechaFormateada = fecha ? new Date(fecha).toLocaleString(getLanguageByCode(currentLanguage).locale, {
                     day: '2-digit', month: '2-digit', year: 'numeric',
                     hour: '2-digit', minute: '2-digit'
                   }) : 'Sin fecha';

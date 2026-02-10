@@ -106,6 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         name: user.name,
         role: user.role,
         company_name: user.company_name || null,
+        preferred_language: user.preferred_language || 'es',
         createdAt: user.created_at,
       },
     });

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 
 export const ResetPasswordPage = () => {
+  const { t } = useTranslation('auth');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const token = searchParams.get('token');
@@ -18,12 +20,12 @@ export const ResetPasswordPage = () => {
     setError('');
 
     if (password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
+      setError(t('register.passwordTooShort'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Las contraseñas no coinciden');
+      setError(t('register.passwordMismatch'));
       return;
     }
 
@@ -39,7 +41,7 @@ export const ResetPasswordPage = () => {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Error al restablecer contraseña');
+        throw new Error(data.error || t('resetPassword.error'));
       }
 
       setSuccess(true);
@@ -55,9 +57,9 @@ export const ResetPasswordPage = () => {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
-          <h1 className="text-2xl font-bold text-red-600">Enlace inválido</h1>
-          <p className="text-gray-600">El enlace de restablecimiento no es válido o ha expirado.</p>
-          <Link to="/login" className="text-indigo-600 hover:underline">Volver al inicio</Link>
+          <h1 className="text-2xl font-bold text-red-600">{t('resetPassword.invalidToken')}</h1>
+          <p className="text-gray-600">{t('resetPassword.invalidToken')}</p>
+          <Link to="/login" className="text-indigo-600 hover:underline">{t('resetPassword.backToLogin')}</Link>
         </div>
       </div>
     );
@@ -68,8 +70,8 @@ export const ResetPasswordPage = () => {
       <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md text-center">
           <div className="text-5xl mb-4">✅</div>
-          <h1 className="text-2xl font-bold text-green-600">Contraseña actualizada</h1>
-          <p className="text-gray-600">Redirigiendo al inicio de sesión...</p>
+          <h1 className="text-2xl font-bold text-green-600">{t('resetPassword.success')}</h1>
+          <p className="text-gray-600">{t('resetPassword.backToLogin')}</p>
         </div>
       </div>
     );
@@ -78,10 +80,10 @@ export const ResetPasswordPage = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-2xl font-bold text-center text-gray-900">Nueva Contraseña</h1>
+        <h1 className="text-2xl font-bold text-center text-gray-900">{t('resetPassword.title')}</h1>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="text-sm font-medium text-gray-700">Nueva contraseña</label>
+            <label className="text-sm font-medium text-gray-700">{t('resetPassword.newPassword')}</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -101,7 +103,7 @@ export const ResetPasswordPage = () => {
             </div>
           </div>
           <div>
-            <label className="text-sm font-medium text-gray-700">Confirmar contraseña</label>
+            <label className="text-sm font-medium text-gray-700">{t('resetPassword.confirmPassword')}</label>
             <input
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
@@ -116,11 +118,11 @@ export const ResetPasswordPage = () => {
             disabled={isLoading}
             className="w-full px-4 py-2 font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
           >
-            {isLoading ? 'Guardando...' : 'Guardar nueva contraseña'}
+            {isLoading ? t('resetPassword.submitting') : t('resetPassword.submit')}
           </button>
         </form>
         <p className="text-sm text-center">
-          <Link to="/login" className="text-indigo-600 hover:underline">Volver al inicio</Link>
+          <Link to="/login" className="text-indigo-600 hover:underline">{t('resetPassword.backToLogin')}</Link>
         </p>
       </div>
     </div>

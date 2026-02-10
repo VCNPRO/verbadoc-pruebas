@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 // Sistema de autenticación real
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,6 +20,7 @@ const DEPARTMENTS: { value: EuropaDepartment; label: string }[] = [
 ];
 
 export function AuthModal({ isLightMode }: AuthModalProps) {
+    const { t } = useTranslation('auth');
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -46,7 +48,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                 await login(email, password);
             } else {
                 if (!displayName.trim()) {
-                    throw new Error('Por favor ingresa tu nombre');
+                    throw new Error(t('errors.required'));
                 }
                 // Nota: El nuevo AuthContext no guarda department, solo name/email/password
                 await register(displayName, email, password);
@@ -65,7 +67,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                 'auth/network-request-failed': 'Error de conexión. Verifica tu internet'
             };
 
-            setError(errorMessages[err.code] || err.message || 'Error al autenticar');
+            setError(errorMessages[err.code] || err.message || t('errors.serverError'));
         } finally {
             setLoading(false);
         }
@@ -86,7 +88,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                         verbadoc pro europa
                     </h1>
                     <p className="text-sm" style={{ color: textColor, opacity: 0.7 }}>
-                        Extracción Inteligente de Datos
+                        {t('modal.subtitle')}
                     </p>
                     <p className="text-xs mt-1" style={{ color: textColor, opacity: 0.5 }}>
                         🇪🇺 Procesamiento 100% en Europa
@@ -107,7 +109,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                             border: `2px solid ${isLogin ? accentColor : borderColor}`
                         }}
                     >
-                        Iniciar Sesión
+                        {t('modal.tabLogin')}
                     </button>
                     <button
                         onClick={() => {
@@ -121,7 +123,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                             border: `2px solid ${!isLogin ? accentColor : borderColor}`
                         }}
                     >
-                        Registro
+                        {t('modal.tabRegister')}
                     </button>
                 </div>
 
@@ -133,7 +135,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                                 className="block text-sm font-medium mb-1"
                                 style={{ color: textColor }}
                             >
-                                Nombre completo
+                                {t('register.name')}
                             </label>
                             <input
                                 type="text"
@@ -146,7 +148,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                                     borderColor,
                                     color: textColor
                                 }}
-                                placeholder="Juan Pérez"
+                                placeholder={t('register.namePlaceholder')}
                             />
                         </div>
                     )}
@@ -156,7 +158,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                             className="block text-sm font-medium mb-1"
                             style={{ color: textColor }}
                         >
-                            Email
+                            {t('login.email')}
                         </label>
                         <input
                             type="email" id="auth-email"
@@ -169,7 +171,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                                 borderColor,
                                 color: textColor
                             }}
-                            placeholder="usuario@ejemplo.com"
+                            placeholder={t('login.emailPlaceholder')}
                         />
                     </div>
 
@@ -178,7 +180,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                             className="block text-sm font-medium mb-1"
                             style={{ color: textColor }}
                         >
-                            Contraseña
+                            {t('login.password')}
                         </label>
                         <div className="relative">
                             <input
@@ -255,7 +257,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                         className="w-full py-3 px-4 rounded-lg font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50"
                         style={{ backgroundColor: accentColor }}
                     >
-                        {loading ? 'Procesando...' : (isLogin ? 'Iniciar Sesión' : 'Crear Cuenta')}
+                        {loading ? t('login.submitting') : (isLogin ? t('login.submit') : t('register.submit'))}
                     </button>
                 </form>
 
@@ -263,7 +265,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                 <div className="mt-6 text-center text-sm" style={{ color: textColor, opacity: 0.7 }}>
                     {isLogin ? (
                         <p>
-                            ¿No tienes cuenta?{' '}
+                            {t('login.noAccount')}{' '}
                             <button
                                 onClick={() => {
                                     setIsLogin(false);
@@ -272,12 +274,12 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                                 className="font-medium hover:underline"
                                 style={{ color: accentColor }}
                             >
-                                Regístrate aquí
+                                {t('login.register')}
                             </button>
                         </p>
                     ) : (
                         <p>
-                            ¿Ya tienes cuenta?{' '}
+                            {t('register.hasAccount')}{' '}
                             <button
                                 onClick={() => {
                                     setIsLogin(true);
@@ -286,7 +288,7 @@ export function AuthModal({ isLightMode }: AuthModalProps) {
                                 className="font-medium hover:underline"
                                 style={{ color: accentColor }}
                             >
-                                Inicia sesión
+                                {t('register.login')}
                             </button>
                         </p>
                     )}

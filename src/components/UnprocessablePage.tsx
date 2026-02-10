@@ -6,8 +6,11 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext.tsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 import PinModal, { requiresPin } from './PinModal.tsx';
 
 interface UnprocessableDocument {
@@ -90,8 +93,10 @@ const CATEGORY_LABELS: Record<string, { text: string; color: string; icon: strin
 };
 
 export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?: boolean }) {
+  const { t } = useTranslation('common');
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { currentLanguage } = useLanguage();
   const [documents, setDocuments] = useState<UnprocessableDocument[]>([]);
   const [stats, setStats] = useState<Stats[]>([]);
   const [loading, setLoading] = useState(true);
@@ -357,7 +362,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
         Expediente: doc.numero_expediente || '-',
         Acción: doc.numero_accion || '-',
         Grupo: doc.numero_grupo || '-',
-        Fecha: new Date(doc.created_at).toLocaleString('es-ES')
+        Fecha: new Date(doc.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale)
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -415,7 +420,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                 onClick={() => navigate('/')}
                 className={`px-4 py-2 ${textSecondary} hover:${textPrimary} border ${border} rounded-lg ${hoverRow}`}
               >
-                ← Volver al inicio
+                ← {t('buttons.back')}
               </button>
               <button
                 onClick={loadData}
@@ -424,7 +429,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                Actualizar
+                {t('buttons.refresh')}
               </button>
             </div>
           </div>
@@ -436,14 +441,14 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
         <div className={`${bgCard} border ${border} rounded-lg p-4 flex gap-4`}>
           <div className="flex-1">
             <label className={`block text-sm font-medium ${textSecondary} mb-2`}>
-              Buscar
+              {t('buttons.search')}
             </label>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && loadData()}
-              placeholder="Buscar..."
+              placeholder={t('buttons.search')}
               className={`w-full px-3 py-2 rounded-md ${bgInput}`}
             />
           </div>
@@ -453,7 +458,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
               onClick={loadData}
               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md"
             >
-              Buscar
+              {t('buttons.search')}
             </button>
           </div>
         </div>
@@ -485,7 +490,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                   className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  Descargar Excel
+                  {t('buttons.download')} Excel
                 </button>
                 <button
                   onClick={handleBulkSendToReview}
@@ -499,7 +504,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
                   )}
-                  Enviar a Revisión
+                  {t('buttons.send')}
                 </button>
                 <button
                   onClick={handleBulkDelete}
@@ -513,7 +518,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   )}
-                  Eliminar Seleccionados
+                  {t('buttons.delete')}
                 </button>
               </div>
             </div>
@@ -522,12 +527,12 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
           {loading ? (
             <div className="p-12 text-center">
               <div className="animate-spin h-8 w-8 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-              <p className={`${textSecondary}`}>Cargando documentos...</p>
+              <p className={`${textSecondary}`}>{t('status.loading')}</p>
             </div>
           ) : documents.length === 0 ? (
             <div className="p-12 text-center">
               <div className="text-6xl mb-4">✅</div>
-              <p className={`${textSecondary} text-lg`}>No hay documentos no procesables</p>
+              <p className={`${textSecondary} text-lg`}>{t('labels.noData')}</p>
               <p className={`${textSecondary} text-sm mt-2`}>
                 Todos los documentos han sido procesados correctamente
               </p>
@@ -596,7 +601,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                           {doc.numero_grupo || '-'}
                         </td>
                         <td className={`px-4 py-3 text-sm ${textSecondary}`}>
-                          {new Date(doc.created_at).toLocaleString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          {new Date(doc.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-3 items-center">
@@ -720,7 +725,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                   )}
 
                   <div className={`text-sm ${textSecondary}`}>
-                    Fecha: {new Date(selectedDoc.created_at).toLocaleString('es-ES')}
+                    Fecha: {new Date(selectedDoc.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale)}
                   </div>
                 </div>
               </div>
@@ -748,7 +753,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                   onClick={() => setSelectedDoc(null)}
                   className={`px-4 py-2 ${isDarkMode ? 'bg-slate-600 text-white hover:bg-slate-500' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'} rounded-lg`}
                 >
-                  Cerrar
+                  {t('buttons.close')}
                 </button>
                 <button
                   onClick={() => {
@@ -760,7 +765,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
-                  Enviar a Revisión
+                  {t('buttons.send')}
                 </button>
                 <button
                   onClick={() => {
@@ -772,7 +777,7 @@ export default function UnprocessablePage({ isDarkMode = false }: { isDarkMode?:
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  Eliminar
+                  {t('buttons.delete')}
                 </button>
               </div>
             </div>

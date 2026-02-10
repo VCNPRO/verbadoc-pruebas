@@ -19,6 +19,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getExtraction,
@@ -30,6 +31,8 @@ import {
   type ApiValidationError
 } from '../services/extractionAPI';
 import { PdfViewerOptimized, type PdfHighlight } from './PdfViewerOptimized';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getLanguageByCode } from '../config/languages';
 
 interface ReviewPanelProps {
   // Modo: 'single' para revisar uno específico, 'list' para mostrar lista
@@ -38,8 +41,10 @@ interface ReviewPanelProps {
 }
 
 export default function ReviewPanel({ mode = 'single', isDarkMode = false }: ReviewPanelProps) {
+  const { t } = useTranslation(['review', 'common']);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currentLanguage } = useLanguage();
 
   const [extraction, setExtraction] = useState<ApiExtraction | null>(null);
   const [errors, setErrors] = useState<ApiValidationError[]>([]);
@@ -586,7 +591,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Cargando formulario...</p>
+          <p className="text-gray-600">{t('common:status.loading')}</p>
         </div>
       </div>
     );
@@ -596,12 +601,12 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <p className="text-xl text-gray-600 mb-4">Formulario no encontrado</p>
+          <p className="text-xl text-gray-600 mb-4">{t('common:labels.noData')}</p>
           <button
             onClick={() => navigate('/review')}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
-            Volver a la lista
+            {t('common:buttons.back')}
           </button>
         </div>
       </div>
@@ -620,14 +625,14 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               onClick={() => navigate('/review')}
               className="text-gray-600 hover:text-gray-900"
             >
-              ← Volver
+              ← {t('common:buttons.back')}
             </button>
             <div>
               <h1 className="text-xl font-semibold text-gray-900">
                 {extraction.filename}
               </h1>
               <p className="text-sm text-gray-500">
-                Procesado: {new Date(extraction.created_at).toLocaleString('es-ES')}
+                Procesado: {new Date(extraction.created_at).toLocaleString(getLanguageByCode(currentLanguage).locale)}
               </p>
             </div>
           </div>
@@ -650,7 +655,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              Anular
+              {t('common:buttons.delete')}
             </button>
 
             <button
@@ -662,7 +667,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              Corregir y Procesar
+              {t('review:panel.saveChanges')}
             </button>
 
             <button
@@ -670,14 +675,14 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               disabled={processing}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Rechazar
+              {t('review:panel.reject')}
             </button>
             <button
               onClick={handleApprove}
               disabled={processing}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Aprobar
+              {t('review:panel.approve')}
             </button>
           </div>
         </div>
@@ -767,7 +772,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
                       disabled={processing}
                       className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
                     >
-                      Rechazar Definitivamente
+                      {t('review:panel.reject')}
                     </button>
                     <button
                       onClick={handleApprove}
@@ -824,7 +829,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
                       disabled={processing}
                       className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium"
                     >
-                      Aprobar Formulario
+                      {t('review:panel.approve')}
                     </button>
                   </div>
                 </div>
@@ -836,7 +841,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Errores de Validación
+                    {t('review:panel.validationErrors')}
                   </h2>
                   <div className="flex items-center space-x-2">
                     <button
@@ -940,7 +945,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
                       <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
-                      Corregir Error
+                      {t('review:panel.editField')}
                     </button>
 
                     {currentError.severity !== 'critical' && (
@@ -952,7 +957,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                         </svg>
-                        Ignorar (No crítico)
+                        {t('review:panel.discardChanges')}
                       </button>
                     )}
                   </div>
@@ -963,7 +968,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
                       <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
                       </svg>
-                      Todos los Datos Extraídos
+                      {t('review:panel.original')}
                     </h3>
                     <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
                       <table className="min-w-full divide-y divide-gray-200">
@@ -1032,7 +1037,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Corregir Error
+                  {t('review:panel.editField')}
                 </h2>
                 <button
                   onClick={() => setIsEditModalOpen(false)}
@@ -1049,7 +1054,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               {/* Campo */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Campo
+                  {t('review:panel.fieldName')}
                 </label>
                 <p className="text-gray-900 font-medium">{editingError.field_name}</p>
               </div>
@@ -1057,7 +1062,7 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
               {/* Valor original */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Valor original (extraído)
+                  {t('review:panel.value')}
                 </label>
                 <p className="text-gray-600 bg-gray-50 px-3 py-2 rounded border border-gray-200">
                   {editingError.extracted_value || '(vacío)'}
@@ -1112,14 +1117,14 @@ export default function ReviewPanel({ mode = 'single', isDarkMode = false }: Rev
                 disabled={processing}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
               >
-                Cancelar
+                {t('common:buttons.cancel')}
               </button>
               <button
                 onClick={handleFixError}
                 disabled={processing || !correctedValue.trim()}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {processing ? 'Guardando...' : 'Guardar Corrección'}
+                {processing ? t('common:status.processing') : t('review:panel.saveChanges')}
               </button>
             </div>
           </div>

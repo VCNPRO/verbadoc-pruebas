@@ -54,6 +54,9 @@ import UserGuidePage from './src/components/UserGuidePage.tsx';
 import BibliotecaPage from './src/components/BibliotecaPage.tsx';
 // ✅ Hook de módulos
 import { useModules } from './src/hooks/useModules.ts';
+// ✅ i18n - Selector de idioma
+import { LanguageSelector } from './src/components/LanguageSelector.tsx';
+import { useTranslation } from 'react-i18next';
 
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import * as pdfjs from 'pdfjs-dist';
@@ -85,6 +88,7 @@ const renderPdfToImage = async (file: File): Promise<string> => {
 function AppContent() {
     const { user, loading, logout } = useAuth();
     const navigate = useNavigate();
+    const { t } = useTranslation(['app', 'common']);
 
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
@@ -1803,7 +1807,7 @@ function AppContent() {
             <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: isDarkMode ? '#0f172a' : '#f0f9ff' }}>
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="mt-4 text-gray-500">Cargando...</p>
+                    <p className="mt-4 text-gray-500">{t('common:status.loading')}</p>
                 </div>
             </div>
         );
@@ -1847,17 +1851,18 @@ function AppContent() {
                                     className="text-[10px] font-sans transition-colors duration-500 tracking-wide"
                                     style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}
                                 >
-                                    Extracción Inteligente de Datos
+                                    {t('app:header.subtitle')}
                                 </p>
                             </div>
                             <span className="text-base px-2 py-1 rounded bg-amber-500 text-white font-semibold">
-                                REVIEWER
+                                {t('app:header.reviewer')}
                             </span>
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-base" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
-                                trabajando para <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ' por ' : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
+                                {t('app:header.workingFor')} <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ` ${t('app:header.by')} ` : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
                             </span>
+                            <LanguageSelector isLightMode={isLightMode} />
                             <button
                                 onClick={logout}
                                 className="flex items-center gap-1.5 px-3 py-1.5 border rounded-md text-base font-semibold shadow hover:shadow-md"
@@ -1867,8 +1872,7 @@ function AppContent() {
                                     color: '#ffffff'
                                 }}
                             >
-                                Salir
-                            </button>
+                                {t('app:header.exit')}
                         </div>
                     </div>
                 </div>
@@ -1877,26 +1881,26 @@ function AppContent() {
             <main className="flex-1 p-8">
                 <div className="max-w-4xl mx-auto">
                     <h2 className={`text-2xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                        Panel de Usuario
+                        {t('app:reviewerHome.title')}
                     </h2>
                     <div className={`mb-6 p-4 rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
                         <h3 className={`text-base font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                            Totales
+                            {t('app:reviewerHome.totals')}
                         </h3>
                         <div className="flex gap-6">
-                            
+
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{masterExcelCount}</span>
-                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Excel Master</p>
+                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('app:reviewerHome.excelMaster')}</p>
                             </div>
                             <div className="text-center">
                                 <span className={`text-2xl font-bold ${isDarkMode ? 'text-red-400' : 'text-red-600'}`}>{unprocessableCount}</span>
-                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>PDF</p>
+                                <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{t('app:reviewerHome.pdfDocuments')}</p>
                             </div>
                         </div>
                     </div>
                     <p className={`mb-8 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                        Selecciona una sección para comenzar a trabajar:
+                        {t('app:reviewerHome.selectSection')}
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1911,10 +1915,10 @@ function AppContent() {
                         >
                             <div className="text-4xl mb-4">📊</div>
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                Resultados
+                                {t('app:sidebar.results')}
                             </h3>
                             <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Ver resultados de extracción
+                                {t('app:reviewerHome.viewResults')}
                             </p>
                         </button>
 
@@ -1929,10 +1933,10 @@ function AppContent() {
                         >
                             <div className="text-4xl mb-4">📊</div>
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                Excel Master
+                                {t('app:reviewerHome.excelMaster')}
                             </h3>
                             <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Ver todos los formularios procesados
+                                {t('app:reviewerHome.viewAllProcessed')}
                             </p>
                             {masterExcelCount > 0 && (
                                 <span className="inline-block mt-3 px-3 py-1 bg-emerald-600 text-white text-base font-bold rounded-full">
@@ -1952,10 +1956,10 @@ function AppContent() {
                         >
                             <div className="text-4xl mb-4">⚠️</div>
                             <h3 className={`text-lg font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                PDF
+                                {t('app:reviewerHome.pdfDocuments')}
                             </h3>
                             <p className={`text-base ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                Documentos PDF del cliente
+                                {t('app:reviewerHome.clientPdfDocs')}
                             </p>
                             {unprocessableCount > 0 && (
                                 <span className="inline-block mt-3 px-3 py-1 bg-red-600 text-white text-base font-bold rounded-full">
@@ -1975,7 +1979,7 @@ function AppContent() {
                     color: isDarkMode ? '#64748b' : '#64748b'
                 }}
             >
-                © 2026 VerbadocPro Europa - Panel de Revisión
+                {t('app:reviewerHome.footer')}
             </footer>
         </div>
     );
@@ -2012,7 +2016,7 @@ function AppContent() {
                                         color: isLightMode ? '#64748b' : '#94a3b8'
                                     }}
                                 >
-                                    Extracción Inteligente de Datos
+                                    {t('app:header.subtitle')}
                                 </p>
                             </div>
                             <span
@@ -2021,7 +2025,7 @@ function AppContent() {
                                     color: isLightMode ? '#64748b' : '#94a3b8'
                                 }}
                             >
-                                trabajando para <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ' por ' : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
+                                {t('app:header.workingFor')} <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ` ${t('app:header.by')} ` : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
                             </span>
                         </div>
                         <div className="flex items-center gap-4">
@@ -2034,7 +2038,7 @@ function AppContent() {
                                     borderColor: isLightMode ? '#4f46e5' : '#6366f1',
                                     color: '#ffffff'
                                 }}
-                                title="Configuración"
+                                title={t('app:header.config')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -2042,6 +2046,8 @@ function AppContent() {
                                 </svg>
                             </button>
                             {/* Modelo IA fijo: Gemini 2.5 Flash */}
+                            {/* Selector de idioma */}
+                            <LanguageSelector isLightMode={isLightMode} />
                             {/* Botón Ayuda - cuadrado */}
                             <button
                                 onClick={() => setIsHelpModalOpen(true)}
@@ -2051,7 +2057,7 @@ function AppContent() {
                                     borderColor: isLightMode ? '#1d4ed8' : '#06b6d4',
                                     color: '#ffffff'
                                 }}
-                                title="Ayuda y Guía de Usuario"
+                                title={t('app:header.help')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -2068,7 +2074,7 @@ function AppContent() {
                                     borderColor: isLightMode ? '#b91c1c' : '#ef4444',
                                     color: '#ffffff'
                                 }}
-                                title="Panel de Administración"
+                                title={t('app:header.admin')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -2085,7 +2091,7 @@ function AppContent() {
                                     borderColor: isLightMode ? '#047857' : '#10b981',
                                     color: '#ffffff'
                                 }}
-                                title="Ver Planes y Precios"
+                                title={t('app:header.pricing')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -2101,7 +2107,7 @@ function AppContent() {
                                     borderColor: isLightMode ? '#ef4444' : '#475569',
                                     color: isLightMode ? '#dc2626' : '#f87171'
                                 }}
-                                title="Cerrar Sesión"
+                                title={t('app:header.logout')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -2126,7 +2132,7 @@ function AppContent() {
                         <div className="flex-1">
                             <div className="flex items-center justify-between mb-1">
                                 <span className="text-base font-semibold" style={{ color: isLightMode ? '#1e3a8a' : '#93c5fd' }}>
-                                    Procesando {extractionProgress.completed}/{extractionProgress.total} {isIngesting ? 'documentos' : 'formularios'}
+                                    {t('app:progress.processing', { completed: extractionProgress.completed, total: extractionProgress.total, type: t(isIngesting ? 'app:progress.documents' : 'app:progress.forms') })}
                                 </span>
                                 <span className="text-base font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
                                     {(() => {
@@ -2164,27 +2170,27 @@ function AppContent() {
                                 borderColor: isLightMode ? '#fde68a' : '#78350f',
                             }}
                         >
-                            <p className="text-base font-bold mb-2" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>Revisión</p>
+                            <p className="text-base font-bold mb-2" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{t('app:sidebar.review')}</p>
                             <div className="flex items-center justify-between w-full mb-1.5">
-                                <p className="text-[10px] font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>Totales</p>
+                                <p className="text-[10px] font-semibold" style={{ color: isLightMode ? '#92400e' : '#fbbf24' }}>{t('app:sidebar.totals')}</p>
                                 <p className="text-base font-bold" style={{ color: isLightMode ? '#78350f' : '#f59e0b' }}>{reviewStats.total}</p>
                             </div>
                             {reviewStats.total > 0 && (
                                 <div className="w-full space-y-1">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px]" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>Por revisar</span>
+                                        <span className="text-[10px]" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>{t('app:sidebar.needsReview')}</span>
                                         <span className="text-[10px] font-bold" style={{ color: isLightMode ? '#d97706' : '#fbbf24' }}>
                                             {reviewStats.needsReview} ({(reviewStats.needsReview / reviewStats.total * 100).toFixed(1)}%)
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px]" style={{ color: isLightMode ? '#059669' : '#34d399' }}>Validos</span>
+                                        <span className="text-[10px]" style={{ color: isLightMode ? '#059669' : '#34d399' }}>{t('app:sidebar.valid')}</span>
                                         <span className="text-[10px] font-bold" style={{ color: isLightMode ? '#059669' : '#34d399' }}>
                                             {reviewStats.valid} ({(reviewStats.valid / reviewStats.total * 100).toFixed(1)}%)
                                         </span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[10px]" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>Rechazados</span>
+                                        <span className="text-[10px]" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>{t('app:sidebar.rejected')}</span>
                                         <span className="text-[10px] font-bold" style={{ color: isLightMode ? '#dc2626' : '#f87171' }}>
                                             {reviewStats.rejected} ({(reviewStats.rejected / reviewStats.total * 100).toFixed(1)}%)
                                         </span>
@@ -2208,7 +2214,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>Resultados</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#1e40af' : '#93c5fd' }}>{t('app:sidebar.results')}</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#1e3a8a' : '#60a5fa' }}>{history.length}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#3b82f6' : '#60a5fa'}>
@@ -2225,7 +2231,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>PDF</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>{t('app:sidebar.pdf')}</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{unprocessableCount}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
@@ -2242,7 +2248,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>Excel</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#065f46' : '#6ee7b7' }}>{t('app:sidebar.excel')}</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#047857' : '#34d399' }}>{masterExcelCount}</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#10b981' : '#34d399'}>
@@ -2259,7 +2265,7 @@ function AppContent() {
                             }}
                         >
                             <div>
-                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#5b21b6' : '#c4b5fd' }}>Biblioteca</p>
+                                <p className="text-base font-semibold" style={{ color: isLightMode ? '#5b21b6' : '#c4b5fd' }}>{t('app:sidebar.library')}</p>
                                 <p className="text-lg font-bold" style={{ color: isLightMode ? '#7c3aed' : '#a78bfa' }}>RAG</p>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke={isLightMode ? '#8b5cf6' : '#c4b5fd'}>
@@ -2301,7 +2307,7 @@ function AppContent() {
                             >
                                 <div className="flex items-center gap-2">
                                     <span>🤖</span>
-                                    <span className="font-semibold">Asistente IA</span>
+                                    <span className="font-semibold">{t('app:sections.aiAssistant')}</span>
                                 </div>
                             </div>
                             <div className="p-3 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 280px)' }}>
@@ -2344,8 +2350,8 @@ function AppContent() {
                         >
                             <div className="flex items-center gap-2">
                                 <span>💬</span>
-                                <span className="font-semibold">Pregúntale al Documento</span>
-                                <span className="text-sm font-normal opacity-75">· Consulta con lenguaje natural</span>
+                                <span className="font-semibold">{t('app:sections.askDocument')}</span>
+                                <span className="text-sm font-normal opacity-75">· {t('app:sections.naturalLanguage')}</span>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${ragPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2373,8 +2379,8 @@ function AppContent() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
-                                <span className="font-semibold">Configuración Avanzada</span>
-                                <span className="text-sm font-normal opacity-75">· Esquema, Plantillas</span>
+                                <span className="font-semibold">{t('app:sections.advancedConfig')}</span>
+                                <span className="text-sm font-normal opacity-75">· {t('app:sections.schemaTemplates')}</span>
                             </div>
                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${advancedConfigOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -2411,7 +2417,7 @@ function AppContent() {
                                                 color: isLightMode ? '#334155' : '#cbd5e1',
                                             }}
                                         >
-                                            <span>Plantillas</span>
+                                            <span>{t('app:sections.templates')}</span>
                                             <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${templatesPanelOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                             </svg>
@@ -2482,7 +2488,7 @@ function AppContent() {
                             }}
                         >
                             <h3 className="text-lg font-semibold" style={{ color: isLightMode ? '#047857' : '#6ee7b7' }}>
-                                📚 Guardar en Biblioteca RAG
+                                {t('app:ragFolderModal.title')}
                             </h3>
                             <p className="text-sm mt-1" style={{ color: isLightMode ? '#059669' : '#a7f3d0' }}>
                                 {ragFolderModal.pendingFileIds.length} documento{ragFolderModal.pendingFileIds.length > 1 ? 's' : ''}

@@ -1,0 +1,58 @@
+{
+  "list": {
+    "title": "Revisión de Extracciones",
+    "subtitle": "Revisa y valida los datos extraídos de los documentos",
+    "filters": {
+      "all": "Todos",
+      "pending": "Pendientes",
+      "valid": "Válidos",
+      "rejected": "Rechazados",
+      "needsReview": "Por revisar"
+    },
+    "table": {
+      "filename": "Archivo",
+      "date": "Fecha",
+      "status": "Estado",
+      "confidence": "Confianza",
+      "actions": "Acciones",
+      "model": "Modelo",
+      "noData": "No hay extracciones para mostrar"
+    },
+    "stats": {
+      "total": "Total",
+      "needsReview": "Por revisar",
+      "valid": "Válidos",
+      "rejected": "Rechazados"
+    },
+    "actions": {
+      "approve": "Aprobar",
+      "reject": "Rechazar",
+      "review": "Revisar",
+      "delete": "Eliminar",
+      "viewPdf": "Ver PDF",
+      "exportExcel": "Exportar Excel",
+      "approveAll": "Aprobar todos",
+      "rejectAll": "Rechazar todos"
+    },
+    "back": "Volver al inicio"
+  },
+  "panel": {
+    "title": "Detalle de Revisión",
+    "original": "Datos Originales",
+    "edited": "Datos Editados",
+    "fieldName": "Campo",
+    "value": "Valor",
+    "confidence": "Confianza",
+    "editField": "Editar campo",
+    "saveChanges": "Guardar cambios",
+    "discardChanges": "Descartar cambios",
+    "approve": "Aprobar extracción",
+    "reject": "Rechazar extracción",
+    "rejectReason": "Motivo de rechazo",
+    "rejectReasonPlaceholder": "Indica el motivo del rechazo...",
+    "validationErrors": "Errores de validación",
+    "noErrors": "Sin errores de validación",
+    "crossValidation": "Validación cruzada",
+    "history": "Historial de cambios"
+  }
+}

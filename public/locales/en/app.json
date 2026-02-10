@@ -1,0 +1,65 @@
+{
+  "header": {
+    "title": "verbadoc pro europa",
+    "subtitle": "Intelligent Data Extraction",
+    "workingFor": "working for",
+    "by": "by",
+    "logout": "Sign Out",
+    "exit": "Exit",
+    "config": "Settings",
+    "help": "Help & User Guide",
+    "admin": "Admin Panel",
+    "pricing": "View Plans & Pricing",
+    "reviewer": "REVIEWER"
+  },
+  "sidebar": {
+    "review": "Review",
+    "results": "Results",
+    "pdf": "PDF",
+    "excel": "Excel",
+    "library": "Library",
+    "totals": "Totals",
+    "needsReview": "Needs review",
+    "valid": "Valid",
+    "rejected": "Rejected"
+  },
+  "progress": {
+    "processing": "Processing {{completed}}/{{total}} {{type}}",
+    "documents": "documents",
+    "forms": "forms"
+  },
+  "sections": {
+    "askDocument": "Ask the Document",
+    "naturalLanguage": "Natural language query",
+    "advancedConfig": "Advanced Settings",
+    "schemaTemplates": "Schema, Templates",
+    "templates": "Templates",
+    "aiAssistant": "AI Assistant",
+    "saveToLibrary": "Save to RAG Library"
+  },
+  "reviewerHome": {
+    "title": "User Panel",
+    "totals": "Totals",
+    "excelMaster": "Excel Master",
+    "pdfDocuments": "PDF",
+    "selectSection": "Select a section to start working:",
+    "viewResults": "View extraction results",
+    "viewAllProcessed": "View all processed forms",
+    "clientPdfDocs": "Client PDF documents",
+    "footer": "© 2026 VerbadocPro Europa - Review Panel"
+  },
+  "ragFolderModal": {
+    "title": "Save to RAG Library",
+    "documentCount": "{{count}} document(s)",
+    "selectFolder": "Select folder",
+    "newFolder": "New folder",
+    "folderName": "Folder name",
+    "creating": "Creating...",
+    "create": "Create",
+    "noFolder": "No folder (root)",
+    "customName": "Custom document name",
+    "customNamePlaceholder": "Leave empty to use original name",
+    "uploadButton": "Upload to Library",
+    "uploading": "Uploading..."
+  }
+}
