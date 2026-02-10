@@ -1873,6 +1873,7 @@ function AppContent() {
                                 }}
                             >
                                 {t('app:header.exit')}
+                            </button>
                         </div>
                     </div>
                 </div>
