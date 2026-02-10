@@ -6,68 +6,68 @@
     "title": "Guía Rápida",
     "step1": {
       "title": "Cargar documentos",
-      "description": "Arrastra y suelta tus PDFs o imágenes en la zona de carga"
+      "description": "Arrastra e solta os teus PDFs ou imaxes na zona de carga"
     },
     "step2": {
       "title": "Extraer datos",
-      "description": "Selecciona los archivos y haz clic en 'Extraer todos'"
+      "description": "Selecciona os ficheiros e fai clic en 'Extraer todos'"
     },
     "step3": {
       "title": "Revisar resultados",
-      "description": "Verifica los datos extraídos en la sección de Resultados"
+      "description": "Verifica os datos extraídos na sección de Resultados"
     },
     "step4": {
       "title": "Exportar",
-      "description": "Exporta los datos en formato Excel, JSON o PDF"
+      "description": "Exporta os datos en formato Excel, JSON ou PDF"
     }
   },
   "sections": {
     "extraction": {
       "title": "Extracción de Datos",
-      "description": "VerbadocPro utiliza IA para extraer datos de documentos PDF y escaneados.",
+      "description": "VerbadocPro utiliza IA para extraer datos de documentos PDF e dixitalizados.",
       "features": [
         "Extracción automática con esquemas configurables",
-        "Soporte para PDFs, imágenes y documentos escaneados",
-        "Procesamiento en lote (hasta 10 simultáneos)",
+        "Soporte para PDFs, imaxes e documentos dixitalizados",
+        "Procesamento en lote (ata 10 simultáneos)",
         "Detección automática de tipo de documento"
       ]
     },
     "rag": {
       "title": "Biblioteca RAG",
-      "description": "Sube documentos y consulta su contenido con lenguaje natural.",
+      "description": "Sobe documentos e consulta o seu contido con linguaxe natural.",
       "features": [
-        "Búsqueda semántica con IA",
+        "Busca semántica con IA",
         "Organización por carpetas",
         "Soporte multiidioma",
-        "Reconocimiento de voz"
+        "Recoñecemento de voz"
       ]
     },
     "review": {
-      "title": "Revisión y Validación",
-      "description": "Revisa, edita y valida los datos extraídos antes de exportar.",
+      "title": "Revisión e Validación",
+      "description": "Revisa, edita e valida os datos extraídos antes de exportar.",
       "features": [
         "Validación cruzada automática",
-        "Edición de campos individuales",
-        "Flujo de aprobación/rechazo",
+        "Edición de campos individuais",
+        "Fluxo de aprobación/rexeitamento",
         "Historial de cambios"
       ]
     },
     "chatbot": {
       "title": "Chatbot Laia",
-      "description": "Asistente virtual que te ayuda con cualquier duda sobre la plataforma."
+      "description": "Asistente virtual que te axuda con calquera dúbida sobre a plataforma."
     }
   },
   "faq": {
     "title": "Preguntas Frecuentes",
-    "q1": "¿Qué formatos de archivo son compatibles?",
-    "a1": "VerbadocPro soporta PDF, JPG, PNG y JSON. Los archivos escaneados se procesan con OCR.",
-    "q2": "¿Cuántos archivos puedo procesar a la vez?",
-    "a2": "Puedes procesar hasta 10 archivos simultáneamente en lote.",
-    "q3": "¿Cómo funciona la Biblioteca RAG?",
-    "a3": "Sube documentos a la biblioteca y consulta su contenido con preguntas en lenguaje natural. La IA busca en el contenido y genera respuestas contextualizadas.",
-    "q4": "¿Puedo usar reconocimiento de voz?",
-    "a4": "Sí, puedes hacer preguntas por voz en la Biblioteca RAG y con el Chatbot Laia.",
-    "q5": "¿Los datos son seguros?",
-    "a5": "Sí, todos los datos se almacenan de forma segura con cifrado y acceso controlado por usuario."
+    "q1": "Que formatos de ficheiro son compatibles?",
+    "a1": "VerbadocPro soporta PDF, JPG, PNG e JSON. Os ficheiros dixitalizados procésanse con OCR.",
+    "q2": "Cantos ficheiros podo procesar á vez?",
+    "a2": "Podes procesar ata 10 ficheiros simultaneamente en lote.",
+    "q3": "Como funciona a Biblioteca RAG?",
+    "a3": "Sobe documentos á biblioteca e consulta o seu contido con preguntas en linguaxe natural. A IA busca no contido e xera respostas contextualizadas.",
+    "q4": "Podo usar recoñecemento de voz?",
+    "a4": "Si, podes facer preguntas por voz na Biblioteca RAG e co Chatbot Laia.",
+    "q5": "Os datos son seguros?",
+    "a5": "Si, todos os datos almacénanse de forma segura con cifrado e acceso controlado por usuario."
   }
 }

@@ -1,58 +1,58 @@
 {
   "list": {
-    "title": "Revisión de Extracciones",
-    "subtitle": "Revisa y valida los datos extraídos de los documentos",
+    "title": "Revisão de Extrações",
+    "subtitle": "Reveja e valide os dados extraídos dos documentos",
     "filters": {
       "all": "Todos",
-      "pending": "Pendientes",
+      "pending": "Pendentes",
       "valid": "Válidos",
-      "rejected": "Rechazados",
-      "needsReview": "Por revisar"
+      "rejected": "Rejeitados",
+      "needsReview": "Por rever"
     },
     "table": {
-      "filename": "Archivo",
-      "date": "Fecha",
+      "filename": "Ficheiro",
+      "date": "Data",
       "status": "Estado",
-      "confidence": "Confianza",
-      "actions": "Acciones",
+      "confidence": "Confiança",
+      "actions": "Ações",
       "model": "Modelo",
-      "noData": "No hay extracciones para mostrar"
+      "noData": "Não há extrações para mostrar"
     },
     "stats": {
       "total": "Total",
-      "needsReview": "Por revisar",
+      "needsReview": "Por rever",
       "valid": "Válidos",
-      "rejected": "Rechazados"
+      "rejected": "Rejeitados"
     },
     "actions": {
-      "approve": "Aprobar",
-      "reject": "Rechazar",
-      "review": "Revisar",
+      "approve": "Aprovar",
+      "reject": "Rejeitar",
+      "review": "Rever",
       "delete": "Eliminar",
       "viewPdf": "Ver PDF",
       "exportExcel": "Exportar Excel",
-      "approveAll": "Aprobar todos",
-      "rejectAll": "Rechazar todos"
+      "approveAll": "Aprovar todos",
+      "rejectAll": "Rejeitar todos"
     },
-    "back": "Volver al inicio"
+    "back": "Voltar ao início"
   },
   "panel": {
-    "title": "Detalle de Revisión",
-    "original": "Datos Originales",
-    "edited": "Datos Editados",
+    "title": "Detalhe da Revisão",
+    "original": "Dados Originais",
+    "edited": "Dados Editados",
     "fieldName": "Campo",
     "value": "Valor",
-    "confidence": "Confianza",
+    "confidence": "Confiança",
     "editField": "Editar campo",
-    "saveChanges": "Guardar cambios",
-    "discardChanges": "Descartar cambios",
-    "approve": "Aprobar extracción",
-    "reject": "Rechazar extracción",
-    "rejectReason": "Motivo de rechazo",
-    "rejectReasonPlaceholder": "Indica el motivo del rechazo...",
-    "validationErrors": "Errores de validación",
-    "noErrors": "Sin errores de validación",
-    "crossValidation": "Validación cruzada",
-    "history": "Historial de cambios"
+    "saveChanges": "Guardar alterações",
+    "discardChanges": "Descartar alterações",
+    "approve": "Aprovar extração",
+    "reject": "Rejeitar extração",
+    "rejectReason": "Motivo da rejeição",
+    "rejectReasonPlaceholder": "Indique o motivo da rejeição...",
+    "validationErrors": "Erros de validação",
+    "noErrors": "Sem erros de validação",
+    "crossValidation": "Validação cruzada",
+    "history": "Histórico de alterações"
   }
 }

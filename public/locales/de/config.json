@@ -1,37 +1,37 @@
 {
-  "title": "Configuración",
+  "title": "Einstellungen",
   "tabs": {
-    "general": "General",
-    "appearance": "Apariencia",
-    "modules": "Módulos",
-    "logs": "Registros"
+    "general": "Allgemein",
+    "appearance": "Darstellung",
+    "modules": "Module",
+    "logs": "Protokolle"
   },
   "general": {
-    "language": "Idioma de la interfaz",
-    "notifications": "Notificaciones",
-    "autoSave": "Guardado automático"
+    "language": "Sprache der Benutzeroberfläche",
+    "notifications": "Benachrichtigungen",
+    "autoSave": "Automatisch speichern"
   },
   "appearance": {
-    "darkMode": "Modo oscuro",
-    "lightMode": "Modo claro",
-    "theme": "Tema",
-    "fontSize": "Tamaño de texto"
+    "darkMode": "Dunkler Modus",
+    "lightMode": "Heller Modus",
+    "theme": "Design",
+    "fontSize": "Schriftgröße"
   },
   "modules": {
-    "title": "Módulos activos",
-    "extraction": "Extracción de datos",
-    "rag": "Biblioteca RAG",
-    "review": "Revisión",
+    "title": "Aktive Module",
+    "extraction": "Datenextraktion",
+    "rag": "RAG-Bibliothek",
+    "review": "Überprüfung",
     "masterExcel": "Excel Master",
     "chatbot": "Chatbot Laia"
   },
   "logs": {
-    "title": "Registros de actividad",
-    "noLogs": "No hay registros disponibles",
-    "date": "Fecha",
-    "action": "Acción",
-    "user": "Usuario",
-    "details": "Detalles",
-    "clear": "Limpiar registros"
+    "title": "Aktivitätsprotokolle",
+    "noLogs": "Keine Protokolle verfügbar",
+    "date": "Datum",
+    "action": "Aktion",
+    "user": "Benutzer",
+    "details": "Details",
+    "clear": "Protokolle löschen"
   }
 }

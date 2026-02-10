@@ -1,58 +1,58 @@
 {
   "list": {
-    "title": "Revisión de Extracciones",
-    "subtitle": "Revisa y valida los datos extraídos de los documentos",
+    "title": "Erauzketen Berrikusketa",
+    "subtitle": "Berrikusi eta balioztatu dokumentuetatik ateratako datuak",
     "filters": {
-      "all": "Todos",
-      "pending": "Pendientes",
-      "valid": "Válidos",
-      "rejected": "Rechazados",
-      "needsReview": "Por revisar"
+      "all": "Denak",
+      "pending": "Zain daudenak",
+      "valid": "Baliozkoak",
+      "rejected": "Baztertuak",
+      "needsReview": "Berrikusteko"
     },
     "table": {
-      "filename": "Archivo",
-      "date": "Fecha",
-      "status": "Estado",
-      "confidence": "Confianza",
-      "actions": "Acciones",
-      "model": "Modelo",
-      "noData": "No hay extracciones para mostrar"
+      "filename": "Fitxategia",
+      "date": "Data",
+      "status": "Egoera",
+      "confidence": "Konfiantza",
+      "actions": "Ekintzak",
+      "model": "Modeloa",
+      "noData": "Ez dago erauzketarik erakusteko"
     },
     "stats": {
-      "total": "Total",
-      "needsReview": "Por revisar",
-      "valid": "Válidos",
-      "rejected": "Rechazados"
+      "total": "Guztira",
+      "needsReview": "Berrikusteko",
+      "valid": "Baliozkoak",
+      "rejected": "Baztertuak"
     },
     "actions": {
-      "approve": "Aprobar",
-      "reject": "Rechazar",
-      "review": "Revisar",
-      "delete": "Eliminar",
-      "viewPdf": "Ver PDF",
-      "exportExcel": "Exportar Excel",
-      "approveAll": "Aprobar todos",
-      "rejectAll": "Rechazar todos"
+      "approve": "Onartu",
+      "reject": "Baztertu",
+      "review": "Berrikusi",
+      "delete": "Ezabatu",
+      "viewPdf": "PDF ikusi",
+      "exportExcel": "Excel esportatu",
+      "approveAll": "Denak onartu",
+      "rejectAll": "Denak baztertu"
     },
-    "back": "Volver al inicio"
+    "back": "Hasierara itzuli"
   },
   "panel": {
-    "title": "Detalle de Revisión",
-    "original": "Datos Originales",
-    "edited": "Datos Editados",
-    "fieldName": "Campo",
-    "value": "Valor",
-    "confidence": "Confianza",
-    "editField": "Editar campo",
-    "saveChanges": "Guardar cambios",
-    "discardChanges": "Descartar cambios",
-    "approve": "Aprobar extracción",
-    "reject": "Rechazar extracción",
-    "rejectReason": "Motivo de rechazo",
-    "rejectReasonPlaceholder": "Indica el motivo del rechazo...",
-    "validationErrors": "Errores de validación",
-    "noErrors": "Sin errores de validación",
-    "crossValidation": "Validación cruzada",
-    "history": "Historial de cambios"
+    "title": "Berrikusketa Xehetasuna",
+    "original": "Jatorrizko Datuak",
+    "edited": "Editatutako Datuak",
+    "fieldName": "Eremua",
+    "value": "Balioa",
+    "confidence": "Konfiantza",
+    "editField": "Eremua editatu",
+    "saveChanges": "Aldaketak gorde",
+    "discardChanges": "Aldaketak baztertu",
+    "approve": "Erauzketa onartu",
+    "reject": "Erauzketa baztertu",
+    "rejectReason": "Baztertze-arrazoia",
+    "rejectReasonPlaceholder": "Adierazi baztertzearen arrazoia...",
+    "validationErrors": "Balioztapen-erroreak",
+    "noErrors": "Balioztapen-errorerik gabe",
+    "crossValidation": "Gurutzatutako balioztapena",
+    "history": "Aldaketen historiala"
   }
 }

@@ -1,60 +1,60 @@
 {
-  "title": "Planes y Precios",
-  "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
-  "back": "Volver",
+  "title": "Piani e Prezzi",
+  "subtitle": "Scegli il piano più adatto alle tue esigenze",
+  "back": "Indietro",
   "plans": {
     "free": {
       "name": "Gratuito",
       "price": "0€",
-      "period": "/mes",
-      "description": "Para probar la plataforma",
+      "period": "/mese",
+      "description": "Per provare la piattaforma",
       "features": [
-        "50 extracciones/mes",
-        "5 documentos RAG",
-        "Soporte por email"
+        "50 estrazioni/mese",
+        "5 documenti RAG",
+        "Supporto via email"
       ]
     },
     "professional": {
-      "name": "Profesional",
+      "name": "Professionale",
       "price": "49€",
-      "period": "/mes",
-      "description": "Para equipos pequeños",
+      "period": "/mese",
+      "description": "Per piccoli team",
       "features": [
-        "500 extracciones/mes",
-        "50 documentos RAG",
-        "Soporte prioritario",
+        "500 estrazioni/mese",
+        "50 documenti RAG",
+        "Supporto prioritario",
         "API access"
       ]
     },
     "enterprise": {
       "name": "Enterprise",
-      "price": "Contactar",
+      "price": "Contattaci",
       "period": "",
-      "description": "Para grandes organizaciones",
+      "description": "Per grandi organizzazioni",
       "features": [
-        "Extracciones ilimitadas",
-        "Documentos RAG ilimitados",
-        "Soporte dedicado",
+        "Estrazioni illimitate",
+        "Documenti RAG illimitati",
+        "Supporto dedicato",
         "API access",
         "Custom integrations"
       ]
     }
   },
   "modules": {
-    "title": "Módulos Disponibles",
-    "extraction": "Extracción de Datos",
-    "extractionDesc": "Extracción inteligente de datos desde PDFs y documentos escaneados",
+    "title": "Moduli Disponibili",
+    "extraction": "Estrazione Dati",
+    "extractionDesc": "Estrazione intelligente dei dati da PDF e documenti scansionati",
     "rag": "Biblioteca RAG",
-    "ragDesc": "Búsqueda semántica en tu base documental con IA",
-    "review": "Revisión y Validación",
-    "reviewDesc": "Revisión humana con validación cruzada y reglas personalizables",
+    "ragDesc": "Ricerca semantica nella tua base documentale con IA",
+    "review": "Revisione e Validazione",
+    "reviewDesc": "Revisione umana con validazione incrociata e regole personalizzabili",
     "chatbot": "Chatbot Laia",
-    "chatbotDesc": "Asistente virtual inteligente para consultas sobre la plataforma"
+    "chatbotDesc": "Assistente virtuale intelligente per domande sulla piattaforma"
   },
   "cta": {
-    "current": "Plan actual",
-    "upgrade": "Mejorar plan",
-    "contact": "Contactar ventas",
-    "startFree": "Empezar gratis"
+    "current": "Piano attuale",
+    "upgrade": "Migliora piano",
+    "contact": "Contatta il commerciale",
+    "startFree": "Inizia gratis"
   }
 }

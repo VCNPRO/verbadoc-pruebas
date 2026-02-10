@@ -1,57 +1,57 @@
 {
   "list": {
-    "title": "Revisión de Extracciones",
-    "subtitle": "Revisa y valida los datos extraídos de los documentos",
+    "title": "Revisión de Extraccións",
+    "subtitle": "Revisa e valida os datos extraídos dos documentos",
     "filters": {
       "all": "Todos",
-      "pending": "Pendientes",
+      "pending": "Pendentes",
       "valid": "Válidos",
-      "rejected": "Rechazados",
+      "rejected": "Rexeitados",
       "needsReview": "Por revisar"
     },
     "table": {
-      "filename": "Archivo",
-      "date": "Fecha",
+      "filename": "Ficheiro",
+      "date": "Data",
       "status": "Estado",
       "confidence": "Confianza",
-      "actions": "Acciones",
+      "actions": "Accións",
       "model": "Modelo",
-      "noData": "No hay extracciones para mostrar"
+      "noData": "Non hai extraccións para amosar"
     },
     "stats": {
       "total": "Total",
       "needsReview": "Por revisar",
       "valid": "Válidos",
-      "rejected": "Rechazados"
+      "rejected": "Rexeitados"
     },
     "actions": {
       "approve": "Aprobar",
-      "reject": "Rechazar",
+      "reject": "Rexeitar",
       "review": "Revisar",
       "delete": "Eliminar",
       "viewPdf": "Ver PDF",
       "exportExcel": "Exportar Excel",
       "approveAll": "Aprobar todos",
-      "rejectAll": "Rechazar todos"
+      "rejectAll": "Rexeitar todos"
     },
-    "back": "Volver al inicio"
+    "back": "Volver ao inicio"
   },
   "panel": {
     "title": "Detalle de Revisión",
-    "original": "Datos Originales",
+    "original": "Datos Orixinais",
     "edited": "Datos Editados",
     "fieldName": "Campo",
     "value": "Valor",
     "confidence": "Confianza",
     "editField": "Editar campo",
-    "saveChanges": "Guardar cambios",
+    "saveChanges": "Gardar cambios",
     "discardChanges": "Descartar cambios",
     "approve": "Aprobar extracción",
-    "reject": "Rechazar extracción",
-    "rejectReason": "Motivo de rechazo",
-    "rejectReasonPlaceholder": "Indica el motivo del rechazo...",
-    "validationErrors": "Errores de validación",
-    "noErrors": "Sin errores de validación",
+    "reject": "Rexeitar extracción",
+    "rejectReason": "Motivo de rexeitamento",
+    "rejectReasonPlaceholder": "Indica o motivo do rexeitamento...",
+    "validationErrors": "Erros de validación",
+    "noErrors": "Sen erros de validación",
     "crossValidation": "Validación cruzada",
     "history": "Historial de cambios"
   }

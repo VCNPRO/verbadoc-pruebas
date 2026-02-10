@@ -1,28 +1,28 @@
 {
-  "title": "Planes y Precios",
-  "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
-  "back": "Volver",
+  "title": "Plans i Preus",
+  "subtitle": "Tria el pla que millor s'adapti a les teves necessitats",
+  "back": "Tornar",
   "plans": {
     "free": {
-      "name": "Gratuito",
-      "price": "0€",
+      "name": "Gratu\u00eft",
+      "price": "0\u20ac",
       "period": "/mes",
-      "description": "Para probar la plataforma",
+      "description": "Per provar la plataforma",
       "features": [
-        "50 extracciones/mes",
-        "5 documentos RAG",
-        "Soporte por email"
+        "50 extraccions/mes",
+        "5 documents RAG",
+        "Suport per email"
       ]
     },
     "professional": {
-      "name": "Profesional",
-      "price": "49€",
+      "name": "Professional",
+      "price": "49\u20ac",
       "period": "/mes",
-      "description": "Para equipos pequeños",
+      "description": "Per a equips petits",
       "features": [
-        "500 extracciones/mes",
-        "50 documentos RAG",
-        "Soporte prioritario",
+        "500 extraccions/mes",
+        "50 documents RAG",
+        "Suport prioritari",
         "API access"
       ]
     },
@@ -30,31 +30,31 @@
       "name": "Enterprise",
       "price": "Contactar",
       "period": "",
-      "description": "Para grandes organizaciones",
+      "description": "Per a grans organitzacions",
       "features": [
-        "Extracciones ilimitadas",
-        "Documentos RAG ilimitados",
-        "Soporte dedicado",
+        "Extraccions il\u00b7limitades",
+        "Documents RAG il\u00b7limitats",
+        "Suport dedicat",
         "API access",
         "Custom integrations"
       ]
     }
   },
   "modules": {
-    "title": "Módulos Disponibles",
-    "extraction": "Extracción de Datos",
-    "extractionDesc": "Extracción inteligente de datos desde PDFs y documentos escaneados",
+    "title": "M\u00f2duls Disponibles",
+    "extraction": "Extracci\u00f3 de Dades",
+    "extractionDesc": "Extracci\u00f3 intel\u00b7ligent de dades des de PDFs i documents escanejats",
     "rag": "Biblioteca RAG",
-    "ragDesc": "Búsqueda semántica en tu base documental con IA",
-    "review": "Revisión y Validación",
-    "reviewDesc": "Revisión humana con validación cruzada y reglas personalizables",
+    "ragDesc": "Cerca sem\u00e0ntica a la teva base documental amb IA",
+    "review": "Revisi\u00f3 i Validaci\u00f3",
+    "reviewDesc": "Revisi\u00f3 humana amb validaci\u00f3 encreuada i regles personalitzables",
     "chatbot": "Chatbot Laia",
-    "chatbotDesc": "Asistente virtual inteligente para consultas sobre la plataforma"
+    "chatbotDesc": "Assistent virtual intel\u00b7ligent per a consultes sobre la plataforma"
   },
   "cta": {
-    "current": "Plan actual",
-    "upgrade": "Mejorar plan",
-    "contact": "Contactar ventas",
-    "startFree": "Empezar gratis"
+    "current": "Pla actual",
+    "upgrade": "Millorar pla",
+    "contact": "Contactar vendes",
+    "startFree": "Comen\u00e7ar gratis"
   }
 }

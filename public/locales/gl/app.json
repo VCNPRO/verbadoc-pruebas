@@ -1,15 +1,15 @@
 {
   "header": {
     "title": "verbadoc pro europa",
-    "subtitle": "Extracción Inteligente de Datos",
-    "workingFor": "trabajando para",
+    "subtitle": "Extracción Intelixente de Datos",
+    "workingFor": "traballando para",
     "by": "por",
-    "logout": "Cerrar Sesión",
-    "exit": "Salir",
+    "logout": "Pechar Sesión",
+    "exit": "Saír",
     "config": "Configuración",
-    "help": "Ayuda y Guía de Usuario",
+    "help": "Axuda e Guía de Usuario",
     "admin": "Panel de Administración",
-    "pricing": "Ver Planes y Precios",
+    "pricing": "Ver Plans e Prezos",
     "reviewer": "REVIEWER"
   },
   "sidebar": {
@@ -18,10 +18,10 @@
     "pdf": "PDF",
     "excel": "Excel",
     "library": "Biblioteca",
-    "totals": "Totales",
+    "totals": "Totais",
     "needsReview": "Por revisar",
-    "valid": "Validos",
-    "rejected": "Rechazados"
+    "valid": "Válidos",
+    "rejected": "Rexeitados"
   },
   "progress": {
     "processing": "Procesando {{completed}}/{{total}} {{type}}",
@@ -29,37 +29,37 @@
     "forms": "formularios"
   },
   "sections": {
-    "askDocument": "Pregúntale al Documento",
-    "naturalLanguage": "Consulta con lenguaje natural",
+    "askDocument": "Pregúntalle ao Documento",
+    "naturalLanguage": "Consulta con linguaxe natural",
     "advancedConfig": "Configuración Avanzada",
     "schemaTemplates": "Esquema, Plantillas",
     "templates": "Plantillas",
     "aiAssistant": "Asistente IA",
-    "saveToLibrary": "Guardar en Biblioteca RAG"
+    "saveToLibrary": "Gardar na Biblioteca RAG"
   },
   "reviewerHome": {
     "title": "Panel de Usuario",
-    "totals": "Totales",
+    "totals": "Totais",
     "excelMaster": "Excel Master",
     "pdfDocuments": "PDF",
-    "selectSection": "Selecciona una sección para comenzar a trabajar:",
+    "selectSection": "Selecciona unha sección para comezar a traballar:",
     "viewResults": "Ver resultados de extracción",
-    "viewAllProcessed": "Ver todos los formularios procesados",
-    "clientPdfDocs": "Documentos PDF del cliente",
+    "viewAllProcessed": "Ver todos os formularios procesados",
+    "clientPdfDocs": "Documentos PDF do cliente",
     "footer": "© 2026 VerbadocPro Europa - Panel de Revisión"
   },
   "ragFolderModal": {
-    "title": "Guardar en Biblioteca RAG",
+    "title": "Gardar na Biblioteca RAG",
     "documentCount": "{{count}} documento(s)",
     "selectFolder": "Seleccionar carpeta",
-    "newFolder": "Nueva carpeta",
-    "folderName": "Nombre de la carpeta",
+    "newFolder": "Nova carpeta",
+    "folderName": "Nome da carpeta",
     "creating": "Creando...",
     "create": "Crear",
-    "noFolder": "Sin carpeta (raíz)",
-    "customName": "Nombre personalizado del documento",
-    "customNamePlaceholder": "Dejar vacío para usar nombre original",
-    "uploadButton": "Subir a Biblioteca",
-    "uploading": "Subiendo..."
+    "noFolder": "Sen carpeta (raíz)",
+    "customName": "Nome personalizado do documento",
+    "customNamePlaceholder": "Deixar baleiro para usar o nome orixinal",
+    "uploadButton": "Subir á Biblioteca",
+    "uploading": "Subindo..."
   }
 }

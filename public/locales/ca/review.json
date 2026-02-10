@@ -1,58 +1,58 @@
 {
   "list": {
-    "title": "Revisión de Extracciones",
-    "subtitle": "Revisa y valida los datos extraídos de los documentos",
+    "title": "Revisi\u00f3 d'Extraccions",
+    "subtitle": "Reviseu i valideu les dades extretes dels documents",
     "filters": {
-      "all": "Todos",
-      "pending": "Pendientes",
-      "valid": "Válidos",
-      "rejected": "Rechazados",
-      "needsReview": "Por revisar"
+      "all": "Tots",
+      "pending": "Pendents",
+      "valid": "V\u00e0lids",
+      "rejected": "Rebutjats",
+      "needsReview": "Per revisar"
     },
     "table": {
-      "filename": "Archivo",
-      "date": "Fecha",
-      "status": "Estado",
-      "confidence": "Confianza",
-      "actions": "Acciones",
-      "model": "Modelo",
-      "noData": "No hay extracciones para mostrar"
+      "filename": "Fitxer",
+      "date": "Data",
+      "status": "Estat",
+      "confidence": "Confian\u00e7a",
+      "actions": "Accions",
+      "model": "Model",
+      "noData": "No hi ha extraccions per mostrar"
     },
     "stats": {
       "total": "Total",
-      "needsReview": "Por revisar",
-      "valid": "Válidos",
-      "rejected": "Rechazados"
+      "needsReview": "Per revisar",
+      "valid": "V\u00e0lids",
+      "rejected": "Rebutjats"
     },
     "actions": {
-      "approve": "Aprobar",
-      "reject": "Rechazar",
+      "approve": "Aprovar",
+      "reject": "Rebutjar",
       "review": "Revisar",
       "delete": "Eliminar",
-      "viewPdf": "Ver PDF",
+      "viewPdf": "Veure PDF",
       "exportExcel": "Exportar Excel",
-      "approveAll": "Aprobar todos",
-      "rejectAll": "Rechazar todos"
+      "approveAll": "Aprovar tots",
+      "rejectAll": "Rebutjar tots"
     },
-    "back": "Volver al inicio"
+    "back": "Tornar a l'inici"
   },
   "panel": {
-    "title": "Detalle de Revisión",
-    "original": "Datos Originales",
-    "edited": "Datos Editados",
-    "fieldName": "Campo",
+    "title": "Detall de Revisi\u00f3",
+    "original": "Dades Originals",
+    "edited": "Dades Editades",
+    "fieldName": "Camp",
     "value": "Valor",
-    "confidence": "Confianza",
-    "editField": "Editar campo",
-    "saveChanges": "Guardar cambios",
-    "discardChanges": "Descartar cambios",
-    "approve": "Aprobar extracción",
-    "reject": "Rechazar extracción",
-    "rejectReason": "Motivo de rechazo",
-    "rejectReasonPlaceholder": "Indica el motivo del rechazo...",
-    "validationErrors": "Errores de validación",
-    "noErrors": "Sin errores de validación",
-    "crossValidation": "Validación cruzada",
-    "history": "Historial de cambios"
+    "confidence": "Confian\u00e7a",
+    "editField": "Editar camp",
+    "saveChanges": "Desar canvis",
+    "discardChanges": "Descartar canvis",
+    "approve": "Aprovar extracci\u00f3",
+    "reject": "Rebutjar extracci\u00f3",
+    "rejectReason": "Motiu de rebuig",
+    "rejectReasonPlaceholder": "Indiqueu el motiu del rebuig...",
+    "validationErrors": "Errors de validaci\u00f3",
+    "noErrors": "Sense errors de validaci\u00f3",
+    "crossValidation": "Validaci\u00f3 encreuada",
+    "history": "Historial de canvis"
   }
 }

@@ -1,65 +1,65 @@
 {
   "header": {
     "title": "verbadoc pro europa",
-    "subtitle": "Extracción Inteligente de Datos",
-    "workingFor": "trabajando para",
+    "subtitle": "Extração Inteligente de Dados",
+    "workingFor": "a trabalhar para",
     "by": "por",
-    "logout": "Cerrar Sesión",
-    "exit": "Salir",
-    "config": "Configuración",
-    "help": "Ayuda y Guía de Usuario",
-    "admin": "Panel de Administración",
-    "pricing": "Ver Planes y Precios",
+    "logout": "Terminar Sessão",
+    "exit": "Sair",
+    "config": "Configuração",
+    "help": "Ajuda e Guia do Utilizador",
+    "admin": "Painel de Administração",
+    "pricing": "Ver Planos e Preços",
     "reviewer": "REVIEWER"
   },
   "sidebar": {
-    "review": "Revisión",
+    "review": "Revisão",
     "results": "Resultados",
     "pdf": "PDF",
     "excel": "Excel",
     "library": "Biblioteca",
-    "totals": "Totales",
-    "needsReview": "Por revisar",
-    "valid": "Validos",
-    "rejected": "Rechazados"
+    "totals": "Totais",
+    "needsReview": "Por rever",
+    "valid": "Válidos",
+    "rejected": "Rejeitados"
   },
   "progress": {
-    "processing": "Procesando {{completed}}/{{total}} {{type}}",
+    "processing": "A processar {{completed}}/{{total}} {{type}}",
     "documents": "documentos",
-    "forms": "formularios"
+    "forms": "formulários"
   },
   "sections": {
-    "askDocument": "Pregúntale al Documento",
-    "naturalLanguage": "Consulta con lenguaje natural",
-    "advancedConfig": "Configuración Avanzada",
-    "schemaTemplates": "Esquema, Plantillas",
-    "templates": "Plantillas",
-    "aiAssistant": "Asistente IA",
-    "saveToLibrary": "Guardar en Biblioteca RAG"
+    "askDocument": "Pergunte ao Documento",
+    "naturalLanguage": "Consulta em linguagem natural",
+    "advancedConfig": "Configuração Avançada",
+    "schemaTemplates": "Esquema, Modelos",
+    "templates": "Modelos",
+    "aiAssistant": "Assistente IA",
+    "saveToLibrary": "Guardar na Biblioteca RAG"
   },
   "reviewerHome": {
-    "title": "Panel de Usuario",
-    "totals": "Totales",
+    "title": "Painel do Utilizador",
+    "totals": "Totais",
     "excelMaster": "Excel Master",
     "pdfDocuments": "PDF",
-    "selectSection": "Selecciona una sección para comenzar a trabajar:",
-    "viewResults": "Ver resultados de extracción",
-    "viewAllProcessed": "Ver todos los formularios procesados",
-    "clientPdfDocs": "Documentos PDF del cliente",
-    "footer": "© 2026 VerbadocPro Europa - Panel de Revisión"
+    "selectSection": "Selecione uma secção para começar a trabalhar:",
+    "viewResults": "Ver resultados de extração",
+    "viewAllProcessed": "Ver todos os formulários processados",
+    "clientPdfDocs": "Documentos PDF do cliente",
+    "footer": "© 2026 VerbadocPro Europa - Painel de Revisão"
   },
   "ragFolderModal": {
-    "title": "Guardar en Biblioteca RAG",
+    "title": "Guardar na Biblioteca RAG",
     "documentCount": "{{count}} documento(s)",
-    "selectFolder": "Seleccionar carpeta",
-    "newFolder": "Nueva carpeta",
-    "folderName": "Nombre de la carpeta",
-    "creating": "Creando...",
-    "create": "Crear",
-    "noFolder": "Sin carpeta (raíz)",
-    "customName": "Nombre personalizado del documento",
-    "customNamePlaceholder": "Dejar vacío para usar nombre original",
-    "uploadButton": "Subir a Biblioteca",
-    "uploading": "Subiendo..."
+    "selectFolder": "Selecionar pasta",
+    "newFolder": "Nova pasta",
+    "folderName": "Nome da pasta",
+    "creating": "A criar...",
+    "create": "Criar",
+    "noFolder": "Sem pasta (raiz)",
+    "customName": "Nome personalizado do documento",
+    "customNamePlaceholder": "Deixar vazio para usar o nome original",
+    "uploadButton": "Carregar para Biblioteca",
+    "uploading": "A carregar..."
   }
 }

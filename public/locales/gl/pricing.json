@@ -1,15 +1,15 @@
 {
-  "title": "Planes y Precios",
-  "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
+  "title": "Plans e Prezos",
+  "subtitle": "Elixe o plan que mellor se adapte ás túas necesidades",
   "back": "Volver",
   "plans": {
     "free": {
-      "name": "Gratuito",
+      "name": "Gratuíto",
       "price": "0€",
       "period": "/mes",
-      "description": "Para probar la plataforma",
+      "description": "Para probar a plataforma",
       "features": [
-        "50 extracciones/mes",
+        "50 extraccións/mes",
         "5 documentos RAG",
         "Soporte por email"
       ]
@@ -18,9 +18,9 @@
       "name": "Profesional",
       "price": "49€",
       "period": "/mes",
-      "description": "Para equipos pequeños",
+      "description": "Para equipos pequenos",
       "features": [
-        "500 extracciones/mes",
+        "500 extraccións/mes",
         "50 documentos RAG",
         "Soporte prioritario",
         "API access"
@@ -30,9 +30,9 @@
       "name": "Enterprise",
       "price": "Contactar",
       "period": "",
-      "description": "Para grandes organizaciones",
+      "description": "Para grandes organizacións",
       "features": [
-        "Extracciones ilimitadas",
+        "Extraccións ilimitadas",
         "Documentos RAG ilimitados",
         "Soporte dedicado",
         "API access",
@@ -41,20 +41,20 @@
     }
   },
   "modules": {
-    "title": "Módulos Disponibles",
+    "title": "Módulos Dispoñibles",
     "extraction": "Extracción de Datos",
-    "extractionDesc": "Extracción inteligente de datos desde PDFs y documentos escaneados",
+    "extractionDesc": "Extracción intelixente de datos desde PDFs e documentos dixitalizados",
     "rag": "Biblioteca RAG",
-    "ragDesc": "Búsqueda semántica en tu base documental con IA",
-    "review": "Revisión y Validación",
-    "reviewDesc": "Revisión humana con validación cruzada y reglas personalizables",
+    "ragDesc": "Busca semántica na túa base documental con IA",
+    "review": "Revisión e Validación",
+    "reviewDesc": "Revisión humana con validación cruzada e regras personalizables",
     "chatbot": "Chatbot Laia",
-    "chatbotDesc": "Asistente virtual inteligente para consultas sobre la plataforma"
+    "chatbotDesc": "Asistente virtual intelixente para consultas sobre a plataforma"
   },
   "cta": {
     "current": "Plan actual",
-    "upgrade": "Mejorar plan",
-    "contact": "Contactar ventas",
-    "startFree": "Empezar gratis"
+    "upgrade": "Mellorar plan",
+    "contact": "Contactar vendas",
+    "startFree": "Comezar gratis"
   }
 }

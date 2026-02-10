@@ -1,37 +1,37 @@
 {
-  "title": "Configuración",
+  "title": "Configurazione",
   "tabs": {
-    "general": "General",
-    "appearance": "Apariencia",
-    "modules": "Módulos",
-    "logs": "Registros"
+    "general": "Generale",
+    "appearance": "Aspetto",
+    "modules": "Moduli",
+    "logs": "Registri"
   },
   "general": {
-    "language": "Idioma de la interfaz",
-    "notifications": "Notificaciones",
-    "autoSave": "Guardado automático"
+    "language": "Lingua dell'interfaccia",
+    "notifications": "Notifiche",
+    "autoSave": "Salvataggio automatico"
   },
   "appearance": {
-    "darkMode": "Modo oscuro",
-    "lightMode": "Modo claro",
+    "darkMode": "Modalità scura",
+    "lightMode": "Modalità chiara",
     "theme": "Tema",
-    "fontSize": "Tamaño de texto"
+    "fontSize": "Dimensione del testo"
   },
   "modules": {
-    "title": "Módulos activos",
-    "extraction": "Extracción de datos",
+    "title": "Moduli attivi",
+    "extraction": "Estrazione dati",
     "rag": "Biblioteca RAG",
-    "review": "Revisión",
+    "review": "Revisione",
     "masterExcel": "Excel Master",
     "chatbot": "Chatbot Laia"
   },
   "logs": {
-    "title": "Registros de actividad",
-    "noLogs": "No hay registros disponibles",
-    "date": "Fecha",
-    "action": "Acción",
-    "user": "Usuario",
-    "details": "Detalles",
-    "clear": "Limpiar registros"
+    "title": "Registri di attività",
+    "noLogs": "Non ci sono registri disponibili",
+    "date": "Data",
+    "action": "Azione",
+    "user": "Utente",
+    "details": "Dettagli",
+    "clear": "Pulisci registri"
   }
 }

@@ -1,65 +1,65 @@
 {
   "header": {
     "title": "verbadoc pro europa",
-    "subtitle": "Extracción Inteligente de Datos",
-    "workingFor": "trabajando para",
-    "by": "por",
-    "logout": "Cerrar Sesión",
-    "exit": "Salir",
-    "config": "Configuración",
-    "help": "Ayuda y Guía de Usuario",
-    "admin": "Panel de Administración",
-    "pricing": "Ver Planes y Precios",
+    "subtitle": "Extracci\u00f3 Intel\u00b7ligent de Dades",
+    "workingFor": "treballant per a",
+    "by": "per",
+    "logout": "Tancar Sessi\u00f3",
+    "exit": "Sortir",
+    "config": "Configuraci\u00f3",
+    "help": "Ajuda i Guia d'Usuari",
+    "admin": "Panell d'Administraci\u00f3",
+    "pricing": "Veure Plans i Preus",
     "reviewer": "REVIEWER"
   },
   "sidebar": {
-    "review": "Revisión",
-    "results": "Resultados",
+    "review": "Revisi\u00f3",
+    "results": "Resultats",
     "pdf": "PDF",
     "excel": "Excel",
     "library": "Biblioteca",
-    "totals": "Totales",
-    "needsReview": "Por revisar",
-    "valid": "Validos",
-    "rejected": "Rechazados"
+    "totals": "Totals",
+    "needsReview": "Per revisar",
+    "valid": "V\u00e0lids",
+    "rejected": "Rebutjats"
   },
   "progress": {
-    "processing": "Procesando {{completed}}/{{total}} {{type}}",
-    "documents": "documentos",
-    "forms": "formularios"
+    "processing": "Processant {{completed}}/{{total}} {{type}}",
+    "documents": "documents",
+    "forms": "formularis"
   },
   "sections": {
-    "askDocument": "Pregúntale al Documento",
-    "naturalLanguage": "Consulta con lenguaje natural",
-    "advancedConfig": "Configuración Avanzada",
-    "schemaTemplates": "Esquema, Plantillas",
-    "templates": "Plantillas",
-    "aiAssistant": "Asistente IA",
-    "saveToLibrary": "Guardar en Biblioteca RAG"
+    "askDocument": "Pregunta al Document",
+    "naturalLanguage": "Consulta amb llenguatge natural",
+    "advancedConfig": "Configuraci\u00f3 Avan\u00e7ada",
+    "schemaTemplates": "Esquema, Plantilles",
+    "templates": "Plantilles",
+    "aiAssistant": "Assistent IA",
+    "saveToLibrary": "Desar a la Biblioteca RAG"
   },
   "reviewerHome": {
-    "title": "Panel de Usuario",
-    "totals": "Totales",
+    "title": "Panell d'Usuari",
+    "totals": "Totals",
     "excelMaster": "Excel Master",
     "pdfDocuments": "PDF",
-    "selectSection": "Selecciona una sección para comenzar a trabajar:",
-    "viewResults": "Ver resultados de extracción",
-    "viewAllProcessed": "Ver todos los formularios procesados",
-    "clientPdfDocs": "Documentos PDF del cliente",
-    "footer": "© 2026 VerbadocPro Europa - Panel de Revisión"
+    "selectSection": "Seleccioneu una secci\u00f3 per comen\u00e7ar a treballar:",
+    "viewResults": "Veure resultats d'extracci\u00f3",
+    "viewAllProcessed": "Veure tots els formularis processats",
+    "clientPdfDocs": "Documents PDF del client",
+    "footer": "\u00a9 2026 VerbadocPro Europa - Panell de Revisi\u00f3"
   },
   "ragFolderModal": {
-    "title": "Guardar en Biblioteca RAG",
-    "documentCount": "{{count}} documento(s)",
+    "title": "Desar a la Biblioteca RAG",
+    "documentCount": "{{count}} document(s)",
     "selectFolder": "Seleccionar carpeta",
-    "newFolder": "Nueva carpeta",
-    "folderName": "Nombre de la carpeta",
-    "creating": "Creando...",
+    "newFolder": "Nova carpeta",
+    "folderName": "Nom de la carpeta",
+    "creating": "Creant...",
     "create": "Crear",
-    "noFolder": "Sin carpeta (raíz)",
-    "customName": "Nombre personalizado del documento",
-    "customNamePlaceholder": "Dejar vacío para usar nombre original",
-    "uploadButton": "Subir a Biblioteca",
-    "uploading": "Subiendo..."
+    "noFolder": "Sense carpeta (arrel)",
+    "customName": "Nom personalitzat del document",
+    "customNamePlaceholder": "Deixar buit per usar el nom original",
+    "uploadButton": "Pujar a Biblioteca",
+    "uploading": "Pujant..."
   }
 }

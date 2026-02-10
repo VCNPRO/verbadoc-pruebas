@@ -1,58 +1,58 @@
 {
   "list": {
-    "title": "Revisión de Extracciones",
-    "subtitle": "Revisa y valida los datos extraídos de los documentos",
+    "title": "Révision des Extractions",
+    "subtitle": "Révisez et validez les données extraites des documents",
     "filters": {
-      "all": "Todos",
-      "pending": "Pendientes",
-      "valid": "Válidos",
-      "rejected": "Rechazados",
-      "needsReview": "Por revisar"
+      "all": "Tous",
+      "pending": "En attente",
+      "valid": "Valides",
+      "rejected": "Rejetés",
+      "needsReview": "À réviser"
     },
     "table": {
-      "filename": "Archivo",
-      "date": "Fecha",
-      "status": "Estado",
-      "confidence": "Confianza",
-      "actions": "Acciones",
-      "model": "Modelo",
-      "noData": "No hay extracciones para mostrar"
+      "filename": "Fichier",
+      "date": "Date",
+      "status": "Statut",
+      "confidence": "Confiance",
+      "actions": "Actions",
+      "model": "Modèle",
+      "noData": "Aucune extraction à afficher"
     },
     "stats": {
       "total": "Total",
-      "needsReview": "Por revisar",
-      "valid": "Válidos",
-      "rejected": "Rechazados"
+      "needsReview": "À réviser",
+      "valid": "Valides",
+      "rejected": "Rejetés"
     },
     "actions": {
-      "approve": "Aprobar",
-      "reject": "Rechazar",
-      "review": "Revisar",
-      "delete": "Eliminar",
-      "viewPdf": "Ver PDF",
-      "exportExcel": "Exportar Excel",
-      "approveAll": "Aprobar todos",
-      "rejectAll": "Rechazar todos"
+      "approve": "Approuver",
+      "reject": "Rejeter",
+      "review": "Réviser",
+      "delete": "Supprimer",
+      "viewPdf": "Voir le PDF",
+      "exportExcel": "Exporter en Excel",
+      "approveAll": "Tout approuver",
+      "rejectAll": "Tout rejeter"
     },
-    "back": "Volver al inicio"
+    "back": "Retour à l'accueil"
   },
   "panel": {
-    "title": "Detalle de Revisión",
-    "original": "Datos Originales",
-    "edited": "Datos Editados",
-    "fieldName": "Campo",
-    "value": "Valor",
-    "confidence": "Confianza",
-    "editField": "Editar campo",
-    "saveChanges": "Guardar cambios",
-    "discardChanges": "Descartar cambios",
-    "approve": "Aprobar extracción",
-    "reject": "Rechazar extracción",
-    "rejectReason": "Motivo de rechazo",
-    "rejectReasonPlaceholder": "Indica el motivo del rechazo...",
-    "validationErrors": "Errores de validación",
-    "noErrors": "Sin errores de validación",
-    "crossValidation": "Validación cruzada",
-    "history": "Historial de cambios"
+    "title": "Détail de Révision",
+    "original": "Données Originales",
+    "edited": "Données Modifiées",
+    "fieldName": "Champ",
+    "value": "Valeur",
+    "confidence": "Confiance",
+    "editField": "Modifier le champ",
+    "saveChanges": "Enregistrer les modifications",
+    "discardChanges": "Annuler les modifications",
+    "approve": "Approuver l'extraction",
+    "reject": "Rejeter l'extraction",
+    "rejectReason": "Motif du rejet",
+    "rejectReasonPlaceholder": "Indiquez le motif du rejet...",
+    "validationErrors": "Erreurs de validation",
+    "noErrors": "Aucune erreur de validation",
+    "crossValidation": "Validation croisée",
+    "history": "Historique des modifications"
   }
 }

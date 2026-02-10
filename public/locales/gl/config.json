@@ -1,21 +1,21 @@
 {
   "title": "Configuración",
   "tabs": {
-    "general": "General",
-    "appearance": "Apariencia",
+    "general": "Xeral",
+    "appearance": "Aparencia",
     "modules": "Módulos",
-    "logs": "Registros"
+    "logs": "Rexistros"
   },
   "general": {
-    "language": "Idioma de la interfaz",
-    "notifications": "Notificaciones",
-    "autoSave": "Guardado automático"
+    "language": "Idioma da interface",
+    "notifications": "Notificacións",
+    "autoSave": "Gardado automático"
   },
   "appearance": {
-    "darkMode": "Modo oscuro",
+    "darkMode": "Modo escuro",
     "lightMode": "Modo claro",
     "theme": "Tema",
-    "fontSize": "Tamaño de texto"
+    "fontSize": "Tamaño do texto"
   },
   "modules": {
     "title": "Módulos activos",
@@ -26,12 +26,12 @@
     "chatbot": "Chatbot Laia"
   },
   "logs": {
-    "title": "Registros de actividad",
-    "noLogs": "No hay registros disponibles",
-    "date": "Fecha",
+    "title": "Rexistros de actividade",
+    "noLogs": "Non hai rexistros dispoñibles",
+    "date": "Data",
     "action": "Acción",
     "user": "Usuario",
     "details": "Detalles",
-    "clear": "Limpiar registros"
+    "clear": "Limpar rexistros"
   }
 }

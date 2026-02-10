@@ -1,60 +1,60 @@
 {
-  "title": "Planes y Precios",
-  "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
-  "back": "Volver",
+  "title": "Plans et Tarifs",
+  "subtitle": "Choisissez le plan qui correspond le mieux à vos besoins",
+  "back": "Retour",
   "plans": {
     "free": {
-      "name": "Gratuito",
+      "name": "Gratuit",
       "price": "0€",
-      "period": "/mes",
-      "description": "Para probar la plataforma",
+      "period": "/mois",
+      "description": "Pour essayer la plateforme",
       "features": [
-        "50 extracciones/mes",
-        "5 documentos RAG",
-        "Soporte por email"
+        "50 extractions/mois",
+        "5 documents RAG",
+        "Support par email"
       ]
     },
     "professional": {
-      "name": "Profesional",
+      "name": "Professionnel",
       "price": "49€",
-      "period": "/mes",
-      "description": "Para equipos pequeños",
+      "period": "/mois",
+      "description": "Pour les petites équipes",
       "features": [
-        "500 extracciones/mes",
-        "50 documentos RAG",
-        "Soporte prioritario",
+        "500 extractions/mois",
+        "50 documents RAG",
+        "Support prioritaire",
         "API access"
       ]
     },
     "enterprise": {
       "name": "Enterprise",
-      "price": "Contactar",
+      "price": "Nous contacter",
       "period": "",
-      "description": "Para grandes organizaciones",
+      "description": "Pour les grandes organisations",
       "features": [
-        "Extracciones ilimitadas",
-        "Documentos RAG ilimitados",
-        "Soporte dedicado",
+        "Extractions illimitées",
+        "Documents RAG illimités",
+        "Support dédié",
         "API access",
-        "Custom integrations"
+        "Intégrations personnalisées"
       ]
     }
   },
   "modules": {
-    "title": "Módulos Disponibles",
-    "extraction": "Extracción de Datos",
-    "extractionDesc": "Extracción inteligente de datos desde PDFs y documentos escaneados",
-    "rag": "Biblioteca RAG",
-    "ragDesc": "Búsqueda semántica en tu base documental con IA",
-    "review": "Revisión y Validación",
-    "reviewDesc": "Revisión humana con validación cruzada y reglas personalizables",
+    "title": "Modules Disponibles",
+    "extraction": "Extraction de Données",
+    "extractionDesc": "Extraction intelligente de données à partir de PDFs et de documents numérisés",
+    "rag": "Bibliothèque RAG",
+    "ragDesc": "Recherche sémantique dans votre base documentaire avec l'IA",
+    "review": "Révision et Validation",
+    "reviewDesc": "Révision humaine avec validation croisée et règles personnalisables",
     "chatbot": "Chatbot Laia",
-    "chatbotDesc": "Asistente virtual inteligente para consultas sobre la plataforma"
+    "chatbotDesc": "Assistant virtuel intelligent pour les questions sur la plateforme"
   },
   "cta": {
-    "current": "Plan actual",
-    "upgrade": "Mejorar plan",
-    "contact": "Contactar ventas",
-    "startFree": "Empezar gratis"
+    "current": "Plan actuel",
+    "upgrade": "Améliorer le plan",
+    "contact": "Contacter le service commercial",
+    "startFree": "Commencer gratuitement"
   }
 }

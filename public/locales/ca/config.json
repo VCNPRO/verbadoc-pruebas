@@ -1,37 +1,37 @@
 {
-  "title": "Configuración",
+  "title": "Configuraci\u00f3",
   "tabs": {
     "general": "General",
-    "appearance": "Apariencia",
-    "modules": "Módulos",
-    "logs": "Registros"
+    "appearance": "Aparen\u00e7a",
+    "modules": "M\u00f2duls",
+    "logs": "Registres"
   },
   "general": {
-    "language": "Idioma de la interfaz",
-    "notifications": "Notificaciones",
-    "autoSave": "Guardado automático"
+    "language": "Idioma de la interf\u00edcie",
+    "notifications": "Notificacions",
+    "autoSave": "Desat autom\u00e0tic"
   },
   "appearance": {
-    "darkMode": "Modo oscuro",
-    "lightMode": "Modo claro",
+    "darkMode": "Mode fosc",
+    "lightMode": "Mode clar",
     "theme": "Tema",
-    "fontSize": "Tamaño de texto"
+    "fontSize": "Mida del text"
   },
   "modules": {
-    "title": "Módulos activos",
-    "extraction": "Extracción de datos",
+    "title": "M\u00f2duls actius",
+    "extraction": "Extracci\u00f3 de dades",
     "rag": "Biblioteca RAG",
-    "review": "Revisión",
+    "review": "Revisi\u00f3",
     "masterExcel": "Excel Master",
     "chatbot": "Chatbot Laia"
   },
   "logs": {
-    "title": "Registros de actividad",
-    "noLogs": "No hay registros disponibles",
-    "date": "Fecha",
-    "action": "Acción",
-    "user": "Usuario",
-    "details": "Detalles",
-    "clear": "Limpiar registros"
+    "title": "Registres d'activitat",
+    "noLogs": "No hi ha registres disponibles",
+    "date": "Data",
+    "action": "Acci\u00f3",
+    "user": "Usuari",
+    "details": "Detalls",
+    "clear": "Netejar registres"
   }
 }

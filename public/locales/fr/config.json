@@ -1,37 +1,37 @@
 {
-  "title": "Configuración",
+  "title": "Configuration",
   "tabs": {
-    "general": "General",
-    "appearance": "Apariencia",
-    "modules": "Módulos",
-    "logs": "Registros"
+    "general": "Général",
+    "appearance": "Apparence",
+    "modules": "Modules",
+    "logs": "Journaux"
   },
   "general": {
-    "language": "Idioma de la interfaz",
-    "notifications": "Notificaciones",
-    "autoSave": "Guardado automático"
+    "language": "Langue de l'interface",
+    "notifications": "Notifications",
+    "autoSave": "Sauvegarde automatique"
   },
   "appearance": {
-    "darkMode": "Modo oscuro",
-    "lightMode": "Modo claro",
-    "theme": "Tema",
-    "fontSize": "Tamaño de texto"
+    "darkMode": "Mode sombre",
+    "lightMode": "Mode clair",
+    "theme": "Thème",
+    "fontSize": "Taille du texte"
   },
   "modules": {
-    "title": "Módulos activos",
-    "extraction": "Extracción de datos",
-    "rag": "Biblioteca RAG",
-    "review": "Revisión",
+    "title": "Modules actifs",
+    "extraction": "Extraction de données",
+    "rag": "Bibliothèque RAG",
+    "review": "Révision",
     "masterExcel": "Excel Master",
     "chatbot": "Chatbot Laia"
   },
   "logs": {
-    "title": "Registros de actividad",
-    "noLogs": "No hay registros disponibles",
-    "date": "Fecha",
-    "action": "Acción",
-    "user": "Usuario",
-    "details": "Detalles",
-    "clear": "Limpiar registros"
+    "title": "Journaux d'activité",
+    "noLogs": "Aucun journal disponible",
+    "date": "Date",
+    "action": "Action",
+    "user": "Utilisateur",
+    "details": "Détails",
+    "clear": "Effacer les journaux"
   }
 }

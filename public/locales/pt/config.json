@@ -1,37 +1,37 @@
 {
-  "title": "Configuración",
+  "title": "Configuração",
   "tabs": {
-    "general": "General",
-    "appearance": "Apariencia",
+    "general": "Geral",
+    "appearance": "Aparência",
     "modules": "Módulos",
-    "logs": "Registros"
+    "logs": "Registos"
   },
   "general": {
-    "language": "Idioma de la interfaz",
-    "notifications": "Notificaciones",
-    "autoSave": "Guardado automático"
+    "language": "Idioma da interface",
+    "notifications": "Notificações",
+    "autoSave": "Gravação automática"
   },
   "appearance": {
-    "darkMode": "Modo oscuro",
+    "darkMode": "Modo escuro",
     "lightMode": "Modo claro",
     "theme": "Tema",
-    "fontSize": "Tamaño de texto"
+    "fontSize": "Tamanho do texto"
   },
   "modules": {
-    "title": "Módulos activos",
-    "extraction": "Extracción de datos",
+    "title": "Módulos ativos",
+    "extraction": "Extração de dados",
     "rag": "Biblioteca RAG",
-    "review": "Revisión",
+    "review": "Revisão",
     "masterExcel": "Excel Master",
     "chatbot": "Chatbot Laia"
   },
   "logs": {
-    "title": "Registros de actividad",
-    "noLogs": "No hay registros disponibles",
-    "date": "Fecha",
-    "action": "Acción",
-    "user": "Usuario",
-    "details": "Detalles",
-    "clear": "Limpiar registros"
+    "title": "Registos de atividade",
+    "noLogs": "Não há registos disponíveis",
+    "date": "Data",
+    "action": "Ação",
+    "user": "Utilizador",
+    "details": "Detalhes",
+    "clear": "Limpar registos"
   }
 }

@@ -1,60 +1,60 @@
 {
-  "title": "Planes y Precios",
-  "subtitle": "Elige el plan que mejor se adapte a tus necesidades",
-  "back": "Volver",
+  "title": "Planak eta Prezioak",
+  "subtitle": "Aukeratu zure beharretara hobekien egokitzen den plana",
+  "back": "Itzuli",
   "plans": {
     "free": {
-      "name": "Gratuito",
+      "name": "Doakoa",
       "price": "0€",
-      "period": "/mes",
-      "description": "Para probar la plataforma",
+      "period": "/hilabete",
+      "description": "Plataforma probatzeko",
       "features": [
-        "50 extracciones/mes",
-        "5 documentos RAG",
-        "Soporte por email"
+        "50 erauzketa/hilabete",
+        "5 RAG dokumentu",
+        "Email bidezko laguntza"
       ]
     },
     "professional": {
-      "name": "Profesional",
+      "name": "Profesionala",
       "price": "49€",
-      "period": "/mes",
-      "description": "Para equipos pequeños",
+      "period": "/hilabete",
+      "description": "Talde txikientzat",
       "features": [
-        "500 extracciones/mes",
-        "50 documentos RAG",
-        "Soporte prioritario",
+        "500 erauzketa/hilabete",
+        "50 RAG dokumentu",
+        "Lehentasunezko laguntza",
         "API access"
       ]
     },
     "enterprise": {
       "name": "Enterprise",
-      "price": "Contactar",
+      "price": "Jarri harremanetan",
       "period": "",
-      "description": "Para grandes organizaciones",
+      "description": "Erakunde handientzat",
       "features": [
-        "Extracciones ilimitadas",
-        "Documentos RAG ilimitados",
-        "Soporte dedicado",
+        "Erauzketa mugagabeak",
+        "RAG dokumentu mugagabeak",
+        "Laguntza dedikatua",
         "API access",
         "Custom integrations"
       ]
     }
   },
   "modules": {
-    "title": "Módulos Disponibles",
-    "extraction": "Extracción de Datos",
-    "extractionDesc": "Extracción inteligente de datos desde PDFs y documentos escaneados",
-    "rag": "Biblioteca RAG",
-    "ragDesc": "Búsqueda semántica en tu base documental con IA",
-    "review": "Revisión y Validación",
-    "reviewDesc": "Revisión humana con validación cruzada y reglas personalizables",
+    "title": "Modulu Eskuragarriak",
+    "extraction": "Datuen Erauzketa",
+    "extractionDesc": "Datuen erauzketa adimentsua PDFetatik eta dokumentu eskanatuak",
+    "rag": "RAG Liburutegia",
+    "ragDesc": "Bilaketa semantikoa zure dokumentu-basean AArekin",
+    "review": "Berrikusketa eta Balioztapena",
+    "reviewDesc": "Giza berrikusketa gurutzatutako balioztapenarekin eta arau pertsonalizagarriekin",
     "chatbot": "Chatbot Laia",
-    "chatbotDesc": "Asistente virtual inteligente para consultas sobre la plataforma"
+    "chatbotDesc": "Laguntzaile birtual adimentsua plataformari buruzko kontsultetarako"
   },
   "cta": {
-    "current": "Plan actual",
-    "upgrade": "Mejorar plan",
-    "contact": "Contactar ventas",
-    "startFree": "Empezar gratis"
+    "current": "Uneko plana",
+    "upgrade": "Plana hobetu",
+    "contact": "Salmentarekin harremanetan jarri",
+    "startFree": "Doan hasi"
   }
 }

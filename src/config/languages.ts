@@ -31,7 +31,7 @@ export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
     locale: 'ca-ES',
     name: 'Català',
     nameEs: 'Catalán',
-    flag: '🏴󠁥󠁳󠁣󠁴󠁿',
+    flag: 'CA',
     promptInstruction: 'Respon en català.'
   },
   {
@@ -39,7 +39,7 @@ export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
     locale: 'gl-ES',
     name: 'Galego',
     nameEs: 'Gallego',
-    flag: '🏴󠁥󠁳󠁧󠁡󠁿',
+    flag: 'GL',
     promptInstruction: 'Responde en galego.'
   },
   {
@@ -47,7 +47,7 @@ export const SUPPORTED_LANGUAGES: LanguageConfig[] = [
     locale: 'eu-ES',
     name: 'Euskara',
     nameEs: 'Euskera',
-    flag: '🏴',
+    flag: 'EU',
     promptInstruction: 'Erantzun euskaraz.'
   },
   {

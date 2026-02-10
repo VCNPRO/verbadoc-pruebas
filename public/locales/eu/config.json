@@ -1,37 +1,37 @@
 {
-  "title": "Configuración",
+  "title": "Konfigurazioa",
   "tabs": {
-    "general": "General",
-    "appearance": "Apariencia",
-    "modules": "Módulos",
-    "logs": "Registros"
+    "general": "Orokorra",
+    "appearance": "Itxura",
+    "modules": "Moduluak",
+    "logs": "Erregistroak"
   },
   "general": {
-    "language": "Idioma de la interfaz",
-    "notifications": "Notificaciones",
-    "autoSave": "Guardado automático"
+    "language": "Interfazearen hizkuntza",
+    "notifications": "Jakinarazpenak",
+    "autoSave": "Gordetzeko automatikoa"
   },
   "appearance": {
-    "darkMode": "Modo oscuro",
-    "lightMode": "Modo claro",
-    "theme": "Tema",
-    "fontSize": "Tamaño de texto"
+    "darkMode": "Modu iluna",
+    "lightMode": "Modu argia",
+    "theme": "Gaia",
+    "fontSize": "Testuaren tamaina"
   },
   "modules": {
-    "title": "Módulos activos",
-    "extraction": "Extracción de datos",
-    "rag": "Biblioteca RAG",
-    "review": "Revisión",
+    "title": "Modulu aktiboak",
+    "extraction": "Datuen erauzketa",
+    "rag": "RAG Liburutegia",
+    "review": "Berrikusketa",
     "masterExcel": "Excel Master",
     "chatbot": "Chatbot Laia"
   },
   "logs": {
-    "title": "Registros de actividad",
-    "noLogs": "No hay registros disponibles",
-    "date": "Fecha",
-    "action": "Acción",
-    "user": "Usuario",
-    "details": "Detalles",
-    "clear": "Limpiar registros"
+    "title": "Jarduera-erregistroak",
+    "noLogs": "Ez dago erregistro eskuragarririk",
+    "date": "Data",
+    "action": "Ekintza",
+    "user": "Erabiltzailea",
+    "details": "Xehetasunak",
+    "clear": "Erregistroak garbitu"
   }
 }

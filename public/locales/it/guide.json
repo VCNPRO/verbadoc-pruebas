@@ -1,73 +1,73 @@
 {
-  "title": "Guía de Usuario",
-  "subtitle": "Aprende a usar VerbadocPro Europa",
-  "back": "Volver",
+  "title": "Guida Utente",
+  "subtitle": "Impara a usare VerbadocPro Europa",
+  "back": "Indietro",
   "quickGuide": {
-    "title": "Guía Rápida",
+    "title": "Guida Rapida",
     "step1": {
-      "title": "Cargar documentos",
-      "description": "Arrastra y suelta tus PDFs o imágenes en la zona de carga"
+      "title": "Carica documenti",
+      "description": "Trascina e rilascia i tuoi PDF o immagini nella zona di caricamento"
     },
     "step2": {
-      "title": "Extraer datos",
-      "description": "Selecciona los archivos y haz clic en 'Extraer todos'"
+      "title": "Estrai dati",
+      "description": "Seleziona i file e clicca su 'Estrai tutti'"
     },
     "step3": {
-      "title": "Revisar resultados",
-      "description": "Verifica los datos extraídos en la sección de Resultados"
+      "title": "Rivedi i risultati",
+      "description": "Verifica i dati estratti nella sezione Risultati"
     },
     "step4": {
-      "title": "Exportar",
-      "description": "Exporta los datos en formato Excel, JSON o PDF"
+      "title": "Esporta",
+      "description": "Esporta i dati in formato Excel, JSON o PDF"
     }
   },
   "sections": {
     "extraction": {
-      "title": "Extracción de Datos",
-      "description": "VerbadocPro utiliza IA para extraer datos de documentos PDF y escaneados.",
+      "title": "Estrazione Dati",
+      "description": "VerbadocPro utilizza l'IA per estrarre dati da documenti PDF e scansionati.",
       "features": [
-        "Extracción automática con esquemas configurables",
-        "Soporte para PDFs, imágenes y documentos escaneados",
-        "Procesamiento en lote (hasta 10 simultáneos)",
-        "Detección automática de tipo de documento"
+        "Estrazione automatica con schemi configurabili",
+        "Supporto per PDF, immagini e documenti scansionati",
+        "Elaborazione in lotto (fino a 10 simultanei)",
+        "Rilevamento automatico del tipo di documento"
       ]
     },
     "rag": {
       "title": "Biblioteca RAG",
-      "description": "Sube documentos y consulta su contenido con lenguaje natural.",
+      "description": "Carica documenti e consulta il loro contenuto con linguaggio naturale.",
       "features": [
-        "Búsqueda semántica con IA",
-        "Organización por carpetas",
-        "Soporte multiidioma",
-        "Reconocimiento de voz"
+        "Ricerca semantica con IA",
+        "Organizzazione per cartelle",
+        "Supporto multilingua",
+        "Riconoscimento vocale"
       ]
     },
     "review": {
-      "title": "Revisión y Validación",
-      "description": "Revisa, edita y valida los datos extraídos antes de exportar.",
+      "title": "Revisione e Validazione",
+      "description": "Rivedi, modifica e valida i dati estratti prima di esportare.",
       "features": [
-        "Validación cruzada automática",
-        "Edición de campos individuales",
-        "Flujo de aprobación/rechazo",
-        "Historial de cambios"
+        "Validazione incrociata automatica",
+        "Modifica dei singoli campi",
+        "Flusso di approvazione/rifiuto",
+        "Cronologia delle modifiche"
       ]
     },
     "chatbot": {
       "title": "Chatbot Laia",
-      "description": "Asistente virtual que te ayuda con cualquier duda sobre la plataforma."
+      "description": "Assistente virtuale che ti aiuta con qualsiasi dubbio sulla piattaforma."
     }
   },
   "faq": {
-    "title": "Preguntas Frecuentes",
-    "q1": "¿Qué formatos de archivo son compatibles?",
-    "a1": "VerbadocPro soporta PDF, JPG, PNG y JSON. Los archivos escaneados se procesan con OCR.",
-    "q2": "¿Cuántos archivos puedo procesar a la vez?",
-    "a2": "Puedes procesar hasta 10 archivos simultáneamente en lote.",
-    "q3": "¿Cómo funciona la Biblioteca RAG?",
-    "a3": "Sube documentos a la biblioteca y consulta su contenido con preguntas en lenguaje natural. La IA busca en el contenido y genera respuestas contextualizadas.",
-    "q4": "¿Puedo usar reconocimiento de voz?",
-    "a4": "Sí, puedes hacer preguntas por voz en la Biblioteca RAG y con el Chatbot Laia.",
-    "q5": "¿Los datos son seguros?",
-    "a5": "Sí, todos los datos se almacenan de forma segura con cifrado y acceso controlado por usuario."
+    "title": "Domande Frequenti",
+    "q1": "Quali formati di file sono supportati?",
+    "a1": "VerbadocPro supporta PDF, JPG, PNG e JSON. I file scansionati vengono elaborati con OCR.",
+    "q2": "Quanti file posso elaborare contemporaneamente?",
+    "a2": "Puoi elaborare fino a 10 file contemporaneamente in lotto.",
+    "q3": "Come funziona la Biblioteca RAG?",
+    "a3": "Carica i documenti nella biblioteca e consulta il loro contenuto con domande in linguaggio naturale. L'IA cerca nel contenuto e genera risposte contestualizzate.",
+    "q4": "Posso usare il riconoscimento vocale?",
+    "a4": "Sì, puoi fare domande con la voce nella Biblioteca RAG e con il Chatbot Laia.",
+    "q5": "I dati sono sicuri?",
+    "a5": "Sì, tutti i dati vengono archiviati in modo sicuro con crittografia e accesso controllato per utente."
   }
 }
