@@ -57,7 +57,7 @@ export const UserDB = {
     const result = await sql<User>`
       INSERT INTO users (email, password, name, role, company_name)
       VALUES (${email.toLowerCase()}, ${hashedPassword}, ${name || null}, ${role}, ${companyName || null})
-      RETURNING id, email, password, name, role, client_id, company_name, preferred_language, created_at, updated_at
+      RETURNING id, email, password, name, role, client_id, company_name, created_at, updated_at
     `;
     return result.rows[0];
   },
@@ -65,7 +65,7 @@ export const UserDB = {
   // Find user by email
   findByEmail: async (email: string): Promise<User | null> => {
     const result = await sql<User>`
-      SELECT id, email, password, name, role, client_id, company_name, preferred_language, created_at, updated_at
+      SELECT id, email, password, name, role, client_id, company_name, created_at, updated_at
       FROM users
       WHERE email = ${email.toLowerCase()}
       LIMIT 1
@@ -76,7 +76,7 @@ export const UserDB = {
   // Find user by ID
   findById: async (id: string): Promise<User | null> => {
     const result = await sql<User>`
-      SELECT id, email, password, name, role, client_id, company_name, preferred_language, created_at, updated_at
+      SELECT id, email, password, name, role, client_id, company_name, created_at, updated_at
       FROM users
       WHERE id = ${id}
       LIMIT 1
@@ -95,7 +95,7 @@ export const UserDB = {
           company_name = COALESCE(${updates.company_name !== undefined ? updates.company_name : null}, company_name),
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
-      RETURNING id, email, password, name, role, client_id, company_name, preferred_language, created_at, updated_at
+      RETURNING id, email, password, name, role, client_id, company_name, created_at, updated_at
     `;
     return result.rows[0] || null;
   },
@@ -112,7 +112,7 @@ export const UserDB = {
   // Get all users (admin only - for debugging)
   getAll: async (): Promise<User[]> => {
     const result = await sql<User>`
-      SELECT id, email, name, role, client_id, company_name, preferred_language, created_at, updated_at
+      SELECT id, email, name, role, client_id, company_name, created_at, updated_at
       FROM users
       ORDER BY created_at DESC
     `;
@@ -125,7 +125,7 @@ export const UserDB = {
       UPDATE users
       SET role = ${role}, updated_at = CURRENT_TIMESTAMP
       WHERE id = ${id}
-      RETURNING id, email, password, name, role, client_id, company_name, preferred_language, created_at, updated_at
+      RETURNING id, email, password, name, role, client_id, company_name, created_at, updated_at
     `;
     return result.rows[0] || null;
   }

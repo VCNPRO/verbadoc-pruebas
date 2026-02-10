@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!payload) return res.status(401).json({ error: 'Token inválido' });
 
     // Get user from DB
-    const result = await sql`SELECT id, email, password, name, role, client_id, preferred_language, created_at, updated_at FROM users WHERE id = ${payload.userId} LIMIT 1`;
+    const result = await sql`SELECT id, email, password, name, role, client_id, created_at, updated_at FROM users WHERE id = ${payload.userId} LIMIT 1`;
     const user = result.rows[0];
     if (!user) return res.status(404).json({ error: 'Usuario no encontrado' });
 
