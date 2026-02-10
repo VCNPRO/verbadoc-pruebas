@@ -8,8 +8,9 @@ i18n
   .init({
     fallbackLng: 'es',
     supportedLngs: ['es', 'ca', 'gl', 'eu', 'pt', 'fr', 'en', 'it', 'de'],
-    ns: ['common', 'app', 'auth', 'chatbot', 'review', 'extraction', 'pricing', 'guide', 'rag', 'config'],
+    ns: ['common', 'app', 'auth'],
     defaultNS: 'common',
+    partialBundledLanguages: true,
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json',
     },
@@ -17,7 +18,7 @@ i18n
       escapeValue: false,
     },
     react: {
-      useSuspense: true,
+      useSuspense: false,
     },
   });
 
