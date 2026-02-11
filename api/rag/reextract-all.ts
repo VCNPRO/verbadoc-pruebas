@@ -5,8 +5,13 @@
  * Endpoint de migración: re-extrae contenido de todos los documentos RAG
  * con los nuevos prompts (marcadores de página, OCR estructurado) y re-ingesta.
  *
+ * Soporta ejecución incremental: marca documentos procesados con _reextracted=true
+ * y los salta en siguientes ejecuciones.
+ *
  * POST /api/rag/reextract-all
- * Body: { dryRun?: boolean, batchSize?: number }
+ * Body: { dryRun?: boolean, limit?: number, forceAll?: boolean }
+ *
+ * Ejecutar múltiples veces hasta que pending = 0.
  *
  * Security: Admin only
  */
@@ -125,27 +130,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!auth) return res.status(403).json({ error: 'Solo administradores' });
 
   try {
-    const { dryRun = false, batchSize = 5 } = req.body || {};
+    const { dryRun = false, limit = 15, forceAll = false } = req.body || {};
 
-    // 1. Obtener todos los documentos RAG (los que tienen embeddings)
-    const docs = await sql`
-      SELECT DISTINCT
-        er.id, er.filename, er.file_type, er.pdf_blob_url,
-        er.extracted_data, er.user_id
+    // 1. Obtener documentos RAG PENDIENTES (no re-procesados aún)
+    // Los ya procesados tienen _reextracted: true en extracted_data
+    let docs;
+    if (forceAll) {
+      docs = await sql`
+        SELECT DISTINCT
+          er.id, er.filename, er.file_type, er.pdf_blob_url,
+          er.extracted_data, er.user_id
+        FROM extraction_results er
+        INNER JOIN rag_embeddings re ON re.document_id = er.id
+        ORDER BY er.filename
+      `;
+    } else {
+      docs = await sql`
+        SELECT DISTINCT
+          er.id, er.filename, er.file_type, er.pdf_blob_url,
+          er.extracted_data, er.user_id
+        FROM extraction_results er
+        INNER JOIN rag_embeddings re ON re.document_id = er.id
+        WHERE NOT COALESCE((er.extracted_data->>'_reextracted')::boolean, false)
+        ORDER BY er.filename
+      `;
+    }
+
+    const pendingDocs = docs.rows.length;
+
+    // Contar total (incluyendo ya procesados)
+    const totalResult = await sql`
+      SELECT COUNT(DISTINCT er.id) as total
       FROM extraction_results er
       INNER JOIN rag_embeddings re ON re.document_id = er.id
-      ORDER BY er.filename
     `;
+    const totalDocs = parseInt(totalResult.rows[0].total);
+    const alreadyDone = totalDocs - pendingDocs;
 
-    const totalDocs = docs.rows.length;
-    console.log(`[ReExtract] Total documentos RAG a re-procesar: ${totalDocs}`);
+    console.log(`[ReExtract] Total: ${totalDocs}, Ya procesados: ${alreadyDone}, Pendientes: ${pendingDocs}`);
 
     if (dryRun) {
       return res.status(200).json({
         success: true,
         dryRun: true,
         totalDocuments: totalDocs,
-        documents: docs.rows.map(d => ({
+        alreadyProcessed: alreadyDone,
+        pending: pendingDocs,
+        willProcess: Math.min(pendingDocs, limit),
+        documents: docs.rows.slice(0, limit).map(d => ({
           id: d.id,
           filename: d.filename,
           fileType: d.file_type,
@@ -153,6 +185,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         })),
       });
     }
+
+    if (pendingDocs === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'Todos los documentos ya han sido re-procesados',
+        totalDocuments: totalDocs,
+        alreadyProcessed: alreadyDone,
+        pending: 0,
+      });
+    }
+
+    // Limitar a `limit` documentos por ejecución
+    const effectiveLimit = Math.min(Math.max(1, limit), 20);
+    const docsToProcess = docs.rows.slice(0, effectiveLimit);
 
     const results: Array<{
       id: string;
@@ -162,118 +208,148 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       error?: string;
     }> = [];
 
-    // 2. Procesar en lotes pequeños para no exceder timeouts
-    const effectiveBatch = Math.min(Math.max(1, batchSize), 10);
+    for (const doc of docsToProcess) {
+      const startTime = Date.now();
+      try {
+        const blobUrl = doc.pdf_blob_url || doc.extracted_data?.blobUrl;
 
-    for (let i = 0; i < docs.rows.length; i += effectiveBatch) {
-      const batch = docs.rows.slice(i, i + effectiveBatch);
-      console.log(`[ReExtract] Lote ${Math.floor(i / effectiveBatch) + 1}/${Math.ceil(totalDocs / effectiveBatch)}`);
+        if (!blobUrl) {
+          // Sin blob URL: re-ingestar con texto existente + marcar como procesado
+          const data = doc.extracted_data || {};
+          const existingText = data.transcription || data.description || '';
 
-      for (const doc of batch) {
-        try {
-          const blobUrl = doc.pdf_blob_url || doc.extracted_data?.blobUrl;
-
-          if (!blobUrl) {
-            // Sin blob URL: re-ingestar con texto existente
-            const data = doc.extracted_data || {};
-            const existingText = data.transcription || data.description || '';
-
-            if (existingText && existingText.length > 10) {
-              await deleteByDocumentId(doc.id);
-              const isImage = isImageMimeType(doc.file_type || '');
-              const isAudio = isAudioMimeType(doc.file_type || '');
-              const result = await ingestDocument(
-                doc.id, doc.filename, existingText, doc.user_id,
-                { fileType: doc.file_type, isImage, isAudio }
-              );
-              results.push({ id: doc.id, filename: doc.filename, success: true, chunks: result.chunksCreated });
-            } else {
-              results.push({ id: doc.id, filename: doc.filename, success: false, error: 'Sin blob URL ni texto' });
-            }
-            continue;
+          if (existingText && existingText.length > 10) {
+            await deleteByDocumentId(doc.id);
+            const isImage = isImageMimeType(doc.file_type || '');
+            const isAudio = isAudioMimeType(doc.file_type || '');
+            const result = await ingestDocument(
+              doc.id, doc.filename, existingText, doc.user_id,
+              { fileType: doc.file_type, isImage, isAudio }
+            );
+            // Marcar como procesado
+            await sql`
+              UPDATE extraction_results
+              SET extracted_data = jsonb_set(COALESCE(extracted_data, '{}'::jsonb), '{_reextracted}', 'true')
+              WHERE id = ${doc.id}::uuid
+            `;
+            results.push({ id: doc.id, filename: doc.filename, success: true, chunks: result.chunksCreated });
+          } else {
+            // Marcar como procesado aunque falle (para no reintentar infinitamente)
+            await sql`
+              UPDATE extraction_results
+              SET extracted_data = jsonb_set(COALESCE(extracted_data, '{}'::jsonb), '{_reextracted}', 'true')
+              WHERE id = ${doc.id}::uuid
+            `;
+            results.push({ id: doc.id, filename: doc.filename, success: false, error: 'Sin blob URL ni texto' });
           }
-
-          // Descargar archivo de Blob Storage
-          console.log(`[ReExtract] Descargando ${doc.filename}...`);
-          const blobResponse = await fetch(blobUrl);
-          if (!blobResponse.ok) {
-            results.push({ id: doc.id, filename: doc.filename, success: false, error: `Blob fetch error: ${blobResponse.status}` });
-            continue;
-          }
-
-          const blobBuffer = Buffer.from(await blobResponse.arrayBuffer());
-          const base64Data = blobBuffer.toString('base64');
-          const mimeType = doc.file_type || 'application/pdf';
-
-          // Re-extraer con nuevos prompts
-          console.log(`[ReExtract] Re-extrayendo ${doc.filename} (${mimeType})...`);
-          const newText = await reExtractContent(base64Data, mimeType);
-
-          if (!newText || newText.trim().length < 10) {
-            results.push({ id: doc.id, filename: doc.filename, success: false, error: 'Re-extracción vacía' });
-            continue;
-          }
-
-          // Extraer OCR metadata para imágenes
-          const isImage = isImageMimeType(mimeType);
-          const isAudio = isAudioMimeType(mimeType);
-          let ocrMetadata = '';
-          if (isImage) {
-            const datosMatch = newText.match(/\[DATOS_VISIBLES\]\s*([\s\S]*?)(?:\[DESCRIPCION\]|$)/i);
-            if (datosMatch && datosMatch[1]) {
-              ocrMetadata = datosMatch[1].trim();
-              if (ocrMetadata.toLowerCase() === 'sin texto visible') ocrMetadata = '';
-            }
-          }
-
-          // Actualizar extracted_data en BD con nuevo texto
-          const updatedData = {
-            ...(doc.extracted_data || {}),
-            _ragDocument: true,
-            description: newText,
-            ...(ocrMetadata ? { ocr_text: ocrMetadata } : {}),
-            ...(isAudio ? { transcription: newText, isAudio: true } : {}),
-            isImage,
-            blobUrl,
-          };
-
-          await sql`
-            UPDATE extraction_results
-            SET extracted_data = ${updatedData}::jsonb
-            WHERE id = ${doc.id}::uuid
-          `;
-
-          // Borrar embeddings antiguos y re-ingestar
-          await deleteByDocumentId(doc.id);
-          const result = await ingestDocument(
-            doc.id, doc.filename, newText, doc.user_id,
-            { fileType: mimeType, isImage, isAudio, originalUrl: blobUrl }
-          );
-
-          console.log(`✅ [ReExtract] ${doc.filename}: ${result.chunksCreated} chunks`);
-          results.push({ id: doc.id, filename: doc.filename, success: true, chunks: result.chunksCreated });
-
-        } catch (docErr: any) {
-          console.error(`❌ [ReExtract] Error con ${doc.filename}: ${docErr.message}`);
-          results.push({ id: doc.id, filename: doc.filename, success: false, error: docErr.message });
+          continue;
         }
 
-        // Pausa entre documentos para evitar rate limits
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Descargar archivo de Blob Storage
+        console.log(`[ReExtract] Descargando ${doc.filename}...`);
+        const blobResponse = await fetch(blobUrl);
+        if (!blobResponse.ok) {
+          await sql`
+            UPDATE extraction_results
+            SET extracted_data = jsonb_set(COALESCE(extracted_data, '{}'::jsonb), '{_reextracted}', 'true')
+            WHERE id = ${doc.id}::uuid
+          `;
+          results.push({ id: doc.id, filename: doc.filename, success: false, error: `Blob fetch error: ${blobResponse.status}` });
+          continue;
+        }
+
+        const blobBuffer = Buffer.from(await blobResponse.arrayBuffer());
+        const base64Data = blobBuffer.toString('base64');
+        const mimeType = doc.file_type || 'application/pdf';
+
+        // Re-extraer con nuevos prompts
+        console.log(`[ReExtract] Re-extrayendo ${doc.filename} (${mimeType})...`);
+        const newText = await reExtractContent(base64Data, mimeType);
+
+        if (!newText || newText.trim().length < 10) {
+          await sql`
+            UPDATE extraction_results
+            SET extracted_data = jsonb_set(COALESCE(extracted_data, '{}'::jsonb), '{_reextracted}', 'true')
+            WHERE id = ${doc.id}::uuid
+          `;
+          results.push({ id: doc.id, filename: doc.filename, success: false, error: 'Re-extracción vacía' });
+          continue;
+        }
+
+        // Extraer OCR metadata para imágenes
+        const isImage = isImageMimeType(mimeType);
+        const isAudio = isAudioMimeType(mimeType);
+        let ocrMetadata = '';
+        if (isImage) {
+          const datosMatch = newText.match(/\[DATOS_VISIBLES\]\s*([\s\S]*?)(?:\[DESCRIPCION\]|$)/i);
+          if (datosMatch && datosMatch[1]) {
+            ocrMetadata = datosMatch[1].trim();
+            if (ocrMetadata.toLowerCase() === 'sin texto visible') ocrMetadata = '';
+          }
+        }
+
+        // Actualizar extracted_data en BD con nuevo texto + marcar procesado
+        const updatedData = {
+          ...(doc.extracted_data || {}),
+          _ragDocument: true,
+          _reextracted: true,
+          description: newText,
+          ...(ocrMetadata ? { ocr_text: ocrMetadata } : {}),
+          ...(isAudio ? { transcription: newText, isAudio: true } : {}),
+          isImage,
+          blobUrl,
+        };
+
+        await sql`
+          UPDATE extraction_results
+          SET extracted_data = ${updatedData}::jsonb
+          WHERE id = ${doc.id}::uuid
+        `;
+
+        // Borrar embeddings antiguos y re-ingestar
+        await deleteByDocumentId(doc.id);
+        const result = await ingestDocument(
+          doc.id, doc.filename, newText, doc.user_id,
+          { fileType: mimeType, isImage, isAudio, originalUrl: blobUrl }
+        );
+
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+        console.log(`✅ [ReExtract] ${doc.filename}: ${result.chunksCreated} chunks (${elapsed}s)`);
+        results.push({ id: doc.id, filename: doc.filename, success: true, chunks: result.chunksCreated });
+
+      } catch (docErr: any) {
+        console.error(`❌ [ReExtract] Error con ${doc.filename}: ${docErr.message}`);
+        // Marcar como procesado para no reintentar
+        try {
+          await sql`
+            UPDATE extraction_results
+            SET extracted_data = jsonb_set(COALESCE(extracted_data, '{}'::jsonb), '{_reextracted}', 'true')
+            WHERE id = ${doc.id}::uuid
+          `;
+        } catch {}
+        results.push({ id: doc.id, filename: doc.filename, success: false, error: docErr.message });
       }
+
+      // Pausa entre documentos para evitar rate limits
+      await new Promise(resolve => setTimeout(resolve, 800));
     }
 
     const processed = results.filter(r => r.success).length;
     const failed = results.filter(r => !r.success).length;
+    const remainingPending = pendingDocs - docsToProcess.length;
 
-    console.log(`[ReExtract] COMPLETADO: ${processed} OK, ${failed} errores de ${totalDocs} total`);
+    console.log(`[ReExtract] Lote completado: ${processed} OK, ${failed} errores. Pendientes: ${remainingPending}`);
 
     return res.status(200).json({
       success: true,
       totalDocuments: totalDocs,
-      processed,
-      failed,
+      alreadyProcessed: alreadyDone + docsToProcess.length,
+      pending: remainingPending,
+      thisRun: { processed, failed, total: docsToProcess.length },
       results,
+      message: remainingPending > 0
+        ? `Procesados ${docsToProcess.length}/${pendingDocs} pendientes. Ejecuta de nuevo para continuar (quedan ${remainingPending}).`
+        : 'Todos los documentos han sido re-procesados.',
     });
 
   } catch (error: any) {
