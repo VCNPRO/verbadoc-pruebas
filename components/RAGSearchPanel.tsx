@@ -692,7 +692,11 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
                     borderRadius: '6px',
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontWeight: '500', fontSize: '14px' }}>{source.documentName}</span>
+                      <span style={{ fontWeight: '500', fontSize: '14px' }}>
+                        <span style={{ color: accentGreen, marginRight: '6px' }}>{t('rag:search.source', 'Fuente')} {i + 1}:</span>
+                        {source.documentName}
+                        {source.page && <span style={{ color: textMuted, fontSize: '12px', marginLeft: '6px' }}>(p. {source.page})</span>}
+                      </span>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <span style={{ fontSize: '12px', color: textMuted }}>{Math.round(source.score * 100)}%</span>
                         {source.documentUrl && (
@@ -747,9 +751,10 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
             style={{
               backgroundColor: bgMain,
               borderRadius: '12px',
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              width: viewingDoc.isAudio ? '550px' : viewingDoc.isImage ? 'auto' : '900px',
+              maxWidth: '95vw',
+              maxHeight: '95vh',
+              width: viewingDoc.isAudio ? '550px' : viewingDoc.isImage ? 'auto' : '65vw',
+              height: viewingDoc.isAudio ? 'auto' : viewingDoc.isImage ? 'auto' : '95vh',
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
@@ -822,7 +827,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
                 <iframe
                   src={viewingDoc.url}
                   title={viewingDoc.name}
-                  style={{ width: '100%', height: '75vh', border: 'none' }}
+                  style={{ width: '100%', height: '85vh', border: 'none' }}
                 />
               )}
             </div>

@@ -74,6 +74,7 @@ export interface RAGAnswer {
     score: number;
     documentUrl?: string;
     fileType?: string;
+    page?: number;
   }>;
   confidence: number;
   tokensUsed?: number;
@@ -234,43 +235,97 @@ export function chunkText(
 }
 
 /**
- * Chunking inteligente que respeta oraciones
+ * Chunking inteligente que respeta oraciones y detecta páginas.
+ * Retorna chunks con metadata de página cuando hay marcadores de página.
+ * Marcadores soportados: \f (form feed), "--- Página X ---", "Page X", "[Página X]"
  */
+export interface ChunkWithPage {
+  text: string;
+  page?: number;
+}
+
 export function chunkTextSmart(
   text: string,
   maxChunkSize: number = DEFAULT_CHUNK_SIZE,
   overlap: number = DEFAULT_CHUNK_OVERLAP
 ): string[] {
+  return chunkTextSmartWithPages(text, maxChunkSize, overlap).map(c => c.text);
+}
+
+export function chunkTextSmartWithPages(
+  text: string,
+  maxChunkSize: number = DEFAULT_CHUNK_SIZE,
+  overlap: number = DEFAULT_CHUNK_OVERLAP
+): ChunkWithPage[] {
   if (!text || text.trim().length === 0) return [];
 
-  const sentences = text.split(/(?<=[.!?])\s+/);
-  const chunks: string[] = [];
-  let currentChunk: string[] = [];
-  let currentWordCount = 0;
+  // Detectar y dividir por páginas si hay marcadores
+  const pageRegex = /(?:\f|---\s*P[aá]gina\s+(\d+)\s*---|(?:^|\n)\[P[aá]gina\s+(\d+)\]|\bPage\s+(\d+)\b(?:\s*[-—]|$))/gi;
+  const hasPageMarkers = pageRegex.test(text);
 
-  for (const sentence of sentences) {
-    const sentenceWords = sentence.split(/\s+/).length;
+  // Dividir texto en segmentos por página
+  interface PageSegment { text: string; page: number; }
+  const pageSegments: PageSegment[] = [];
 
-    if (currentWordCount + sentenceWords > maxChunkSize && currentChunk.length > 0) {
-      chunks.push(currentChunk.join(' '));
+  if (hasPageMarkers) {
+    // Reset regex
+    pageRegex.lastIndex = 0;
+    let lastIndex = 0;
+    let currentPage = 1;
+    let match;
 
-      const overlapSentences: string[] = [];
-      let overlapWords = 0;
-      for (let i = currentChunk.length - 1; i >= 0 && overlapWords < overlap; i--) {
-        overlapSentences.unshift(currentChunk[i]);
-        overlapWords += currentChunk[i].split(/\s+/).length;
+    while ((match = pageRegex.exec(text)) !== null) {
+      const beforeText = text.substring(lastIndex, match.index).trim();
+      if (beforeText) {
+        pageSegments.push({ text: beforeText, page: currentPage });
       }
-
-      currentChunk = overlapSentences;
-      currentWordCount = overlapWords;
+      // Extraer número de página del marcador
+      const pageNum = parseInt(match[1] || match[2] || match[3] || '0');
+      if (pageNum > 0) currentPage = pageNum;
+      else currentPage++;
+      lastIndex = match.index + match[0].length;
     }
-
-    currentChunk.push(sentence);
-    currentWordCount += sentenceWords;
+    // Último segmento
+    const remaining = text.substring(lastIndex).trim();
+    if (remaining) {
+      pageSegments.push({ text: remaining, page: currentPage });
+    }
+  } else {
+    pageSegments.push({ text: text, page: 1 });
   }
 
-  if (currentChunk.length > 0) {
-    chunks.push(currentChunk.join(' '));
+  // Ahora hacer chunking respetando oraciones, manteniendo la página
+  const chunks: ChunkWithPage[] = [];
+
+  for (const segment of pageSegments) {
+    const sentences = segment.text.split(/(?<=[.!?])\s+/);
+    let currentChunk: string[] = [];
+    let currentWordCount = 0;
+
+    for (const sentence of sentences) {
+      const sentenceWords = sentence.split(/\s+/).length;
+
+      if (currentWordCount + sentenceWords > maxChunkSize && currentChunk.length > 0) {
+        chunks.push({ text: currentChunk.join(' '), page: hasPageMarkers ? segment.page : undefined });
+
+        const overlapSentences: string[] = [];
+        let overlapWords = 0;
+        for (let i = currentChunk.length - 1; i >= 0 && overlapWords < overlap; i--) {
+          overlapSentences.unshift(currentChunk[i]);
+          overlapWords += currentChunk[i].split(/\s+/).length;
+        }
+
+        currentChunk = overlapSentences;
+        currentWordCount = overlapWords;
+      }
+
+      currentChunk.push(sentence);
+      currentWordCount += sentenceWords;
+    }
+
+    if (currentChunk.length > 0) {
+      chunks.push({ text: currentChunk.join(' '), page: hasPageMarkers ? segment.page : undefined });
+    }
   }
 
   return chunks;
@@ -360,6 +415,7 @@ export async function searchSimilar(
         re.document_name,
         re.chunk_index,
         re.chunk_text,
+        re.metadata,
         er.pdf_blob_url,
         er.file_type,
         1 - (re.embedding <=> ${vectorStr}::vector) as similarity
@@ -378,6 +434,7 @@ export async function searchSimilar(
         re.document_name,
         re.chunk_index,
         re.chunk_text,
+        re.metadata,
         er.pdf_blob_url,
         er.file_type,
         1 - (re.embedding <=> ${vectorStr}::vector) as similarity
@@ -396,6 +453,7 @@ export async function searchSimilar(
         re.document_name,
         re.chunk_index,
         re.chunk_text,
+        re.metadata,
         er.pdf_blob_url,
         er.file_type,
         1 - (re.embedding <=> ${vectorStr}::vector) as similarity
@@ -407,18 +465,22 @@ export async function searchSimilar(
     `;
   }
 
-  return result.rows.map(row => ({
-    chunk: {
-      id: row.id,
-      text: row.chunk_text,
-      documentId: row.document_id,
-      chunkIndex: row.chunk_index,
-    },
-    score: parseFloat(row.similarity) || 0,
-    documentName: row.document_name,
-    documentUrl: row.pdf_blob_url || undefined,
-    fileType: row.file_type || undefined,
-  }));
+  return result.rows.map(row => {
+    const meta = row.metadata || {};
+    return {
+      chunk: {
+        id: row.id,
+        text: row.chunk_text,
+        documentId: row.document_id,
+        chunkIndex: row.chunk_index,
+        metadata: meta,
+      },
+      score: parseFloat(row.similarity) || 0,
+      documentName: row.document_name,
+      documentUrl: row.pdf_blob_url || undefined,
+      fileType: row.file_type || undefined,
+    };
+  });
 }
 
 /**
@@ -537,7 +599,9 @@ export async function generateAnswer(
 
   const contextParts = context.map((result, idx) => {
     const docName = result.documentName || result.chunk.documentId;
-    const sourceRef = `[${langConfig.sourceLabel} ${idx + 1}: ${docName}]`;
+    const page = result.chunk.metadata?.page;
+    const pageRef = page ? ` - p.${page}` : '';
+    const sourceRef = `[${langConfig.sourceLabel} ${idx + 1}: ${docName}${pageRef}]`;
     return `${sourceRef}\n${result.chunk.text}`;
   });
   const contextString = contextParts.join('\n\n---\n\n');
@@ -550,7 +614,7 @@ REGLAS ESTRICTAS:
 1. Responde SOLO con información contenida en los documentos proporcionados.
 2. VERACIDAD: Si la información NO está en los documentos, responde exactamente: "No tengo información sobre esto en los documentos proporcionados. ¿Te gustaría que busque sobre un tema relacionado?"
 3. CLARIFICACIÓN: Si la pregunta es ambigua o demasiado vaga, pide aclaración antes de responder.
-4. CITAS OBLIGATORIAS: Siempre cita el nombre del archivo fuente entre corchetes, ej: [${langConfig.sourceLabel}: NombreArchivo.pdf]. Cada afirmación debe tener su cita.
+4. CITAS OBLIGATORIAS: Siempre cita el nombre del archivo fuente entre corchetes con su número de fuente y página si está disponible, ej: [${langConfig.sourceLabel} 1: NombreArchivo.pdf - p.3]. Cada afirmación debe tener su cita.
 5. Sé preciso, estructurado y conciso. Usa listas o tablas si mejoran la claridad.
 6. ${langConfig.promptInstruction}
 
@@ -598,6 +662,7 @@ ${contextString}`;
         score: Math.round(result.score * 100) / 100,
         documentUrl: result.documentUrl,
         fileType: result.fileType,
+        page: result.chunk.metadata?.page || undefined,
       })),
       confidence: Math.round(avgScore * 100) / 100,
       tokensUsed: result.usageMetadata?.totalTokenCount,
@@ -673,9 +738,10 @@ export async function ingestDocument(
   userId: string,
   metadata?: Record<string, any>
 ): Promise<{ chunksCreated: number; vectorsUploaded: number }> {
-  console.log(`[RAG] Ingestando documento: ${documentId}`);
+  console.log(`[RAG] Ingestando documento: ${documentId} (${documentName})`);
 
-  const chunks = chunkTextSmart(text);
+  const chunksWithPages = chunkTextSmartWithPages(text);
+  const chunks = chunksWithPages.map(c => c.text);
   console.log(`[RAG] ${chunks.length} chunks creados`);
 
   if (chunks.length === 0) {
@@ -684,14 +750,18 @@ export async function ingestDocument(
 
   const embeddings = await generateEmbeddings(chunks);
 
-  const embeddingsData = chunks.map((chunkText, index) => ({
+  const embeddingsData = chunksWithPages.map((chunk, index) => ({
     documentId,
     userId,
     documentName,
     chunkIndex: index,
-    chunkText,
+    chunkText: chunk.text,
     embedding: embeddings[index],
-    metadata,
+    metadata: {
+      ...metadata,
+      documentCode: documentName,
+      ...(chunk.page ? { page: chunk.page } : {}),
+    },
   }));
 
   await upsertEmbeddings(embeddingsData);

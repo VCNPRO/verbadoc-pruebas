@@ -84,15 +84,17 @@ INSTRUCCIONES:
 
 Devuelve el resultado como texto plano. Escribe en el idioma original del audio.`;
   } else if (isImage) {
-    prompt = `Analiza esta imagen en detalle. Realiza las dos tareas siguientes y devuelve el resultado como texto plano continuo:
+    prompt = `Analiza esta imagen en detalle. Devuelve el resultado con las siguientes secciones claramente separadas:
 
-1. DESCRIPCION VISUAL: Describe detalladamente todo lo que ves en la imagen: personas (edad aproximada, vestimenta, posicion), objetos, entorno, colores, epoca estimada, estado de la imagen, y cualquier elemento relevante.
+[DATOS_VISIBLES]
+Transcribe literalmente TODO el texto visible en la imagen: nombres, fechas, codigos, dedicatorias, pies de foto, sellos, etiquetas, inscripciones, numeros, firmas, marcos con texto (muy comun en fotografias antiguas con marco blanco), carteles, documentos visibles, cualquier caracter legible. Si no hay texto visible, escribe "Sin texto visible".
 
-2. TEXTO VISIBLE (OCR): Si hay texto visible en la imagen (carteles, documentos, inscripciones, fechas, nombres, pies de foto, sellos, etiquetas), transcribelo literalmente.
+[DESCRIPCION]
+Describe detalladamente todo lo que ves en la imagen: personas (edad aproximada, vestimenta, posicion), objetos, entorno, colores, epoca estimada, estado de la imagen, y cualquier elemento relevante.
 
-Combina ambas partes en un texto continuo y descriptivo. No uses listas ni formato markdown. Escribe en espanol.`;
+IMPORTANTE: La seccion [DATOS_VISIBLES] es critica para la busqueda posterior. Incluye absolutamente todo texto legible, por pequeno que sea. Escribe en espanol.`;
   } else {
-    prompt = 'Extrae TODO el texto de este documento. Devuelve solo el texto plano, sin formateo ni comentarios adicionales.';
+    prompt = 'Extrae TODO el texto de este documento. Al inicio de cada pagina nueva, incluye un marcador con el formato exacto: [Página X] (donde X es el numero de pagina). Devuelve solo el texto plano con estos marcadores de pagina, sin otro formateo ni comentarios adicionales.';
   }
 
   const result = await client.models.generateContent({
@@ -355,9 +357,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 3. Guardar referencia en extraction_results CON la descripcion/transcripcion generada
+    // Extraer datos OCR visibles de imágenes como campo separado para búsquedas
+    let ocrMetadata = '';
+    if (isImage && extractedText) {
+      const datosMatch = extractedText.match(/\[DATOS_VISIBLES\]\s*([\s\S]*?)(?:\[DESCRIPCION\]|$)/i);
+      if (datosMatch && datosMatch[1]) {
+        ocrMetadata = datosMatch[1].trim();
+        if (ocrMetadata.toLowerCase() === 'sin texto visible') ocrMetadata = '';
+      }
+    }
+
     const extractedDataObj = {
       _ragDocument: true,
       description: extractedText || '',
+      ...(ocrMetadata ? { ocr_text: ocrMetadata } : {}),
       ...(isAudio ? { transcription: extractedText || '', isAudio: true } : {}),
       isImage,
       blobUrl: finalBlobUrl
