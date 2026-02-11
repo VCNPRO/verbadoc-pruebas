@@ -138,6 +138,11 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
             return t('knowledge.export');
         }
 
+        // RAG Config (before general RAG to match more specific queries first)
+        if (msg.match(new RegExp(t('patterns.ragConfig'), 'i'))) {
+            return t('knowledge.ragConfig');
+        }
+
         // RAG / Semantic search
         if (msg.match(new RegExp(t('patterns.rag'), 'i'))) {
             return t('knowledge.rag');
@@ -148,9 +153,34 @@ export const ChatbotLaia: React.FC<ChatbotLaiaProps> = ({ isLightMode = false })
             return t('knowledge.folders');
         }
 
-        // Modules / Permissions
-        if (msg.match(new RegExp(t('patterns.modulesPermissions'), 'i'))) {
+        // Photos / Historical documents
+        if (msg.match(new RegExp(t('patterns.photos'), 'i'))) {
+            return t('knowledge.photos');
+        }
+
+        // Audio transcription
+        if (msg.match(new RegExp(t('patterns.audio'), 'i'))) {
+            return t('knowledge.audio');
+        }
+
+        // Voice input/output
+        if (msg.match(new RegExp(t('patterns.voice'), 'i'))) {
+            return t('knowledge.voice');
+        }
+
+        // Modules
+        if (msg.match(new RegExp(t('patterns.modules'), 'i'))) {
             return t('knowledge.modules');
+        }
+
+        // Roles and permissions
+        if (msg.match(new RegExp(t('patterns.roles'), 'i'))) {
+            return t('knowledge.roles');
+        }
+
+        // Languages
+        if (msg.match(new RegExp(t('patterns.languages'), 'i'))) {
+            return t('knowledge.languages');
         }
 
         // PDF Viewer
