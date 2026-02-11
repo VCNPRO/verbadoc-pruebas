@@ -89,6 +89,9 @@
     "api/rag/batch-ingest.ts": {
       "maxDuration": 300
     },
+    "api/rag/reextract-all.ts": {
+      "maxDuration": 300
+    },
     "api/transcribe.ts": {
       "maxDuration": 120
     },
