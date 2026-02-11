@@ -21,52 +21,52 @@ Al hacer clic en el boton **"Ajustes avanzados"** (icono de engranaje) debajo de
 
 ---
 
-## 1. Selector de Modelo
+## 1. Motor de Inferencia
 
 Permite elegir que motor de inteligencia artificial procesa tu pregunta.
 
-| Modelo | Descripcion | Cuando usarlo |
-|--------|-------------|---------------|
-| **Gemini 2.0 Flash** (rapido) | Respuestas en 1-2 segundos. Buena calidad. | **Recomendado para uso diario**. Consultas rapidas, verificaciones, busquedas simples. |
-| **Gemini 2.5 Flash Preview** (equilibrado) | Respuestas en 2-4 segundos. Mayor capacidad de razonamiento. | Cuando necesitas respuestas mas elaboradas o la pregunta es compleja. |
-| **Gemini 1.5 Pro** (preciso) | Respuestas en 3-6 segundos. Maxima precision. | Para analisis detallados, documentos legales complejos, o cuando necesitas la mayor fiabilidad posible. |
+| Motor | Descripcion | Cuando usarlo |
+|-------|-------------|---------------|
+| **Motor Estandar** (Agilidad) | Respuestas en 1-2 segundos. Buena calidad. | **Recomendado para uso diario**. Consultas rapidas, verificaciones, busquedas simples. |
+| **Motor Avanzado** (Equilibrado) | Respuestas en 2-4 segundos. Mayor capacidad de razonamiento. | Cuando necesitas respuestas mas elaboradas o la pregunta es compleja. |
+| **Motor de Alta Densidad** (Precision) | Respuestas en 3-6 segundos. Maxima precision. | Para analisis detallados, documentos legales complejos, o cuando necesitas la mayor fiabilidad posible. |
 
-### Ejemplos practicos por modelo
+### Ejemplos practicos por motor
 
-**Ejemplo 1 - Consulta simple (usar Flash)**:
+**Ejemplo 1 - Consulta simple (usar Motor Estandar)**:
 > "Cual es la fecha del contrato?"
-> Respuesta rapida y directa. No necesita modelo avanzado.
+> Respuesta rapida y directa. No necesita un motor mas potente.
 
-**Ejemplo 2 - Consulta compleja (usar 2.5 Flash Preview o 1.5 Pro)**:
+**Ejemplo 2 - Consulta compleja (usar Motor Avanzado o Alta Densidad)**:
 > "Compara las condiciones de pago del contrato A con el contrato B y dime cual es mas favorable"
-> Requiere razonamiento comparativo. Un modelo mas potente dara mejor resultado.
+> Requiere razonamiento comparativo. Un motor mas potente dara mejor resultado.
 
-**Ejemplo 3 - Documento legal (usar 1.5 Pro)**:
+**Ejemplo 3 - Documento legal (usar Motor de Alta Densidad)**:
 > "Que implicaciones legales tiene la clausula 7.3 sobre penalizaciones?"
-> Analisis juridico que se beneficia de la maxima precision del modelo.
+> Analisis juridico que se beneficia de la maxima precision del motor.
 
 ---
 
-## 2. Temperatura
+## 2. Indice de Creatividad
 
-El control deslizante de **Temperatura** ajusta lo "creativa" o "estricta" que es la respuesta.
+El control deslizante de **Indice de Creatividad** ajusta lo "creativa" o "estricta" que es la respuesta.
 
 ```
-Preciso ◄──────────────────────────► Creativo
+Tecnico ◄──────────────────────────► Narrativo
   0.0                                  1.0
 ```
 
 | Rango | Que hace | Ejemplo |
 |-------|----------|---------|
-| **0.0 - 0.2** (Preciso) | Respuestas casi identicas cada vez. Se cine estrictamente al texto del documento. | *"Cual es el NIF del proveedor?"* -> Siempre devuelve el mismo NIF exacto |
+| **0.0 - 0.2** (Tecnico) | Respuestas casi identicas cada vez. Se cine estrictamente al texto del documento. | *"Cual es el NIF del proveedor?"* -> Siempre devuelve el mismo NIF exacto |
 | **0.3** (Por defecto) | Equilibrio entre precision y naturalidad. | Funciona bien para la mayoria de preguntas |
 | **0.4 - 0.6** (Balanceado) | Respuestas con algo mas de elaboracion y variacion. | *"Resumeme el documento"* -> Resumenes ligeramente diferentes cada vez |
-| **0.7 - 1.0** (Creativo) | Respuestas mas variadas y elaboradas. | *"Que opinas sobre el enfoque de este informe?"* -> Respuestas mas interpretativas |
+| **0.7 - 1.0** (Narrativo) | Respuestas mas variadas y elaboradas. | *"Que opinas sobre el enfoque de este informe?"* -> Respuestas mas interpretativas |
 
-### Cuando ajustar la temperatura
+### Cuando ajustar el Indice de Creatividad
 
-| Tarea | Temperatura recomendada |
-|-------|------------------------|
+| Tarea | Valor recomendado |
+|-------|-------------------|
 | Extraer datos concretos (NIF, fechas, importes) | **0.0 - 0.1** |
 | Consultas generales sobre documentos | **0.3** (default) |
 | Resumenes y explicaciones | **0.4 - 0.5** |
@@ -74,64 +74,64 @@ Preciso ◄───────────────────────
 
 ---
 
-## 3. Fuentes (Top K)
+## 3. Profundidad de Contexto
 
-Controla **cuantos fragmentos de tus documentos** se envian a la IA como referencia para responder.
+Controla **cuantos fragmentos de tus documentos** analiza la IA como referencia para responder.
 
 ```
-Menos fuentes ◄────────────────────► Mas fuentes
-     1                                   10
+Menos profundidad ◄────────────────────► Mas profundidad
+       1                                       10
 ```
 
 | Valor | Que hace | Cuando usarlo |
 |-------|----------|---------------|
-| **1 - 2** | Busca solo en los 1-2 fragmentos mas relevantes | Preguntas muy especificas sobre un dato concreto |
+| **1 - 2** | Analiza solo los 1-2 fragmentos mas relevantes | Preguntas muy especificas sobre un dato concreto |
 | **3 - 5** (default) | Equilibrio entre cobertura y velocidad | **Uso general**. Funciona bien para la mayoria de preguntas |
-| **6 - 8** | Mas contexto, busca en mas partes del documento | Preguntas que abarcan varias secciones del documento |
+| **6 - 8** | Mas contexto, analiza mas partes del documento | Preguntas que abarcan varias secciones del documento |
 | **9 - 10** | Maximo contexto disponible | Documentos muy largos donde la informacion esta dispersa |
 
 ### Ejemplos practicos
 
-**Ejemplo con Top K = 2**:
+**Ejemplo con Profundidad 2**:
 > Pregunta: "Cual es el telefono de contacto?"
-> El sistema busca solo los 2 fragmentos mas relevantes. Rapido y preciso para datos puntuales.
+> El sistema analiza solo los 2 fragmentos mas relevantes. Rapido y preciso para datos puntuales.
 
-**Ejemplo con Top K = 5** (default):
+**Ejemplo con Profundidad 5** (default):
 > Pregunta: "Que servicios se incluyen en el contrato?"
 > El sistema revisa 5 fragmentos. Puede encontrar servicios mencionados en diferentes clausulas.
 
-**Ejemplo con Top K = 10**:
+**Ejemplo con Profundidad 10**:
 > Pregunta: "Hazme un resumen completo del documento"
 > El sistema lee 10 fragmentos para tener la vision mas amplia posible del documento.
 
 ---
 
-## 4. Umbral de Similitud
+## 4. Rigurosidad de Hallazgo
 
-Establece un **filtro de calidad** sobre los resultados. Solo se usan fragmentos cuya relevancia supere el umbral.
+Establece un **filtro de calidad** sobre los resultados. Solo se usan fragmentos cuya relevancia supere el nivel de rigurosidad.
 
 ```
-Sin filtro ◄────────────────────────► Solo muy relevantes
-   0.00                                      1.00
+Modo Flexible ◄────────────────────────► Modo Estricto
+    0.00                                      1.00
 ```
 
 | Valor | Que hace | Cuando usarlo |
 |-------|----------|---------------|
-| **0.00** (default) | Sin filtro. Siempre devuelve el numero de fuentes configurado | **Uso general**. Funciona bien casi siempre |
+| **0.00** (default) | Modo Flexible. Siempre devuelve el numero de fuentes configurado | **Uso general**. Funciona bien casi siempre |
 | **0.10 - 0.30** | Filtro suave. Elimina resultados muy poco relevantes | Cuando tienes muchos documentos de temas variados |
 | **0.40 - 0.60** | Filtro moderado. Solo resultados razonablemente relacionados | Busquedas precisas en colecciones grandes |
-| **0.70 - 0.90** | Filtro estricto. Solo resultados muy relevantes | Documentos legales, compliance, cuando la precision es critica |
+| **0.70 - 0.90** | Modo Estricto. Solo resultados muy relevantes | Documentos legales, compliance, cuando la precision es critica |
 
 ### Ejemplo practico
 
 Tienes una carpeta con 100 documentos (contratos, facturas, manuales). Preguntas:
 > "Cual es la penalizacion por retraso en la entrega?"
 
-- **Umbral 0.00**: Devuelve 5 fragmentos, algunos quiza poco relevantes (ej: una factura que menciona "entrega")
-- **Umbral 0.50**: Devuelve solo los fragmentos que realmente hablan de penalizaciones
-- **Umbral 0.80**: Devuelve solo los fragmentos que hablan especificamente de penalizaciones por retraso
+- **Rigurosidad 0.00 (Flexible)**: Devuelve 5 fragmentos, algunos quiza poco relevantes (ej: una factura que menciona "entrega")
+- **Rigurosidad 0.50 (Moderado)**: Devuelve solo los fragmentos que realmente hablan de penalizaciones
+- **Rigurosidad 0.80 (Estricto)**: Devuelve solo los fragmentos que hablan especificamente de penalizaciones por retraso
 
-> **Atencion**: Si el umbral es muy alto, es posible que no se encuentren resultados y la IA responda "No tengo informacion sobre esto en los documentos". En ese caso, baja el umbral.
+> **Atencion**: Si la rigurosidad es muy alta, es posible que no se encuentren resultados y la IA responda "No tengo informacion sobre esto en los documentos". En ese caso, baja la rigurosidad.
 
 ---
 
@@ -172,10 +172,10 @@ Cuando hay historial de conversacion, aparece un boton con el texto **"Limpiar c
 
 | Ajuste | Valor |
 |--------|-------|
-| Modelo | Gemini 2.0 Flash |
-| Temperatura | 0.0 - 0.1 |
-| Fuentes | 2 - 3 |
-| Umbral | 0.00 |
+| Motor de Inferencia | Motor Estandar (Agilidad) |
+| Indice de Creatividad | 0.0 - 0.1 |
+| Profundidad de Contexto | 2 - 3 |
+| Rigurosidad de Hallazgo | 0.00 (Flexible) |
 
 **Ejemplo**: *"Cual es el CIF de la empresa contratante?"*
 
@@ -187,10 +187,10 @@ Cuando hay historial de conversacion, aparece un boton con el texto **"Limpiar c
 
 | Ajuste | Valor |
 |--------|-------|
-| Modelo | Gemini 2.0 Flash o 2.5 Flash |
-| Temperatura | 0.4 - 0.5 |
-| Fuentes | 7 - 10 |
-| Umbral | 0.00 |
+| Motor de Inferencia | Motor Estandar o Motor Avanzado |
+| Indice de Creatividad | 0.4 - 0.5 |
+| Profundidad de Contexto | 7 - 10 |
+| Rigurosidad de Hallazgo | 0.00 (Flexible) |
 
 **Ejemplo**: *"Hazme un resumen de los puntos principales del contrato"*
 
@@ -202,10 +202,10 @@ Cuando hay historial de conversacion, aparece un boton con el texto **"Limpiar c
 
 | Ajuste | Valor |
 |--------|-------|
-| Modelo | Gemini 1.5 Pro |
-| Temperatura | 0.1 |
-| Fuentes | 5 - 8 |
-| Umbral | 0.50 - 0.70 |
+| Motor de Inferencia | Motor de Alta Densidad (Precision) |
+| Indice de Creatividad | 0.1 |
+| Profundidad de Contexto | 5 - 8 |
+| Rigurosidad de Hallazgo | 0.50 - 0.70 |
 
 **Ejemplo**: *"Que dice la clausula de proteccion de datos sobre transferencias internacionales?"*
 
@@ -217,10 +217,10 @@ Cuando hay historial de conversacion, aparece un boton con el texto **"Limpiar c
 
 | Ajuste | Valor |
 |--------|-------|
-| Modelo | Gemini 2.5 Flash Preview o 1.5 Pro |
-| Temperatura | 0.3 |
-| Fuentes | 8 - 10 |
-| Umbral | 0.00 |
+| Motor de Inferencia | Motor Avanzado o Alta Densidad |
+| Indice de Creatividad | 0.3 |
+| Profundidad de Contexto | 8 - 10 |
+| Rigurosidad de Hallazgo | 0.00 (Flexible) |
 
 **Ejemplo**: *"Compara las condiciones de pago del contrato de 2024 con el de 2025"*
 
@@ -232,10 +232,10 @@ Cuando hay historial de conversacion, aparece un boton con el texto **"Limpiar c
 
 | Ajuste | Valor |
 |--------|-------|
-| Modelo | Gemini 2.0 Flash |
-| Temperatura | 0.3 |
-| Fuentes | 5 |
-| Umbral | 0.00 |
+| Motor de Inferencia | Motor Estandar (Agilidad) |
+| Indice de Creatividad | 0.3 |
+| Profundidad de Contexto | 5 |
+| Rigurosidad de Hallazgo | 0.00 (Flexible) |
 
 **Ejemplo de conversacion**:
 1. *"De que trata este documento?"*
@@ -254,14 +254,14 @@ Cuando hay historial de conversacion, aparece un boton con el texto **"Limpiar c
 
 | Ajuste | Valor |
 |--------|-------|
-| Modelo | Gemini 2.0 Flash |
-| Temperatura | 0.2 |
-| Fuentes | 5 |
-| Umbral | 0.40 - 0.60 |
+| Motor de Inferencia | Motor Estandar (Agilidad) |
+| Indice de Creatividad | 0.2 |
+| Profundidad de Contexto | 5 |
+| Rigurosidad de Hallazgo | 0.40 - 0.60 |
 
 **Ejemplo**: Carpeta "Facturas 2025" con 200 facturas.
 *"Cual es el total de la factura de Telefonica de marzo?"*
-El umbral filtra las facturas no relacionadas con Telefonica ni con marzo.
+La rigurosidad filtra las facturas no relacionadas con Telefonica ni con marzo.
 
 ---
 
@@ -269,22 +269,22 @@ El umbral filtra las facturas no relacionadas con Telefonica ni con marzo.
 
 ### "La IA dice que no tiene informacion, pero yo se que esta en el documento"
 
-- **Baja el umbral de similitud** a 0.00 (sin filtro)
-- **Sube el Top K** a 8-10 para que busque en mas fragmentos
+- **Baja la Rigurosidad de Hallazgo** a 0.00 (Modo Flexible)
+- **Sube la Profundidad de Contexto** a 8-10 para que analice mas fragmentos
 - Reformula la pregunta con terminos que aparezcan en el documento
 - Verifica que el documento esta en la carpeta seleccionada
 
 ### "La respuesta es demasiado generica"
 
-- **Sube el Top K** para dar mas contexto a la IA
-- Usa un **modelo mas potente** (2.5 Flash o 1.5 Pro)
+- **Sube la Profundidad de Contexto** para dar mas informacion a la IA
+- Usa un **motor mas potente** (Avanzado o Alta Densidad)
 - Se mas especifico en tu pregunta
 
 ### "La respuesta tarda mucho"
 
-- Usa **Gemini 2.0 Flash** (el mas rapido)
-- **Baja el Top K** a 2-3
-- La primera consulta de la sesion puede tardar algo mas (arranque en frio)
+- Usa el **Motor Estandar** (el mas rapido)
+- **Baja la Profundidad de Contexto** a 2-3
+- La primera consulta de la sesion puede tardar algo mas mientras el sistema se prepara
 
 ### "Las preguntas de seguimiento no funcionan bien"
 
@@ -301,17 +301,17 @@ El umbral filtra las facturas no relacionadas con Telefonica ni con marzo.
 
 ## 8. Tabla Rapida de Referencia
 
-| Quiero... | Modelo | Temp. | Top K | Umbral |
-|-----------|--------|-------|-------|--------|
-| Dato concreto rapido | Flash | 0.0 | 2 | 0.00 |
-| Consulta general | Flash | 0.3 | 5 | 0.00 |
-| Resumen completo | Flash/2.5 | 0.4 | 8-10 | 0.00 |
-| Analisis legal preciso | 1.5 Pro | 0.1 | 5-8 | 0.50 |
-| Comparar documentos | 2.5/Pro | 0.3 | 10 | 0.00 |
-| Buscar en coleccion grande | Flash | 0.2 | 5 | 0.40 |
-| Explorar con preguntas seguidas | Flash | 0.3 | 5 | 0.00 |
+| Quiero... | Motor | Creatividad | Profundidad | Rigurosidad |
+|-----------|-------|-------------|-------------|-------------|
+| Dato concreto rapido | Estandar | 0.0 | 2 | 0.00 |
+| Consulta general | Estandar | 0.3 | 5 | 0.00 |
+| Resumen completo | Estandar / Avanzado | 0.4 | 8-10 | 0.00 |
+| Analisis legal preciso | Alta Densidad | 0.1 | 5-8 | 0.50 |
+| Comparar documentos | Avanzado / Alta Densidad | 0.3 | 10 | 0.00 |
+| Buscar en coleccion grande | Estandar | 0.2 | 5 | 0.40 |
+| Explorar con preguntas seguidas | Estandar | 0.3 | 5 | 0.00 |
 
 ---
 
 *Documento generado para VerbadocPro v2.0 - Febrero 2026*
-*Soporte: soporte@verbadocpro.eu*
+*VideoConversion Digital Lab SL | verbadocpro.eu*
