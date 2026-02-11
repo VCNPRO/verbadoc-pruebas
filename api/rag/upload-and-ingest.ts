@@ -6,7 +6,7 @@
  * 1. Guardar documento en BD (sin extraccion de campos)
  * 2. Ingestar automaticamente al sistema RAG
  *
- * Soporta PDFs, imagenes (JPEG, PNG, TIFF), audio (MP3, WAV, OGG, WebM, M4A, FLAC, AAC) y texto.
+ * Soporta PDFs, imagenes (JPEG, PNG, TIFF), audio (MP3, WAV, OGG, WebM, M4A, FLAC, AAC), Excel (XLSX, XLS), CSV y texto.
  * Para imagenes: analisis visual + OCR combinados.
  * Para audio: transcripcion automatica via Gemini.
  *
@@ -50,12 +50,82 @@ const AUDIO_MIME_TYPES = [
   'audio/flac', 'audio/x-flac', 'audio/aac',
 ];
 
+// Tipos de hoja de cálculo soportados
+const SPREADSHEET_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+  'application/vnd.ms-excel', // .xls
+  'text/csv', // .csv
+  'application/csv',
+];
+
+// Extensiones de archivo para detección por nombre (fallback cuando el MIME no es fiable)
+const SPREADSHEET_EXTENSIONS = ['.xlsx', '.xls', '.csv'];
+
 function isImageMimeType(mimeType: string): boolean {
   return IMAGE_MIME_TYPES.includes(mimeType.toLowerCase());
 }
 
 function isAudioMimeType(mimeType: string): boolean {
   return AUDIO_MIME_TYPES.includes(mimeType.toLowerCase());
+}
+
+function isSpreadsheetMimeType(mimeType: string): boolean {
+  return SPREADSHEET_MIME_TYPES.includes(mimeType.toLowerCase());
+}
+
+function isSpreadsheetFilename(filename: string): boolean {
+  const lower = filename.toLowerCase();
+  return SPREADSHEET_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+/**
+ * Extrae texto plano de un archivo Excel/CSV para ingesta RAG.
+ * Convierte cada hoja en texto tabular legible.
+ */
+async function extractSpreadsheetContent(base64Data: string, filename: string): Promise<string> {
+  const XLSX = await import('xlsx');
+  const buffer = Buffer.from(base64Data, 'base64');
+
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  const parts: string[] = [];
+
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+
+    // Convertir a array de arrays para control total
+    const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+    if (rows.length === 0) continue;
+
+    parts.push(`[Hoja: ${sheetName}]`);
+
+    // Primera fila como cabeceras
+    const headers = rows[0].map((h: any) => String(h).trim());
+    parts.push(`Columnas: ${headers.join(' | ')}`);
+    parts.push('');
+
+    // Filas de datos (formato "campo: valor" para mejor búsqueda RAG)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      // Saltar filas completamente vacías
+      if (row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
+
+      const pairs = headers
+        .map((h: string, idx: number) => {
+          const val = row[idx] !== undefined && row[idx] !== '' ? String(row[idx]) : '';
+          return val ? `${h || `Col${idx + 1}`}: ${val}` : '';
+        })
+        .filter(Boolean);
+
+      if (pairs.length > 0) {
+        parts.push(`Fila ${i}: ${pairs.join(' | ')}`);
+      }
+    }
+
+    parts.push('');
+  }
+
+  return parts.join('\n') || `[Archivo ${filename} sin datos legibles]`;
 }
 
 // Extraer contenido de un archivo usando Gemini (PDFs, imagenes y audio)
@@ -323,10 +393,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log(`✅ [RAG Upload] Archivo subido correctamente`);
     }
 
-    // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes, transcripcion para audio)
+    // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes, transcripcion para audio, texto tabular para Excel/CSV)
     const isImage = isImageMimeType(fileType || '');
     const isAudio = isAudioMimeType(fileType || '');
-    const contentType = isAudio ? 'audio' : isImage ? 'imagen' : 'documento';
+    const isSpreadsheet = isSpreadsheetMimeType(fileType || '') || isSpreadsheetFilename(filename || '');
+    const contentType = isSpreadsheet ? 'hoja de cálculo' : isAudio ? 'audio' : isImage ? 'imagen' : 'documento';
     console.log(`[RAG Upload] Extrayendo contenido (${contentType})...`);
 
     let extractedText = '';
@@ -344,7 +415,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           base64ForExtraction = blobBuffer.toString('base64');
           if (!fileSizeFinal) fileSizeFinal = blobBuffer.length;
         }
-        extractedText = await extractContent(base64ForExtraction, fileType || 'application/pdf');
+
+        if (isSpreadsheet) {
+          // Excel/CSV: parsear localmente con xlsx (no necesita Gemini)
+          extractedText = await extractSpreadsheetContent(base64ForExtraction, filename);
+        } else {
+          extractedText = await extractContent(base64ForExtraction, fileType || 'application/pdf');
+        }
         console.log(`[RAG Upload] Contenido extraido: ${extractedText?.length || 0} chars`);
       } catch (extractError: any) {
         console.error(`[RAG Upload] Error extrayendo contenido: ${extractError.message}`);
@@ -372,6 +449,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description: extractedText || '',
       ...(ocrMetadata ? { ocr_text: ocrMetadata } : {}),
       ...(isAudio ? { transcription: extractedText || '', isAudio: true } : {}),
+      ...(isSpreadsheet ? { isSpreadsheet: true } : {}),
       isImage,
       blobUrl: finalBlobUrl
     };
@@ -418,7 +496,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       filename,
       extractedText,
       auth.userId,
-      { originalUrl: finalBlobUrl, fileType, isImage, isAudio }
+      { originalUrl: finalBlobUrl, fileType, isImage, isAudio, isSpreadsheet }
     );
 
     console.log(`✅ [RAG Upload] Ingesta completada: ${ingestResult.chunksCreated} chunks`);
@@ -432,6 +510,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       description: extractedText,
       isImage,
       isAudio,
+      isSpreadsheet,
       ingestion: {
         chunksCreated: ingestResult.chunksCreated,
         vectorsUploaded: ingestResult.vectorsUploaded

@@ -319,7 +319,7 @@ export const FileUploader: React.FC<FileUploaderProps> = ({ files, setFiles, act
                                     onChange={onFileChange}
                                     onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
                                     className="hidden"
-                                    accept=".pdf,.jpg,.jpeg,.png,.tiff,.txt,.json,.mp3,.wav,.ogg,.webm,.m4a,.flac,.aac"
+                                    accept=".pdf,.jpg,.jpeg,.png,.tiff,.txt,.json,.mp3,.wav,.ogg,.webm,.m4a,.flac,.aac,.xlsx,.xls,.csv"
                                 />
                                 <input
                                     ref={folderInputRef}

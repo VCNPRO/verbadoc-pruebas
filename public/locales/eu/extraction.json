@@ -5,7 +5,7 @@
     "or": "edo",
     "browse": "Fitxategiak hautatu",
     "browseFolder": "Karpeta hautatu",
-    "supportedFormats": "PDF, irudiak (JPG, PNG), JSON",
+    "supportedFormats": "PDF, irudiak (JPG, PNG, TIFF), audioa (MP3, WAV, OGG, FLAC), Excel (XLSX, CSV), TXT, JSON",
     "maxSize": "Gehienez {{size}} MB fitxategiko",
     "filesLoaded": "{{count}} fitxategi kargatu d(ir)a",
     "clearAll": "Dena garbitu",

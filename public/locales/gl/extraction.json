@@ -5,7 +5,7 @@
     "or": "ou",
     "browse": "Seleccionar ficheiros",
     "browseFolder": "Seleccionar carpeta",
-    "supportedFormats": "PDF, imaxes (JPG, PNG), JSON",
+    "supportedFormats": "PDF, imaxes (JPG, PNG, TIFF), audio (MP3, WAV, OGG, FLAC), Excel (XLSX, CSV), TXT, JSON",
     "maxSize": "Máximo {{size}} MB por ficheiro",
     "filesLoaded": "{{count}} ficheiro(s) cargado(s)",
     "clearAll": "Limpar todo",

@@ -5,7 +5,7 @@
     "or": "o",
     "browse": "Seleccionar fitxers",
     "browseFolder": "Seleccionar carpeta",
-    "supportedFormats": "PDF, imatges (JPG, PNG), JSON",
+    "supportedFormats": "PDF, imatges (JPG, PNG, TIFF), àudio (MP3, WAV, OGG, FLAC), Excel (XLSX, CSV), TXT, JSON",
     "maxSize": "M\u00e0xim {{size}} MB per fitxer",
     "filesLoaded": "{{count}} fitxer(s) carregat(s)",
     "clearAll": "Netejar tot",
