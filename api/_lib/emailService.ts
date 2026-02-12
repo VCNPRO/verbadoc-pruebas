@@ -6,6 +6,7 @@
 import { Resend } from 'resend';
 import { EmailNotificationDB } from '../lib/extractionDB.js';
 import type { ValidationErrorInput } from './validationService.js';
+import { trackEmailSend } from '../lib/usageTracker.js';
 
 // Inicializar Resend de forma segura (Lazy initialization)
 let resend: Resend | null = null;
@@ -162,6 +163,13 @@ export class EmailService {
       // Marcar como enviado en BD
       await EmailNotificationDB.markAsSent(notification.id, result.data?.id);
 
+      // Track email usage (non-blocking)
+      trackEmailSend({
+        resourceId: extraction.id,
+        resourceName: extraction.filename,
+        emailType: 'needs_review',
+      });
+
       console.log('✅ Email enviado:', result.data?.id);
     } catch (error: any) {
       console.error('❌ Error al enviar email:', error);
@@ -273,6 +281,9 @@ export class EmailService {
         provider: 'resend'
       });
 
+      // Track email usage (non-blocking)
+      trackEmailSend({ emailType: 'daily_summary' });
+
       console.log('✅ Resumen diario enviado:', result.data?.id);
     } catch (error: any) {
       console.error('❌ Error al enviar resumen diario:', error);
@@ -351,6 +362,9 @@ export class EmailService {
         subject: `✅ Batch completado: ${totalProcessed} formularios procesados`,
         html: emailHtml
       });
+
+      // Track email usage (non-blocking)
+      trackEmailSend({ emailType: 'batch_completed' });
 
       console.log('✅ Email de batch completado enviado:', result.data?.id);
     } catch (error: any) {

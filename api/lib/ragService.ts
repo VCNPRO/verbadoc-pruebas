@@ -10,6 +10,7 @@
 
 import { sql } from '@vercel/postgres';
 import { GoogleGenAI } from '@google/genai';
+import { trackGeminiCall, trackEmbeddingCall } from './usageTracker.js';
 
 // ============================================================================
 // CONFIGURATION
@@ -544,6 +545,13 @@ PREGUNTA REESCRITA:`
       }
     });
 
+    // Track usage (non-blocking)
+    trackGeminiCall(result, {
+      eventType: 'rag_query',
+      eventSubtype: 'rewrite_query',
+      modelId: 'gemini-2.0-flash',
+    });
+
     const rewritten = result.text?.trim();
     if (rewritten && rewritten.length > 0 && rewritten.length < 2000) {
       console.log(`[RAG] Query reescrita: "${query.substring(0, 50)}..." → "${rewritten.substring(0, 50)}..."`);
@@ -649,6 +657,13 @@ ${contextString}`;
       }
     });
 
+    // Track usage (non-blocking)
+    trackGeminiCall(result, {
+      eventType: 'rag_query',
+      eventSubtype: 'generate_answer',
+      modelId: model,
+    });
+
     const answer = result.text || '';
     const avgScore = context.reduce((sum, r) => sum + r.score, 0) / context.length;
 
@@ -749,6 +764,14 @@ export async function ingestDocument(
   }
 
   const embeddings = await generateEmbeddings(chunks);
+
+  // Track embedding usage (non-blocking)
+  trackEmbeddingCall({
+    userId,
+    chunksCount: chunks.length,
+    resourceId: documentId,
+    resourceName: documentName,
+  });
 
   const embeddingsData = chunksWithPages.map((chunk, index) => ({
     documentId,

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from "@google/genai";
+import { trackGeminiCall } from '../lib/usageTracker.js';
 
 // Reintentos con backoff exponencial
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
@@ -79,6 +80,7 @@ RESPUESTA: Solo el texto extraído, sin explicaciones adicionales.`;
         }
       });
 
+      trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'extract_field', modelId: 'gemini-3-flash-preview' });
       return response.text?.trim() || (isCheckbox ? "[ ]" : "N/A");
     });
 

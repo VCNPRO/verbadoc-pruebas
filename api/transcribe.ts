@@ -14,6 +14,9 @@
  */
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { trackGeminiCall } from './lib/usageTracker.js';
+import { verifyRequestAuth } from './lib/auth.js';
+import { sql } from '@vercel/postgres';
 
 export const config = {
   api: {
@@ -91,6 +94,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     console.log(`[transcribe] Respuesta: ${responseText.length} chars`);
+
+    // Track usage
+    const auth = verifyRequestAuth(req);
+    let companyName: string | undefined;
+    if (auth?.userId) {
+      try {
+        const userRow = await sql`SELECT company_name FROM users WHERE id = ${auth.userId}::uuid LIMIT 1`;
+        companyName = userRow.rows[0]?.company_name || undefined;
+      } catch {}
+    }
+    trackGeminiCall(response, {
+      eventType: 'transcription',
+      userId: auth?.userId,
+      userEmail: auth?.email,
+      companyName,
+      modelId: modelId,
+    });
 
     return res.status(200).json({
       text: responseText,

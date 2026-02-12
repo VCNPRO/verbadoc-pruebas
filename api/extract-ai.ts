@@ -9,6 +9,9 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { GoogleGenAI } from '@google/genai';
+import { trackGeminiCall } from './lib/usageTracker.js';
+import { verifyRequestAuth } from './lib/auth.js';
+import { sql } from '@vercel/postgres';
 
 export const config = {
   api: {
@@ -126,6 +129,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const responseText = response.text || '{}';
     console.log(`✅ Respuesta de Gemini: ${responseText.length} chars`);
+
+    // Track usage
+    const auth = verifyRequestAuth(req);
+    let companyName: string | undefined;
+    if (auth?.userId) {
+      try {
+        const userRow = await sql`SELECT company_name FROM users WHERE id = ${auth.userId}::uuid LIMIT 1`;
+        companyName = userRow.rows[0]?.company_name || undefined;
+      } catch {}
+    }
+    trackGeminiCall(response, {
+      eventType: 'extraction',
+      eventSubtype: 'ai_direct',
+      userId: auth?.userId,
+      userEmail: auth?.email,
+      companyName,
+      modelId: modelId,
+    });
 
     // Parsear la respuesta
     let extractedData: any;

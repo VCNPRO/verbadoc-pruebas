@@ -105,7 +105,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     const [loadingExtractionStats, setLoadingExtractionStats] = useState(true);
 
     // Tab activa
-    const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'logs' | 'extractions' | 'quotas'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'logs' | 'extractions' | 'quotas' | 'consumos'>('overview');
+
+    // Estado para consumos/usage
+    const [usageData, setUsageData] = useState<any>(null);
+    const [loadingUsage, setLoadingUsage] = useState(false);
+    const [usagePeriod, setUsagePeriod] = useState<'week' | 'month' | 'quarter'>('month');
+    const [usageCompanyFilter, setUsageCompanyFilter] = useState<string>('');
 
     // Estado para cuotas
     const [usersWithQuotas, setUsersWithQuotas] = useState<any[]>([]);
@@ -213,6 +219,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
             console.error('Error loading quotas:', err);
         } finally {
             setLoadingQuotas(false);
+        }
+    };
+
+    // Cargar datos de consumos
+    const loadUsageData = async () => {
+        try {
+            setLoadingUsage(true);
+            const params = new URLSearchParams({ period: usagePeriod });
+            if (usageCompanyFilter) params.append('companyName', usageCompanyFilter);
+            const response = await fetch(`/api/admin/usage-stats?${params.toString()}`, {
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error('Error al cargar consumos');
+            const data = await response.json();
+            setUsageData(data);
+        } catch (err: any) {
+            console.error('Error loading usage data:', err);
+        } finally {
+            setLoadingUsage(false);
         }
     };
 
@@ -425,6 +450,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     useEffect(() => {
         loadLogs();
     }, [filter, selectedUserId]);
+
+    // Cargar usage data cuando se activa la tab o cambian filtros
+    useEffect(() => {
+        if (activeTab === 'consumos') {
+            loadUsageData();
+        }
+    }, [activeTab, usagePeriod, usageCompanyFilter]);
 
     // Filtrar logs por búsqueda y fecha
     const filteredLogs = React.useMemo(() => {
@@ -678,7 +710,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={() => { loadUsers(); loadLogs(); loadExtractionStats(); loadUsersWithQuotas(); }}
+                            onClick={() => { loadUsers(); loadLogs(); loadExtractionStats(); loadUsersWithQuotas(); if (activeTab === 'consumos') loadUsageData(); }}
                             className="px-4 py-2 rounded-lg transition-colors"
                             style={{ backgroundColor: '#10b981', color: '#ffffff' }}
                         >
@@ -705,7 +737,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
             {/* Tabs de navegación */}
             <div className="max-w-7xl mx-auto mb-6">
                 <div className="flex gap-2 p-1 rounded-lg" style={{ backgroundColor: cardBg }}>
-                    {(['overview', 'users', 'quotas', 'logs', 'extractions'] as const).map((tab) => (
+                    {(['overview', 'users', 'quotas', 'logs', 'extractions', 'consumos'] as const).map((tab) => (
                         <button
                             key={tab}
                             onClick={() => setActiveTab(tab)}
@@ -720,6 +752,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                             {tab === 'quotas' && '📦 Cuotas'}
                             {tab === 'logs' && '📋 Actividad'}
                             {tab === 'extractions' && '📄 Extracciones'}
+                            {tab === 'consumos' && '💰 Consumos'}
                         </button>
                     ))}
                 </div>
@@ -1240,6 +1273,220 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                     <div className="text-center py-8">
                         <p style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Cargando estadísticas...</p>
                     </div>
+                )}
+
+                {/* Tab Consumos */}
+                {activeTab === 'consumos' && (
+                <>
+                    {/* Controles: Periodo + Filtro empresa */}
+                    <div className="flex flex-wrap gap-4 mb-6 items-center">
+                        <div className="flex gap-2">
+                            {(['week', 'month', 'quarter'] as const).map((p) => (
+                                <button
+                                    key={p}
+                                    onClick={() => setUsagePeriod(p)}
+                                    className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                                    style={{
+                                        backgroundColor: usagePeriod === p ? accentColor : cardBg,
+                                        color: usagePeriod === p ? '#ffffff' : textColor,
+                                        borderWidth: '1px', borderStyle: 'solid', borderColor,
+                                    }}
+                                >
+                                    {p === 'week' ? 'Semana' : p === 'month' ? 'Mes' : 'Trimestre'}
+                                </button>
+                            ))}
+                        </div>
+                        <select
+                            value={usageCompanyFilter}
+                            onChange={(e) => setUsageCompanyFilter(e.target.value)}
+                            className="px-3 py-1.5 rounded-lg text-sm"
+                            style={{ backgroundColor: cardBg, color: textColor, borderWidth: '1px', borderStyle: 'solid', borderColor }}
+                        >
+                            <option value="">Todas las empresas</option>
+                            {usageData?.availableCompanies?.map((c: string) => (
+                                <option key={c} value={c}>{c}</option>
+                            ))}
+                        </select>
+                        <button
+                            onClick={() => {
+                                if (!usageData) return;
+                                const rows = [['Empresa', 'Tipo', 'Eventos', 'Tokens', 'Coste USD']];
+                                for (const company of usageData.byCompany || []) {
+                                    for (const [type, data] of Object.entries(company.breakdown || {})) {
+                                        const d = data as any;
+                                        rows.push([company.companyName, type, d.count, d.tokens, d.costUsd]);
+                                    }
+                                }
+                                const csv = rows.map(r => r.join(',')).join('\n');
+                                const blob = new Blob([csv], { type: 'text/csv' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `consumos_${usagePeriod}_${new Date().toISOString().slice(0, 10)}.csv`;
+                                a.click();
+                                URL.revokeObjectURL(url);
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                            style={{ backgroundColor: cardBg, color: textColor, borderWidth: '1px', borderStyle: 'solid', borderColor }}
+                        >
+                            Exportar CSV
+                        </button>
+                    </div>
+
+                    {loadingUsage ? (
+                        <div className="text-center py-8">
+                            <p style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Cargando consumos...</p>
+                        </div>
+                    ) : usageData ? (
+                    <>
+                        {/* Tarjetas resumen */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                            <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Coste Total (USD)</p>
+                                <p className="text-3xl font-bold mt-1" style={{ color: '#f59e0b' }}>
+                                    ${usageData.summary.totalCostUsd.toFixed(4)}
+                                </p>
+                            </div>
+                            <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Total Eventos</p>
+                                <p className="text-3xl font-bold mt-1">{usageData.summary.totalEvents.toLocaleString()}</p>
+                            </div>
+                            <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Total Tokens</p>
+                                <p className="text-3xl font-bold mt-1">{usageData.summary.totalTokens.toLocaleString()}</p>
+                            </div>
+                            <div className="p-4 rounded-lg border" style={{ backgroundColor: cardBg, borderColor }}>
+                                <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>Empresa Mayor Coste</p>
+                                <p className="text-xl font-bold mt-1" style={{ color: accentColor }}>
+                                    {usageData.byCompany?.[0]?.companyName || 'N/A'}
+                                </p>
+                                {usageData.byCompany?.[0] && (
+                                    <p className="text-sm mt-1" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                        ${usageData.byCompany[0].totalCostUsd.toFixed(4)}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Tabla por empresa */}
+                        <div className="rounded-lg border overflow-hidden mb-6" style={{ borderColor }}>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr style={{ backgroundColor: cardBg }}>
+                                            <th className="text-left p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px' }}>Empresa</th>
+                                            <th className="text-right p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px' }}>Extracciones</th>
+                                            <th className="text-right p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px' }}>RAG</th>
+                                            <th className="text-right p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px' }}>Transcripciones</th>
+                                            <th className="text-right p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px' }}>Emails</th>
+                                            <th className="text-right p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px' }}>Storage</th>
+                                            <th className="text-right p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px' }}>Tokens</th>
+                                            <th className="text-right p-3 font-medium" style={{ borderColor, borderBottomWidth: '1px', color: '#f59e0b' }}>Coste Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(usageData.byCompany || []).length === 0 ? (
+                                            <tr>
+                                                <td colSpan={8} className="text-center p-6" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                                    Sin datos de consumo en este periodo
+                                                </td>
+                                            </tr>
+                                        ) : (usageData.byCompany || []).map((company: any, idx: number) => (
+                                            <tr key={idx} style={{ borderColor, borderTopWidth: idx > 0 ? '1px' : '0' }}>
+                                                <td className="p-3 font-medium">{company.companyName}</td>
+                                                <td className="text-right p-3">
+                                                    {company.breakdown?.extraction?.count || 0}
+                                                    {company.breakdown?.extraction?.costUsd > 0 && (
+                                                        <span className="text-xs ml-1" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                                            (${company.breakdown.extraction.costUsd.toFixed(4)})
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="text-right p-3">
+                                                    {(company.breakdown?.rag_query?.count || 0) + (company.breakdown?.rag_ingest?.count || 0)}
+                                                    {((company.breakdown?.rag_query?.costUsd || 0) + (company.breakdown?.rag_ingest?.costUsd || 0)) > 0 && (
+                                                        <span className="text-xs ml-1" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                                            (${((company.breakdown?.rag_query?.costUsd || 0) + (company.breakdown?.rag_ingest?.costUsd || 0)).toFixed(4)})
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="text-right p-3">
+                                                    {company.breakdown?.transcription?.count || 0}
+                                                </td>
+                                                <td className="text-right p-3">
+                                                    {company.breakdown?.email_send?.count || 0}
+                                                </td>
+                                                <td className="text-right p-3">
+                                                    {company.breakdown?.blob_upload?.count || 0}
+                                                </td>
+                                                <td className="text-right p-3">{company.totalTokens.toLocaleString()}</td>
+                                                <td className="text-right p-3 font-bold" style={{ color: '#f59e0b' }}>
+                                                    ${company.totalCostUsd.toFixed(4)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Por modelo */}
+                        {usageData.byModel && usageData.byModel.length > 0 && (
+                        <div className="rounded-lg border p-4 mb-6" style={{ backgroundColor: cardBg, borderColor }}>
+                            <h3 className="font-bold mb-3">Consumo por Modelo</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                {usageData.byModel.map((m: any, idx: number) => (
+                                    <div key={idx} className="p-3 rounded-lg border" style={{ borderColor }}>
+                                        <p className="text-xs font-mono" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>{m.modelId}</p>
+                                        <p className="text-lg font-bold mt-1">{m.events} eventos</p>
+                                        <p className="text-sm" style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                            {m.tokens.toLocaleString()} tokens · ${m.costUsd.toFixed(4)}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        )}
+
+                        {/* Tendencia diaria */}
+                        {usageData.dailyTrend && usageData.dailyTrend.length > 0 && (
+                        <div className="rounded-lg border p-4" style={{ backgroundColor: cardBg, borderColor }}>
+                            <h3 className="font-bold mb-3">Tendencia Diaria (Coste USD)</h3>
+                            <div className="flex items-end gap-1" style={{ height: '120px' }}>
+                                {(() => {
+                                    const maxCost = Math.max(...usageData.dailyTrend.map((d: any) => d.costUsd), 0.0001);
+                                    return usageData.dailyTrend.map((day: any, idx: number) => {
+                                        const height = (day.costUsd / maxCost) * 100;
+                                        return (
+                                            <div key={idx} className="flex flex-col items-center flex-1" style={{ minWidth: '20px' }}>
+                                                <div
+                                                    className="w-full rounded-t"
+                                                    style={{
+                                                        height: `${Math.max(height, 3)}%`,
+                                                        backgroundColor: accentColor,
+                                                        minHeight: '3px',
+                                                    }}
+                                                    title={`${day.date}: $${day.costUsd.toFixed(4)} (${day.events} eventos, ${day.tokens.toLocaleString()} tokens)`}
+                                                />
+                                                <span className="text-xs mt-1" style={{ color: isLightMode ? '#9ca3af' : '#64748b', fontSize: '10px' }}>
+                                                    {new Date(day.date).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </div>
+                        )}
+                    </>
+                    ) : (
+                        <div className="text-center py-8">
+                            <p style={{ color: isLightMode ? '#6b7280' : '#94a3b8' }}>
+                                No hay datos de consumos disponibles. Ejecuta primero la migración en /api/admin/run-migration-usage (POST).
+                            </p>
+                        </div>
+                    )}
+                </>
                 )}
             </div>
         </div>

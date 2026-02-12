@@ -13,6 +13,7 @@
 
 import { renderPdfToImages, type RenderedPage } from './pdfRenderer.js';
 import { GoogleGenAI } from '@google/genai';
+import { trackGeminiCall } from '../lib/usageTracker.js';
 
 // --- Types ---
 
@@ -270,6 +271,9 @@ async function verifyValuations(
       },
     });
 
+    // Track verification call
+    trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'hybrid_verification', modelId: modelId });
+
     const responseText = response.text || '{}';
     let verification: Record<string, string>;
     try {
@@ -380,6 +384,9 @@ export async function extractHybrid(
       topP: 0.1,
     },
   });
+
+  // Track main extraction call
+  trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'hybrid_full', modelId: modelId });
 
   const responseText = response.text || '{}';
   let extractedData: Record<string, any>;

@@ -12,6 +12,7 @@
 
 import { GoogleGenAI } from '@google/genai';
 import type { NormalizedBox } from './checkboxJudge.js';
+import { trackGeminiCall } from '../lib/usageTracker.js';
 import {
   FIELD_COORDINATES as FALLBACK_FIELD_COORDINATES,
   VALUATION_COORDINATES as FALLBACK_VALUATION_COORDINATES,
@@ -61,6 +62,7 @@ async function callGemini(pageBuffer: Buffer, prompt: string, apiKey: string, mo
     },
     config: { temperature: 0, topK: 1, responseMimeType: 'application/json' },
   });
+  trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'gemini_locator', modelId: model });
   const text = response.text || '{}';
   return JSON.parse(text.replace(/```json|```/g, '').trim());
 }

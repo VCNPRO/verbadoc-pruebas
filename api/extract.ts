@@ -3,6 +3,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 import { classifyDocument, recalibrateRegions, extractWithConfidence } from './_lib/idpService.js';
 import { cropImage } from './_lib/imageUtils.js';
+import { trackGeminiCall } from './lib/usageTracker.js';
+import { verifyRequestAuth } from './lib/auth.js';
 
 export const config = {
   api: {
@@ -311,6 +313,24 @@ Responde en JSON con TODOS los campos solicitados:
             ]
           },
           config: { responseMimeType: "application/json" }
+        });
+
+        // Track usage
+        const auth = verifyRequestAuth(req);
+        let companyName: string | undefined;
+        if (auth?.userId) {
+          try {
+            const userCtx = await sql`SELECT company_name FROM users WHERE id = ${auth.userId}::uuid LIMIT 1`;
+            companyName = userCtx.rows[0]?.company_name || undefined;
+          } catch {}
+        }
+        trackGeminiCall(response, {
+          eventType: 'extraction',
+          eventSubtype: 'idp_pdf',
+          userId: auth?.userId,
+          userEmail: auth?.email,
+          companyName,
+          modelId: 'gemini-2.5-flash',
         });
 
         const responseText = response.text || '{}';

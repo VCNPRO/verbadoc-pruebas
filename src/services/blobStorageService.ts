@@ -7,6 +7,7 @@
 import { put, del, head } from '@vercel/blob';
 import * as crypto from 'crypto';
 import { analyzePDFFromBuffer, type PDFAnalysisResult } from './pdfAnalysisService.js';
+import { trackBlobUpload } from '../../api/lib/usageTracker.js';
 
 // ============================================================================
 // TIPOS
@@ -118,6 +119,14 @@ export async function uploadPDF(
     });
 
     console.log(`✅ PDF subido exitosamente: ${blob.url}`);
+
+    // Track blob upload (non-blocking)
+    trackBlobUpload({
+      userId: metadata?.userId,
+      sizeBytes: buffer.length,
+      resourceId: metadata?.extractionId,
+      resourceName: filename,
+    });
 
     return {
       success: true,

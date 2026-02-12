@@ -19,6 +19,7 @@ import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
 import { put } from '@vercel/blob';
 import { ingestDocument } from '../lib/ragService.js';
+import { trackGeminiCall, trackBlobUpload } from '../lib/usageTracker.js';
 
 export const config = {
   api: {
@@ -178,6 +179,9 @@ IMPORTANTE: La seccion [DATOS_VISIBLES] es critica para la busqueda posterior. I
       }
     ]
   });
+
+  // Track usage (non-blocking)
+  trackGeminiCall(result, { eventType: 'rag_ingest', eventSubtype: 'extract_content', modelId: 'gemini-2.0-flash' });
 
   // Extraer texto de forma segura (result.text puede lanzar si la respuesta es bloqueada)
   try {
@@ -391,6 +395,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       finalBlobUrl = blob.url;
       fileSizeFinal = fileSizeBytes || buffer.length;
       console.log(`✅ [RAG Upload] Archivo subido correctamente`);
+
+      // Track blob upload (non-blocking)
+      trackBlobUpload({
+        userId: auth.userId,
+        sizeBytes: fileSizeFinal,
+        resourceName: filename,
+      });
     }
 
     // 2. Extraer contenido ANTES de guardar (texto para PDFs, descripcion visual + OCR para imagenes, transcripcion para audio, texto tabular para Excel/CSV)

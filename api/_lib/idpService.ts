@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { GoogleGenAI, Type } from "@google/genai";
 import { Region, FormTemplate } from './types.js';
+import { trackGeminiCall } from '../lib/usageTracker.js';
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> {
   try {
@@ -61,6 +62,7 @@ Responde en JSON: { "match_id": "el-id-de-la-plantilla", "confidence": 0.0-1.0, 
       });
 
       console.log('[DEBUG-IDP] Llamada a Gemini exitosa. Procesando respuesta.');
+      trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'classify_document', modelId: 'gemini-2.5-flash' });
       const responseText = response.text || (response.candidates?.[0]?.content?.parts?.[0]?.text) || '{}';
       const data = JSON.parse(responseText.replace(/```json|```/g, "").trim());
       
@@ -100,6 +102,7 @@ Responde JSON: { "anchors": [{"label": "nombre", "x": número, "y": número}, ..
       config: { responseMimeType: "application/json" }
     });
 
+    trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'detect_anchors', modelId: 'gemini-2.5-flash' });
     const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
     return data.anchors || [];
   });
@@ -261,6 +264,7 @@ export const extractWithConfidence = async (base64Image: string, region: Region,
       contents: { parts: [{ inlineData: { mimeType, data: base64Image } }, { text: prompt }] }
     });
 
+    trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'extract_with_confidence', modelId: 'gemini-2.5-flash' });
     return { value: response.text?.trim() || "N/A" };
   });
 };
@@ -353,6 +357,7 @@ Devuelve JSON array con ABSOLUTAMENTE TODOS los elementos detectados.`;
       }
     });
 
+    trackGeminiCall(response, { eventType: 'extraction', eventSubtype: 'analyze_structure', modelId: 'gemini-2.5-flash' });
     const data = JSON.parse(response.text.replace(/```json|```/g, "").trim());
 
     console.log(`📊 Detectados ${data.length} elementos`);

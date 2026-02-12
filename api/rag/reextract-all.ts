@@ -20,6 +20,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { sql } from '@vercel/postgres';
 import jwt from 'jsonwebtoken';
 import { ingestDocument, deleteByDocumentId } from '../lib/ragService.js';
+import { trackGeminiCall } from '../lib/usageTracker.js';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '1mb' } },
@@ -103,6 +104,9 @@ IMPORTANTE: La seccion [DATOS_VISIBLES] es critica para la busqueda posterior. I
       }
     ]
   });
+
+  // Track usage (non-blocking)
+  trackGeminiCall(result, { eventType: 'rag_ingest', eventSubtype: 'reextract_content', modelId: 'gemini-2.0-flash' });
 
   try {
     return result.text || '';
