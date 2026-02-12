@@ -951,13 +951,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-xl font-bold">Gestión de Cuotas y Planes</h2>
                         <div className="flex gap-2">
-                            <span className="px-3 py-1 text-xs rounded-full bg-gray-200 dark:bg-gray-700">
+                            <span className="px-3 py-1 text-xs rounded-full" style={{
+                                backgroundColor: isLightMode ? '#e5e7eb' : '#374151',
+                                color: isLightMode ? '#374151' : '#d1d5db'
+                            }}>
                                 Free: 10 extracciones/mes
                             </span>
-                            <span className="px-3 py-1 text-xs rounded-full bg-blue-200 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                            <span className="px-3 py-1 text-xs rounded-full" style={{
+                                backgroundColor: isLightMode ? '#bfdbfe' : '#1e3a5f',
+                                color: isLightMode ? '#1e40af' : '#93c5fd'
+                            }}>
                                 Pro: 100 extracciones/mes
                             </span>
-                            <span className="px-3 py-1 text-xs rounded-full bg-purple-200 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
+                            <span className="px-3 py-1 text-xs rounded-full" style={{
+                                backgroundColor: isLightMode ? '#e9d5ff' : '#3b1f6e',
+                                color: isLightMode ? '#6b21a8' : '#c4b5fd'
+                            }}>
                                 Enterprise: 1000 extracciones/mes
                             </span>
                         </div>
@@ -1041,14 +1050,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                                                             </div>
                                                         ) : (
                                                             <div
-                                                                className="cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/30 px-2 py-1 rounded"
+                                                                className="cursor-pointer px-2 py-1 rounded"
+                                                                style={{ transition: 'background-color 0.15s' }}
+                                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = isLightMode ? '#fef9c3' : 'rgba(161,98,7,0.2)'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                                                                 onClick={() => { setEditingQuota(u.id); setEditQuotaValue(quota); }}
                                                                 title="Click para editar cuota"
                                                             >
                                                                 <span className={isOverQuota ? 'text-red-600 font-bold' : ''}>
                                                                     {usage} / {quota}
                                                                 </span>
-                                                                <div className="w-20 h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-1">
+                                                                <div className="w-20 h-2 rounded-full mt-1" style={{ backgroundColor: isLightMode ? '#e5e7eb' : '#374151' }}>
                                                                     <div
                                                                         className="h-2 rounded-full"
                                                                         style={{
