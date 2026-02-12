@@ -8,6 +8,7 @@ interface DBUser {
     name: string | null;
     role: 'user' | 'admin' | 'reviewer';
     client_id?: number;
+    company_name?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -122,6 +123,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
     const [newUser, setNewUser] = useState({ email: '', password: '', name: '', role: 'user' as const });
     const [createLoading, setCreateLoading] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
+
+    // Estado para modal de editar usuario
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editUser, setEditUser] = useState<{ userId: string; email: string; name: string; company_name: string; password: string }>({ userId: '', email: '', name: '', company_name: '', password: '' });
+    const [editLoading, setEditLoading] = useState(false);
+    const [editError, setEditError] = useState<string | null>(null);
 
     // Estado para acciones en usuarios
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -332,6 +339,53 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
         }
     };
 
+    // Editar usuario
+    const handleEditUser = async () => {
+        try {
+            setEditLoading(true);
+            setEditError(null);
+
+            const updates: any = { userId: editUser.userId };
+            if (editUser.name !== undefined) updates.name = editUser.name;
+            if (editUser.company_name !== undefined) updates.company_name = editUser.company_name;
+            if (editUser.email) updates.email = editUser.email;
+            if (editUser.password) updates.password = editUser.password;
+
+            const response = await fetch('/api/admin/users', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(updates),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Error al actualizar usuario');
+            }
+
+            await loadUsers();
+            setShowEditModal(false);
+        } catch (err: any) {
+            setEditError(err.message);
+        } finally {
+            setEditLoading(false);
+        }
+    };
+
+    // Abrir modal de edición con datos del usuario
+    const openEditModal = (u: DBUser) => {
+        setEditUser({
+            userId: u.id,
+            email: u.email,
+            name: u.name || '',
+            company_name: u.company_name || '',
+            password: '',
+        });
+        setEditError(null);
+        setShowEditModal(true);
+    };
+
     // Cambiar rol de usuario
     const handleChangeRole = async (userId: string, newRole: string) => {
         try {
@@ -520,6 +574,93 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                                 style={{ backgroundColor: '#10b981' }}
                             >
                                 {createLoading ? 'Creando...' : 'Crear Usuario'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Editar Usuario */}
+            {showEditModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="p-6 rounded-lg max-w-md w-full mx-4" style={{ backgroundColor: cardBg }}>
+                        <h3 className="text-xl font-bold mb-4">Editar Usuario</h3>
+
+                        {editError && (
+                            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm">
+                                {editError}
+                            </div>
+                        )}
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Nombre</label>
+                                <input
+                                    type="text"
+                                    value={editUser.name}
+                                    onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                    placeholder="Nombre del usuario"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Empresa</label>
+                                <input
+                                    type="text"
+                                    value={editUser.company_name}
+                                    onChange={(e) => setEditUser({ ...editUser, company_name: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                    placeholder="Nombre de la empresa"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Email</label>
+                                <input
+                                    type="email"
+                                    value={editUser.email}
+                                    onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                    placeholder="usuario@ejemplo.com"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Nueva Contraseña</label>
+                                <input
+                                    type="password"
+                                    value={editUser.password}
+                                    onChange={(e) => setEditUser({ ...editUser, password: e.target.value })}
+                                    className="w-full px-3 py-2 rounded border"
+                                    style={{ backgroundColor: bgColor, borderColor, color: textColor }}
+                                    placeholder="Dejar vacío para no cambiar"
+                                />
+                                <p className="text-xs mt-1" style={{ color: isLightMode ? '#9ca3af' : '#64748b' }}>
+                                    Solo rellenar si quieres cambiar la contraseña
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 mt-6">
+                            <button
+                                onClick={() => setShowEditModal(false)}
+                                className="flex-1 px-4 py-2 rounded-lg border"
+                                style={{ borderColor }}
+                                disabled={editLoading}
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleEditUser}
+                                disabled={editLoading || !editUser.email}
+                                className="flex-1 px-4 py-2 rounded-lg text-white disabled:opacity-50"
+                                style={{ backgroundColor: '#3b82f6' }}
+                            >
+                                {editLoading ? 'Guardando...' : 'Guardar Cambios'}
                             </button>
                         </div>
                     </div>
@@ -734,6 +875,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ isLightMode = fa
                                                         <option value="reviewer">reviewer</option>
                                                         <option value="admin">admin</option>
                                                     </select>
+
+                                                    <button
+                                                        onClick={() => openEditModal(u)}
+                                                        disabled={isLoading}
+                                                        className="text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600"
+                                                        title="Editar usuario"
+                                                    >
+                                                        Editar
+                                                    </button>
 
                                                     {!isCurrentUser && (
                                                         <button
