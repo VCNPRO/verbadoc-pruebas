@@ -3,8 +3,19 @@ import { sql } from '@vercel/postgres';
 import { verifyAdmin } from '../lib/auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS
+  const allowedOrigins = ['https://www.verbadocpro.eu', 'https://verbadoc-europa-pro.vercel.app', 'http://localhost:3000', 'http://localhost:5173'];
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   try {
-    // Verify admin
     const isAdmin = await verifyAdmin(req);
     if (!isAdmin) {
       return res.status(403).json({ error: 'No autorizado' });
@@ -30,18 +41,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return acc;
     }, {});
 
-    // Get total extractions
-    const extractionsResult = await sql`SELECT COUNT(*) as count FROM extractions`;
+    // Get total extractions (from extraction_results)
+    const extractionsResult = await sql`SELECT COUNT(*) as count FROM extraction_results`;
     const totalExtractions = parseInt(extractionsResult.rows[0]?.count || '0');
 
-    // Get extractions by status
+    // Get extractions by validation_status
     const statusResult = await sql`
-      SELECT status, COUNT(*) as count
-      FROM extractions
-      GROUP BY status
+      SELECT validation_status, COUNT(*) as count
+      FROM extraction_results
+      GROUP BY validation_status
     `;
     const extractionsByStatus = statusResult.rows.reduce((acc: any, row) => {
-      acc[row.status] = parseInt(row.count);
+      acc[row.validation_status || 'unknown'] = parseInt(row.count);
       return acc;
     }, {});
 
@@ -51,7 +62,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         DATE(created_at) as date,
         COUNT(*) as extractions,
         COUNT(DISTINCT user_id) as active_users
-      FROM extractions
+      FROM extraction_results
       WHERE created_at > NOW() - INTERVAL '30 days'
       GROUP BY DATE(created_at)
       ORDER BY date DESC
@@ -62,10 +73,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const companiesResult = await sql`
       SELECT
         u.company_name,
-        COUNT(e.id) as extraction_count,
-        COUNT(DISTINCT e.user_id) as user_count
-      FROM extractions e
-      JOIN users u ON e.user_id = u.id
+        COUNT(er.id) as extraction_count,
+        COUNT(DISTINCT er.user_id) as user_count
+      FROM extraction_results er
+      JOIN users u ON er.user_id = u.id
       WHERE u.company_name IS NOT NULL
       GROUP BY u.company_name
       ORDER BY extraction_count DESC
@@ -76,25 +87,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Get recent extractions
     const recentResult = await sql`
       SELECT
-        e.id,
-        e.filename,
-        e.status,
-        e.created_at,
+        er.id,
+        er.filename,
+        er.validation_status,
+        er.created_at,
         u.email,
         u.name,
         u.company_name
-      FROM extractions e
-      JOIN users u ON e.user_id = u.id
-      ORDER BY e.created_at DESC
+      FROM extraction_results er
+      JOIN users u ON er.user_id = u.id
+      ORDER BY er.created_at DESC
       LIMIT 20
     `;
     const recentExtractions = recentResult.rows;
 
-    // Get error count (last 7 days)
+    // Get error count (last 7 days) - extractions with 'invalid' status
     const errorsResult = await sql`
       SELECT COUNT(*) as count
-      FROM extractions
-      WHERE status = 'error'
+      FROM extraction_results
+      WHERE validation_status = 'invalid'
       AND created_at > NOW() - INTERVAL '7 days'
     `;
     const recentErrors = parseInt(errorsResult.rows[0]?.count || '0');
