@@ -1860,7 +1860,7 @@ function AppContent() {
                         </div>
                         <div className="flex items-center gap-3">
                             <span className="text-base" style={{ color: isLightMode ? '#64748b' : '#94a3b8' }}>
-                                {t('app:header.workingFor')} <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ` ${t('app:header.by')} ` : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
+                                {t('app:header.workingFor')} <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && (user?.name || user?.email) ? ` ${t('app:header.by')} ` : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
                             </span>
                             <LanguageSelector isLightMode={isLightMode} />
                             <button
@@ -2026,7 +2026,7 @@ function AppContent() {
                                     color: isLightMode ? '#64748b' : '#94a3b8'
                                 }}
                             >
-                                {t('app:header.workingFor')} <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && user?.name ? ` ${t('app:header.by')} ` : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || (!user?.company_name ? user?.email : '')}</strong>
+                                {t('app:header.workingFor')} <strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.company_name}</strong>{user?.company_name && (user?.name || user?.email) ? ` ${t('app:header.by')} ` : ''}<strong style={{ color: isLightMode ? '#1e293b' : '#f1f5f9' }}>{user?.name || user?.email}</strong>
                             </span>
                         </div>
                         <div className="flex items-center gap-4">
