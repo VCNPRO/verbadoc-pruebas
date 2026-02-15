@@ -31,6 +31,7 @@ import { getDepartamentoById, getDefaultTheme } from './utils/departamentosConfi
 // ✅ Sistema de autenticación real activado
 import { AuthProvider, useAuth } from './src/contexts/AuthContext.tsx';
 import { AuthModal } from './src/components/AuthModal.tsx';
+import { LandingPage } from './src/components/LandingPage.tsx';
 import { ResetPasswordPage } from './src/components/auth/ResetPasswordPage.tsx';
 import { PricingPage } from './src/components/PricingPage.tsx';
 // ✅ API de extracciones (BD en lugar de localStorage)
@@ -90,6 +91,7 @@ function AppContent() {
     const navigate = useNavigate();
     const { t } = useTranslation(['app', 'common']);
 
+    const [showAuthModal, setShowAuthModal] = useState(false);
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
     const [history, setHistory] = useState<ExtractionResult[]>([]);
@@ -1820,7 +1822,10 @@ function AppContent() {
     }
 
     if (!user) {
-        return <AuthModal isLightMode={!isDarkMode} />;
+        if (showAuthModal) {
+            return <AuthModal isLightMode={!isDarkMode} />;
+        }
+        return <LandingPage isLightMode={!isDarkMode} onAccess={() => setShowAuthModal(true)} />;
     }
 
     // Página para usuarios Reviewer (nmd_*)
