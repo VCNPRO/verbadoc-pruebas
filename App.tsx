@@ -91,7 +91,7 @@ function AppContent() {
     const navigate = useNavigate();
     const { t } = useTranslation(['app', 'common']);
 
-    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [showLanding, setShowLanding] = useState(true);
     const [files, setFiles] = useState<UploadedFile[]>([]);
     const [activeFileId, setActiveFileId] = useState<string | null>(null);
     const [history, setHistory] = useState<ExtractionResult[]>([]);
@@ -1815,17 +1815,19 @@ function AppContent() {
         );
     }
 
-    // Mostrar modal de autenticación si no hay usuario
     // Ruta pública de reset-password
     if (window.location.pathname === '/reset-password') {
         return <ResetPasswordPage />;
     }
 
+    // Siempre mostrar landing page primero
+    if (showLanding) {
+        return <LandingPage isLightMode={!isDarkMode} onAccess={() => setShowLanding(false)} />;
+    }
+
+    // Después de la landing, si no hay usuario, mostrar autenticación
     if (!user) {
-        if (showAuthModal) {
-            return <AuthModal isLightMode={!isDarkMode} />;
-        }
-        return <LandingPage isLightMode={!isDarkMode} onAccess={() => setShowAuthModal(true)} />;
+        return <AuthModal isLightMode={!isDarkMode} />;
     }
 
     // Página para usuarios Reviewer (nmd_*)
