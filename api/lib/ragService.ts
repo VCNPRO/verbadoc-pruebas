@@ -21,7 +21,7 @@ const DEFAULT_GENERATION_MODEL = 'gemini-2.0-flash';
 
 const DEFAULT_CHUNK_SIZE = 500; // palabras
 const DEFAULT_CHUNK_OVERLAP = 50;
-const DEFAULT_TOP_K = 5;
+const DEFAULT_TOP_K = 10;
 
 // Modelos Gemini disponibles para generación
 export const AVAILABLE_MODELS = [
@@ -43,8 +43,8 @@ export interface ChatMessage {
 
 export interface RAGConfig {
   temperature: number;          // 0.0-1.0 (default 0.3)
-  topK: number;                 // 1-10 (default 5)
-  similarityThreshold: number;  // 0.0-1.0 (default 0.0 = sin filtro)
+  topK: number;                 // 1-30 (default 10)
+  similarityThreshold: number;  // 0.0-1.0 (default 0.35, min 0.35)
   model: string;                // gemini-2.0-flash | gemini-2.5-flash-preview | gemini-1.5-pro
   chatHistory?: ChatMessage[];  // últimos 5 pares de mensajes
 }
@@ -404,6 +404,8 @@ export async function searchSimilar(
   folderId?: string
 ): Promise<RAGSearchResult[]> {
   const vectorStr = `[${queryEmbedding.join(',')}]`;
+  // Fetch more candidates than requested to allow threshold filtering downstream
+  const fetchLimit = Math.max(topK * 3, 15);
 
   let result;
 
@@ -425,7 +427,7 @@ export async function searchSimilar(
       WHERE re.user_id = ${userId}::uuid
         AND er.folder_id = ${folderId}::uuid
       ORDER BY re.embedding <=> ${vectorStr}::vector
-      LIMIT ${topK}
+      LIMIT ${fetchLimit}
     `;
   } else if (documentIds && documentIds.length > 0) {
     result = await sql`
@@ -444,7 +446,7 @@ export async function searchSimilar(
       WHERE re.user_id = ${userId}::uuid
         AND re.document_id = ANY(${documentIds}::uuid[])
       ORDER BY re.embedding <=> ${vectorStr}::vector
-      LIMIT ${topK}
+      LIMIT ${fetchLimit}
     `;
   } else {
     result = await sql`
@@ -462,7 +464,7 @@ export async function searchSimilar(
       LEFT JOIN extraction_results er ON er.id = re.document_id
       WHERE re.user_id = ${userId}::uuid
       ORDER BY re.embedding <=> ${vectorStr}::vector
-      LIMIT ${topK}
+      LIMIT ${fetchLimit}
     `;
   }
 
@@ -540,7 +542,7 @@ PREGUNTA REESCRITA:`
         }
       ],
       config: {
-        temperature: 0.1,
+        temperature: 0.0,
         maxOutputTokens: 256,
       }
     });
@@ -626,6 +628,23 @@ REGLAS ESTRICTAS:
 5. Sé preciso, estructurado y conciso. Usa listas o tablas si mejoran la claridad.
 6. ${langConfig.promptInstruction}
 
+CAPACIDADES ANALÍTICAS:
+Cuando el usuario pida conteos, listados, comparaciones o análisis:
+- CONTEO: Recorre TODOS los fragmentos proporcionados y cuenta las ocurrencias. Indica el número exacto y lista cada elemento encontrado.
+- CLASIFICACIÓN: Agrupa elementos por categoría, tipo o cualquier criterio solicitado. Presenta el desglose completo.
+- TABLAS COMPARATIVAS: Cuando se pidan comparaciones, usa tablas con columnas claras (nombre, valor, diferencia, etc.).
+- DESGLOSE POR CATEGORÍAS: Si se pregunta "cuántos hay de cada tipo", enumera cada categoría con su cantidad y ejemplos concretos.
+- AGREGACIÓN: Suma importes, calcula promedios o totales cuando se solicite, mostrando el cálculo paso a paso.
+
+DETALLE EN RESÚMENES:
+Cuando el usuario pida un resumen o análisis detallado, incluye siempre que estén disponibles:
+- Importes económicos (presupuesto base, valor estimado, precios unitarios)
+- Plazos (duración del contrato, fechas límite, periodos de ejecución)
+- Servicios o prestaciones descritos
+- Requisitos técnicos y de solvencia
+- Criterios de adjudicación y su ponderación
+- Partes involucradas (órgano de contratación, licitadores, adjudicatarios)
+
 DOCUMENTOS DISPONIBLES:
 ${contextString}`;
 
@@ -653,7 +672,7 @@ ${contextString}`;
       contents,
       config: {
         temperature,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 4096,
       }
     });
 
@@ -707,9 +726,11 @@ export async function ragQuery(
   config?: Partial<RAGConfig>
 ): Promise<RAGAnswer> {
   const effectiveTopK = config?.topK ?? topK;
-  const similarityThreshold = config?.similarityThreshold ?? 0.0;
+  // Always apply a minimum threshold of 0.35 to filter irrelevant results
+  const MIN_THRESHOLD = 0.35;
+  const similarityThreshold = Math.max(config?.similarityThreshold ?? MIN_THRESHOLD, MIN_THRESHOLD);
 
-  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..." [${language}] modelo=${config?.model || DEFAULT_GENERATION_MODEL} temp=${config?.temperature ?? 0.3}${filters?.folderId ? ` (carpeta: ${filters.folderId})` : ''}`);
+  console.log(`[RAG] Consulta usuario ${userId}: "${query.substring(0, 50)}..." [${language}] modelo=${config?.model || DEFAULT_GENERATION_MODEL} temp=${config?.temperature ?? 0.3} threshold=${similarityThreshold} topK=${effectiveTopK}${filters?.folderId ? ` (carpeta: ${filters.folderId})` : ''}`);
 
   // Query rewriting si hay historial de chat
   const effectiveQuery = config?.chatHistory && config.chatHistory.length > 0
@@ -725,13 +746,17 @@ export async function ragQuery(
     filters?.folderId
   );
 
-  // Filtrar por similarity threshold si está configurado
-  if (similarityThreshold > 0) {
-    const before = searchResults.length;
-    searchResults = searchResults.filter(r => r.score >= similarityThreshold);
-    if (before !== searchResults.length) {
-      console.log(`[RAG] Threshold ${similarityThreshold}: ${before} → ${searchResults.length} resultados`);
-    }
+  // Filter by similarity threshold (always applied, min 0.35)
+  const beforeFilter = searchResults.length;
+  searchResults = searchResults.filter(r => r.score >= similarityThreshold);
+  if (beforeFilter !== searchResults.length) {
+    console.log(`[RAG] Threshold ${similarityThreshold}: ${beforeFilter} → ${searchResults.length} resultados`);
+  }
+
+  // Trim to effectiveTopK after threshold filtering
+  if (searchResults.length > effectiveTopK) {
+    searchResults = searchResults.slice(0, effectiveTopK);
+    console.log(`[RAG] Trimmed to top ${effectiveTopK} results`);
   }
 
   const answer = await generateAnswer(effectiveQuery, searchResults, language, config);

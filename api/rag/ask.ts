@@ -59,10 +59,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
       const {
         query, documentIds, projectId, folderId,
-        topK = 5, language = 'es',
+        topK = 10, language = 'es',
         // Nuevos parámetros dinámicos
         temperature = 0.3,
-        similarityThreshold = 0.0,
+        similarityThreshold = 0.35,
         model = 'gemini-2.0-flash',
         chatHistory = [],
       } = req.body;
@@ -83,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Validate and clamp parameters
-      const effectiveTopK = Math.min(Math.max(1, Number(topK) || 5), 10);
+      const effectiveTopK = Math.min(Math.max(1, Number(topK) || 10), 30);
       const effectiveTemperature = Math.min(Math.max(0.0, Number(temperature) || 0.3), 1.0);
       const effectiveThreshold = Math.min(Math.max(0.0, Number(similarityThreshold) || 0.0), 1.0);
       const effectiveModel = AVAILABLE_MODELS.includes(model) ? model : 'gemini-2.0-flash';

@@ -57,8 +57,8 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
   // Ajustes avanzados
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [temperature, setTemperature] = useState(0.3);
-  const [topK, setTopK] = useState(5);
-  const [similarityThreshold, setSimilarityThreshold] = useState(0.0);
+  const [topK, setTopK] = useState(10);
+  const [similarityThreshold, setSimilarityThreshold] = useState(0.35);
   const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
 
   // Chat history (memoria conversacional)
@@ -375,7 +375,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               <input
                 type="range"
                 min="1"
-                max="10"
+                max="20"
                 step="1"
                 value={topK}
                 onChange={(e) => setTopK(parseInt(e.target.value))}
@@ -383,7 +383,7 @@ export const RAGSearchPanel: React.FC<Props> = ({ isLightMode, query, setQuery }
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: textMuted }}>
                 <span>1</span>
-                <span>10</span>
+                <span>20</span>
               </div>
             </div>
 

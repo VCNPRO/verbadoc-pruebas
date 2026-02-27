@@ -24,7 +24,7 @@ import { trackGeminiCall, trackBlobUpload } from '../lib/usageTracker.js';
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '25mb'
+      sizeLimit: '50mb'
     }
   }
 };
@@ -130,6 +130,7 @@ async function extractSpreadsheetContent(base64Data: string, filename: string): 
 }
 
 // Extraer contenido de un archivo usando Gemini (PDFs, imagenes y audio)
+// Incluye retry con backoff exponencial (2 reintentos)
 async function extractContent(base64Data: string, mimeType: string): Promise<string> {
   const { GoogleGenAI } = await import('@google/genai');
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -168,29 +169,63 @@ IMPORTANTE: La seccion [DATOS_VISIBLES] es critica para la busqueda posterior. I
     prompt = 'Extrae TODO el texto de este documento. Al inicio de cada pagina nueva, incluye un marcador con el formato exacto: [Página X] (donde X es el numero de pagina). Devuelve solo el texto plano con estos marcadores de pagina, sin otro formateo ni comentarios adicionales.';
   }
 
-  const result = await client.models.generateContent({
-    model: 'gemini-2.0-flash',
-    contents: [
-      {
-        parts: [
-          { inlineData: { mimeType, data: base64Data } },
-          { text: prompt }
+  const MAX_RETRIES = 2;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const result = await client.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [
+          {
+            parts: [
+              { inlineData: { mimeType, data: base64Data } },
+              { text: prompt }
+            ]
+          }
         ]
+      });
+
+      // Track usage (non-blocking)
+      trackGeminiCall(result, { eventType: 'rag_ingest', eventSubtype: 'extract_content', modelId: 'gemini-2.0-flash' });
+
+      // Extraer texto de forma segura (result.text puede lanzar si la respuesta es bloqueada)
+      try {
+        return result.text || '';
+      } catch {
+        // Fallback: extraer de candidates directamente
+        const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+        return text || '';
       }
-    ]
-  });
+    } catch (error: any) {
+      const status = error.status || error.statusCode || 0;
+      const msg = error.message || '';
 
-  // Track usage (non-blocking)
-  trackGeminiCall(result, { eventType: 'rag_ingest', eventSubtype: 'extract_content', modelId: 'gemini-2.0-flash' });
+      // Do not retry on non-transient errors
+      if (status === 422 || msg.includes('SAFETY') || msg.includes('blocked')) {
+        throw new Error(`El archivo fue bloqueado por el filtro de seguridad. Verifica que el contenido sea adecuado.`);
+      }
+      if (status === 413 || msg.includes('too large') || msg.includes('payload')) {
+        throw new Error(`El archivo es demasiado grande para ser procesado. Intenta con un archivo mas pequeno (max ~30MB de contenido).`);
+      }
 
-  // Extraer texto de forma segura (result.text puede lanzar si la respuesta es bloqueada)
-  try {
-    return result.text || '';
-  } catch {
-    // Fallback: extraer de candidates directamente
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-    return text || '';
+      if (attempt < MAX_RETRIES) {
+        const backoff = 1000 * Math.pow(2, attempt); // 1s, 2s
+        console.warn(`[RAG Upload] Error extraccion (intento ${attempt + 1}/${MAX_RETRIES + 1}), reintentando en ${backoff}ms: ${msg}`);
+        await new Promise(resolve => setTimeout(resolve, backoff));
+        continue;
+      }
+
+      // Final attempt failed - throw specific error
+      if (status === 429 || msg.includes('rate') || msg.includes('quota')) {
+        throw new Error(`Limite de uso de la API alcanzado. Espera unos segundos e intenta de nuevo.`);
+      }
+      if (status === 504 || msg.includes('timeout') || msg.includes('DEADLINE')) {
+        throw new Error(`Tiempo de espera agotado al procesar el archivo. Intenta de nuevo o sube un archivo mas pequeno.`);
+      }
+      throw new Error(`Error al extraer contenido del archivo: ${msg}`);
+    }
   }
+
+  throw new Error('extractContent: reintentos agotados');
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -348,6 +383,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!filename || (!fileBase64 && !blobUrl)) {
       return res.status(400).json({ error: 'Faltan campos: filename, fileBase64 o blobUrl' });
+    }
+
+    // Validacion de archivo
+    if (fileBase64 && typeof fileBase64 === 'string') {
+      if (fileBase64.trim().length === 0) {
+        return res.status(400).json({ error: 'El archivo esta vacio. Selecciona un archivo valido.' });
+      }
+      // Estimar tamano real desde base64 (~75% del largo base64)
+      const estimatedSize = Math.ceil(fileBase64.length * 0.75);
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+      if (estimatedSize > MAX_FILE_SIZE) {
+        return res.status(413).json({ error: `El archivo excede el limite de 50MB (${Math.round(estimatedSize / 1024 / 1024)}MB). Reduce el tamano del archivo.` });
+      }
+    }
+    if (fileSizeBytes && Number(fileSizeBytes) > 50 * 1024 * 1024) {
+      return res.status(413).json({ error: `El archivo excede el limite de 50MB (${Math.round(Number(fileSizeBytes) / 1024 / 1024)}MB). Reduce el tamano del archivo.` });
     }
 
     console.log(`📄 [RAG Upload] Procesando: ${filename}${blobUrl ? ' (desde blob directo)' : ''}`);
@@ -531,9 +582,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   } catch (error: any) {
     console.error('[RAG Upload] Error completo:', error.message, error.stack?.substring(0, 500));
+    const msg = error.message || '';
+    const status = error.status || error.statusCode || 0;
+
+    // Specific HTTP status based error responses
+    if (status === 429 || msg.includes('rate') || msg.includes('quota') || msg.includes('Limite de uso')) {
+      return res.status(429).json({
+        error: 'Limite de uso alcanzado. Espera unos segundos e intenta de nuevo.',
+        message: msg
+      });
+    }
+    if (status === 504 || msg.includes('timeout') || msg.includes('DEADLINE') || msg.includes('Tiempo de espera')) {
+      return res.status(504).json({
+        error: 'Tiempo de espera agotado. Intenta de nuevo o sube un archivo mas pequeno.',
+        message: msg
+      });
+    }
+    if (status === 413 || msg.includes('too large') || msg.includes('excede el limite')) {
+      return res.status(413).json({
+        error: 'El archivo es demasiado grande. El limite es 50MB.',
+        message: msg
+      });
+    }
+    if (status === 422 || msg.includes('bloqueado') || msg.includes('SAFETY') || msg.includes('blocked')) {
+      return res.status(422).json({
+        error: 'El archivo fue bloqueado por el filtro de seguridad. Verifica que el contenido sea adecuado.',
+        message: msg
+      });
+    }
+
     return res.status(500).json({
-      error: `Error procesando documento: ${error.message}`,
-      message: error.message
+      error: `Error procesando documento: ${msg}`,
+      message: msg
     });
   }
 }
